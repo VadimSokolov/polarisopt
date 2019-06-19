@@ -1,0 +1,194 @@
+from parsl.app.app import python_app
+from parsl.channels import SSHChannel
+from parsl.providers import SlurmProvider
+from parsl.providers import LocalProvider
+from parsl.channels import LocalChannel
+from parsl.providers.slurm.slurm import translate_table
+from parsl.launchers import SingleNodeLauncher
+import parsl
+from parsl.configs import local_threads
+#from parsl.configs.local_threads import config
+from os import walk
+
+import time, random
+import uuid
+import subprocess
+
+# Script for testing remote job submission to Bebop.  This script starts a remote
+# job that adds two numbers together in a shell script, writes the result to a
+# file, and then returns the result file to the client.
+
+# !!!! IMPORTANT - Do NOT write to user HOME directory.  Use a sub-dir or better
+#                  yet a project folder, otherwise the user home folder permissions
+#                  can be changed and future login will fail !!!!!
+
+	
+def submit_cplex_preprocess(timestamp):
+	# Remote working directory.  
+	wd = '/lcrc/project/POLARIS/bebop/scratch'
+
+	# Define the SLURM job properties, such as batch queue name, wall time, etc.
+	provider = SlurmProvider(
+		'knlall',
+		launcher=SingleNodeLauncher(),
+		scheduler_options='',     # Input your scheduler_options if needed
+		worker_init='cd {}'.format(wd),     # Input your worker_init if needed
+		walltime="00:10:00",
+		init_blocks=1,
+		max_blocks=1,
+		nodes_per_block=1,
+		channel=SSHChannel('bebop.lcrc.anl.gov', username='weimer',
+						   script_dir='/lcrc/project/POLARIS/bebop/scratch'),
+	)
+
+	# this has to be set to an existing directory otherwise provides tries to write
+	# submission script to 'None'
+	provider.script_dir = '.'
+	completed_tag = translate_table['CD']
+
+	pre_job_ids = []
+	preprocess_cmd = '{}/cplex_preprocess.sh {}'.format(wd, timestamp)
+	pre_job_ids.append(provider.submit(preprocess_cmd, 1, 1))
+	print("PREPROCESS JOB ID: {}".format(pre_job_ids[0]))
+	pre_status = provider.status(pre_job_ids)
+	print('PREPROCESS JOB STATUS: {}'.format(pre_status))
+
+	# Wait for preprocess job to complete
+	while all(stat != "COMPLETED" for stat in pre_status):
+		time.sleep(10)
+		pre_status = provider.status(pre_job_ids)
+		print('PREPROCESS JOB STATUS: {}'.format(pre_status))
+
+def submit_cplex_postprocess(input_directory, results_directory, timestamp):
+	# Remote working directory.  
+	wd = '/lcrc/project/POLARIS/bebop/scratch'
+
+	# Define the SLURM job properties, such as batch queue name, wall time, etc.
+	provider = SlurmProvider(
+		'knlall',
+		launcher=SingleNodeLauncher(),
+		scheduler_options='',     # Input your scheduler_options if needed
+		worker_init='cd {}'.format(wd),     # Input your worker_init if needed
+		walltime="01:00:00",
+		init_blocks=1,
+		max_blocks=1,
+		nodes_per_block=1,
+		channel=SSHChannel('bebop.lcrc.anl.gov', username='weimer',
+						   script_dir='/lcrc/project/POLARIS/bebop/scratch'),
+	)
+
+	# this has to be set to an existing directory otherwise provides tries to write
+	# submission script to 'None'
+	provider.script_dir = '.'
+	completed_tag = translate_table['CD']
+
+	# Define the remote job result output file
+	fname = 'result_{}.txt'.format(timestamp)
+	fpath = '{}/run_{}/results/{}'.format(wd, timestamp, fname)
+
+	ppc_job_ids = []
+	post_process_cmd = '{}/cplex_postprocess.sh {} {}'.format(wd, fname, timestamp)
+	ppc_job_ids.append(provider.submit(post_process_cmd, 1, 1))
+        
+	print("POSTPROCESS JOB ID: {}".format(ppc_job_ids[0]))
+	completed_tag = translate_table['CD']
+	ppc_status = provider.status(ppc_job_ids)
+	print('POSTPROCESS JOB STATUS: {}'.format(ppc_status))
+
+	# Wait for post job to complete
+	while all(stat != completed_tag for stat in ppc_status):
+		time.sleep(10)
+		ppc_status = provider.status(ppc_job_ids)
+		print('POSTPROCESS JOB STATUS: {}'.format(ppc_status))
+
+	# Get the result file from the remote machine
+	list_of_results_file = '{}/run_{}/results/all_results.txt'.format(wd, timestamp)
+	provider.channel.pull_file(list_of_results_file, results_directory)
+
+	results_list = '{}/all_results.txt'.format(results_directory)
+	file_list = [line.rstrip('\n') for line in open(results_list)]
+	for name in file_list:
+		remote_filename = '{}/run_{}/results/{}'.format(wd, timestamp, name)
+		provider.channel.pull_file(remote_filename, results_directory)
+
+	provider.channel.close()
+	return '{}/all_results.txt'.format(results_directory)
+
+def submit_cplex_jobs(input_directory, results_directory, timestamp):
+	# Remote working directory.  
+	wd = '/lcrc/project/POLARIS/bebop/scratch'
+
+	# Define the SLURM job properties, such as batch queue name, wall time, etc.
+	provider = SlurmProvider(
+		'knlall',
+		launcher=SingleNodeLauncher(),
+		scheduler_options='',     # Input your scheduler_options if needed
+		worker_init='cd {}'.format(wd),     # Input your worker_init if needed
+		walltime="00:45:00",
+		init_blocks=1,
+		max_blocks=1,
+		nodes_per_block=1,
+		channel=SSHChannel('bebop.lcrc.anl.gov', username='weimer',
+						   script_dir='/lcrc/project/POLARIS/bebop/scratch'),
+	)
+
+	# this has to be set to an existing directory otherwise provides tries to write
+	# submission script to 'None'
+	provider.script_dir = '.'
+	completed_tag = translate_table['CD']
+
+	# push the input file
+	# Submit the job
+	# command, block size, tasks per node,
+	job_ids = []
+	blocks = {}
+	f = []
+	f_appended = False
+	num_blocks = 0
+	for dir_path, dirnames, filenames in walk(input_directory):
+		for file in filenames:
+			f.append(file)
+			f_appended = False
+			#print('Adding input file {}'.format(file))
+			if len(f) == 30:
+				blocks[num_blocks] = f[:]
+				f_appended = True
+				f[:] = []
+				num_blocks += 1
+	if not f_appended:
+		if len(f) > 0:
+			blocks[num_blocks] = f[:]
+			f[:] = []
+
+	print('Transferring input files and submitting jobs...')
+	for i in range(len(blocks)):
+		for file in blocks[i]:
+			local_input_file = input_directory + '/' + file
+			#print('Pushing file: \'{}\' to : \'{}\''.format(local_input_file, wd + '/inputs'))
+			provider.channel.push_file(local_input_file, '{}/run_{}/inputs'.format(wd, timestamp))
+			cplex_cmd = '{}/cplex_ihvs_calc.sh {} {}'.format(wd, file, timestamp)
+			#print('Submitting Job: \'{}\''.format(cplex_cmd))
+			job_ids.append(provider.submit(cplex_cmd, 1, 1))
+
+		completed_tag = translate_table['CD']
+		status = provider.status(job_ids)
+
+		# Wait for job to complete
+		while all(stat != "COMPLETED" for stat in status):
+			time.sleep(10)
+			status = provider.status(job_ids)
+			print('JOB STATUS: waiting...')
+		job_ids[:] = []
+		print('Finished with BLOCK #{} of {}'.format(i+1, len(blocks)))
+
+	# it appears that disk i/o is still happening afer the jobs finish (?)
+	#input("Press ENTER when you are sure the remote jobs have finished writing to disk...")
+	#print('Waiting for remote i/o to finish...')
+	#time.sleep(5*60) # 5 minutes
+
+def get_household_id(data):
+	lines = data.split("\n")
+	for line in lines:
+		items = line.split(',')
+		if items[0] == "HH":
+			return items[1]
