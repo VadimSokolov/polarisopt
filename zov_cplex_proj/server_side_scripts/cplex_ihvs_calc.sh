@@ -1,6 +1,8 @@
 #!/bin/bash
 
-filename=$1
-timestamp=$2
-./cplex_master ./run_$timestamp/inputs/$filename  ./run_$timestamp/outputs
+input_filename=$1
+output_filename=$2
+timestamp=$3
+
+mpirun -np 256 ./cplex_ihvs ./run_$timestamp/inputs/$input_filename  ./run_$timestamp/outputs/$output_filename
 
