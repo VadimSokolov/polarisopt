@@ -60,7 +60,7 @@ def submit_cplex_preprocess(timestamp):
 		pre_status = provider.status(pre_job_ids)
 		print('PREPROCESS JOB STATUS: {}'.format(pre_status))
 
-def submit_cplex_postprocess(input_directory, results_directory, timestamp):
+def submit_cplex_postprocess(results_directory, timestamp):
 	# Remote working directory.  
 	wd = '/lcrc/project/POLARIS/bebop/scratch'
 
