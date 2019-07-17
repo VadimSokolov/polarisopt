@@ -5,25 +5,37 @@ Linux installation on Windows 10
 
 2.  Make sure the to install the following in Ubuntu:
 
--   Git
+-   Update the installation repositories first:
+
+    -   sudo apt-get update 
+
+-   Install the build tools:
+
+    -   sudo apt install build-essential
+
+-   Git (should be installed on Ubuntu 18.04)
 
 -   Python3, including PIP for version 3. You need to use the
     environment structure mentioned here:
 
     -   <https://stackoverflow.com/questions/10763440/how-to-install-python3-version-of-package-via-pip-on-ubuntu>
 
-    -   or
+	    -   You may need to install virtualenv first:
+	    	-   sudo install virtualenv
+	    -   virtualenv -p /usr/bin/python3 py3env
+	    -   source py3env/bin/activate
 
-    -   <https://stackoverflow.com/questions/41986507/unable-to-set-default-python-version-to-python3-in-ubuntu>
-
-    -   I prefer the 'update-alternatives' method
-
+    
 -   Install the parsl package in python:
 
-    -   Make sure you are using the correct version of pip: pip
-        --version
+    -   Make sure you are using the correct version of pip: 
+	- pip --version
 
-    -   Pip install parsl
+    -   Install the python development headers:
+	- sudo apt-get install python3.6-dev
+
+    -   Install the parsl package
+	- pip install parsl
 
 3.  Mapping to the network drive makes things much easier:
 
@@ -33,12 +45,11 @@ Linux installation on Windows 10
 
         i.  sudo mkdir /mnt/p
 
-        ii. sudo mount -t drvfs \'\\\\vms-fs\\VMS\' /mnt/p
+        ii. sudo mount -t drvfs '\\vms-fs\VMS' /mnt/p
 
         iii. sudo mkdir /mnt/h
 
-        iv. sudo mount -t drvfs
-            \'\\\\ascend.egs.anl.gov\\groups\\AMD-ES-Shared\' /mnt/h
+        iv. sudo mount -t drvfs '\\ascend.egs.anl.gov\groups\AMD-ES-Shared' /mnt/h
 
 LCRC Resource Settings
 ======================
