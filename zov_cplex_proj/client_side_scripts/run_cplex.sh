@@ -25,3 +25,5 @@ time python bebop_submit.py $input_directory $timestamp
 
 time python bebop_postprocess.py $results_directory $timestamp
 
+./fix_files.sh $results_directory
+
