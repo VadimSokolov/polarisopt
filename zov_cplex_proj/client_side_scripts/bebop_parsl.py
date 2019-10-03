@@ -9,6 +9,7 @@ from parsl.launchers import SrunLauncher
 import parsl
 from parsl.configs import local_threads
 #from parsl.configs.local_threads import config
+import os
 from os import walk
 
 import time, random
@@ -114,7 +115,7 @@ def submit_cplex_postprocess(results_directory, timestamp):
 		provider.channel.pull_file(name, results_directory)
 
 	provider.channel.close()
-	return '{}/all_results.txt'.format(results_directory)
+	os.remove('{}/all_results.txt'.format(results_directory))
 
 def submit_cplex_jobs(input_directory, results_directory, timestamp):
 	# Remote working directory.  

@@ -1,12 +1,21 @@
 from pathlib import Path
 import datetime
+from dateutil.tz import tzlocal
 import subprocess
 import shlex
 import os
 import glob
 
+import json
+import socket
+import sys
+import os
+from os import walk
+import shutil
+import bebop_parsl
+
 def time(format="%Y%m%d%H%M%S"):
-    return datetime.datetime.utcnow().strftime(format)
+    return datetime.datetime.now(tzlocal()).strftime(format)
     
 def make_directories(base_directory, timestamp)->Path:
     source_directory = Path(base_directory) / f"ZOV"
@@ -26,17 +35,40 @@ def make_directories(base_directory, timestamp)->Path:
     return source_directory, run_directory, input_directory, results_directory
     
 def run_external_scripts(timestamp, source_directory, input_directory, results_directory):    
-    print(str(source_directory))
-    print(str(input_directory))
+    print("Source Directory: {}".format(str(source_directory)))
+    print("Input Directory: {}".format(str(input_directory)))
+    print("Results Directory: {}".format(str(results_directory)))
 
     # Runs secondary scripts. Skip bebop calls for local testing
     concat_inputs(source_directory, input_directory)
 
     # time python bebop_preprocess.py $timestamp
+    results_file = bebop_parsl.submit_cplex_preprocess(timestamp)
 
     # time python bebop_submit.py $input_directory $timestamp
+    for fname in os.listdir(input_directory):
+        if fname.endswith('.txt'):
+            # do stuff on the file
+            break
+        else:
+            print('Input files do not exist in {}'.format(input_directory))
+            sys.exit(1)
+
+    control_fname = "polaris.json"
+    with open(control_fname) as control_file:
+        json_data = json.load(control_file)
+        
+    bebop_input = json_data["input_directory"]
+    bebop_results = json_data["results_directory"]
+
+    bebop_parsl.submit_cplex_jobs(str(input_directory), bebop_results, timestamp)
 
     # time python bebop_postprocess.py $results_directory $timestamp
+    if not os.path.exists(results_directory):
+        os.mkdir(results_directory)
+
+    results_file = bebop_parsl.submit_cplex_postprocess(str(results_directory), timestamp)
+    #print("Copied results to '{}'".format(results_directory))
     
 def concat_inputs(input_dir, output_dir):
     firstTen = open(output_dir/f"all_0.txt", 'w')
@@ -61,6 +93,6 @@ def concat_inputs(input_dir, output_dir):
                 currFile.write(file.read())
             currFile.close();
         else:
-            print("no more files to match")
+            #print("no more files to match")
             break
             

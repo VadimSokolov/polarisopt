@@ -5,7 +5,7 @@ if __name__ == "__main__":
     base_directory = sys.argv[1]
 
     # get time
-    timestamp = 'date_' + cplex_functions.time()
+    timestamp = cplex_functions.time()
 
     # setup directories, return all as one (just for fun)    
     source_directory, run_directory, input_directory, results_directory = cplex_functions.make_directories(base_directory, timestamp)
