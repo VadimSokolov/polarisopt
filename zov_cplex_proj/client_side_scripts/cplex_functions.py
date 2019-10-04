@@ -14,7 +14,7 @@ from os import walk
 import shutil
 import bebop_parsl
 
-def time(format="%Y%m%d%H%M%S"):
+def time(format="%Y%m%d_%H%M%S"):
     return datetime.datetime.now(tzlocal()).strftime(format)
     
 def make_directories(base_directory, timestamp)->Path:
