@@ -12,3 +12,6 @@ if __name__ == "__main__":
 
     # call additional scripts
     cplex_functions.run_external_scripts(timestamp, source_directory, input_directory, results_directory)
+
+    # send email notiifcation
+    cplex_functions.send_email(results_directory)
