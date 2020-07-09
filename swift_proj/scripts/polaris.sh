@@ -43,7 +43,7 @@ scenario_dir=$4
 cd $emews_root/data/polaris-data/$scenario_dir
 num_threads=$5
 
-COMMAND="$emews_root/model/polaris $instance_directory/scenario_init.json $num_threads"
+COMMAND="$emews_root/model/polaris $instance_directory/scenario_convergence_abm.json $num_threads"
 
 # Turn bash error checking off. This is
 # required to properly handle the model execution return value
