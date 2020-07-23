@@ -14,6 +14,11 @@ from os import walk
 import shutil
 import bebop_parsl
 
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+
+
 def time(format="%Y%m%d_%H%M%S"):
     return datetime.datetime.now(tzlocal()).strftime(format)
     
@@ -95,4 +100,34 @@ def concat_inputs(input_dir, output_dir):
         else:
             #print("no more files to match")
             break
+           
+def send_email(results_directory):
+    you = []
+    email_list = './email_list.txt'
+    if os.path.isfile(email_list) is not True :
+        print('The email recipient list file \'{}\' does not exist').format(email_list)
+        return
+                                
+    with open(email_list) as fh:
+        you = fh.read().splitlines()
+        if (len(you) < 1) :
+            print('There are no email recipients specified')
+            return
+                                                                                
             
+    print('Email will be sent to:')
+    print(you)
+    me = "polaris_testing@anl.gov"
+    #you = 'rweimer@anl.gov'
+    msg = MIMEMultipart()
+    msg['Subject'] = 'Bebop job completed'
+    msg['From'] = me
+    msg['To'] = ", ".join(you)
+    msg.preamble = 'Bebop has completed a job'
+    content = 'The results can be found in folder:\n\n%s'%str(results_directory)
+    text_part = MIMEText(content, 'plain')
+    msg.attach(text_part)
+    s = smtplib.SMTP('mailhost.anl.gov', 25)
+    s.sendmail(me, you, msg.as_string())
+    s.quit()
+
