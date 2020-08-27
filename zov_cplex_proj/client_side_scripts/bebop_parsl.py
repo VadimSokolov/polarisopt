@@ -39,7 +39,7 @@ def submit_cplex_preprocess(timestamp):
 		init_blocks=1,
 		max_blocks=1,
 		nodes_per_block=1,
-		channel=SSHChannel('bebop.lcrc.anl.gov', username='weimer',
+		channel=SSHChannel('bebop.lcrc.anl.gov', username='rweimer',
 						   script_dir='/lcrc/project/POLARIS/bebop/scratch'),
 	)
 
@@ -75,7 +75,7 @@ def submit_cplex_postprocess(results_directory, timestamp):
 		init_blocks=1,
 		max_blocks=1,
 		nodes_per_block=1,
-		channel=SSHChannel('bebop.lcrc.anl.gov', username='weimer',
+		channel=SSHChannel('bebop.lcrc.anl.gov', username='rweimer',
 						   script_dir='/lcrc/project/POLARIS/bebop/scratch'),
 	)
 
@@ -131,7 +131,7 @@ def submit_cplex_jobs(input_directory, results_directory, timestamp):
 		init_blocks=1,
 		max_blocks=1,
 		nodes_per_block=1,
-		channel=SSHChannel('bebop.lcrc.anl.gov', username='weimer',
+		channel=SSHChannel('bebop.lcrc.anl.gov', username='rweimer',
 						   script_dir='/lcrc/project/POLARIS/bebop/scratch'),
 	)
 
