@@ -1,0 +1,8 @@
+{
+"model": "/home/rweimer/polaris/polaris-20200407/build/release/bin/Integrated_Model",
+"num_threads": "1",
+"data": "/home/rweimer/polaris/models/Bloomington_Convergence",
+"model_scenario": "scenario_convergence_abm.json",
+"standard_dir": "bloomington_abm",
+"results_dir": "regression_results"
+}
