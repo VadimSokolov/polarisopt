@@ -1,0 +1,41 @@
+{
+    "BloomingtonModeChoiceModel.json": [
+        {
+            "name": "HBO_B_male_taxi",
+            "type": "float",
+            "min": "0.29800000000000004",
+            "max": "2.298",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_dens_bike",
+            "type": "float",
+            "min": "6.601",
+            "max": "8.600999999999999",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_TAXI",
+            "type": "float",
+            "min": "2.34",
+            "max": "4.34",
+            "size": 1
+        }
+    ],
+    "BloomingtonDestinationChoiceModel.json": [
+        {
+            "name": "THETAR_WORK",
+            "type": "float",
+            "min": "-8.553",
+            "max": "-6.553",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_SERVICE",
+            "type": "float",
+            "min": "7.038",
+            "max": "9.038",
+            "size": 1
+        }     
+    ]
+}
