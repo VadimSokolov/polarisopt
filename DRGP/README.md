@@ -1,22 +1,29 @@
-POLARIS Calibration Methods
+
+POLARIS Variable Calibration
 ===========
-Execution code for Bayesian optimization algorithms for calibration of transportation simulators in distributed computing environments with multiple techniques for pre-processing to reduce dimensionality.
-
-Given a set of variables that should be, a set of samples are recommended and evaluated in order to learn as much as possible about the relationship between the value of these variables and the output of the simulator in relation to a provided goal (for example, we may be trying to calibrate the variables to provide an output which matches as closely as possible to field-collected values for travel times)
-
-Reduction Methods 
------------------
-the code will first create a reduced dimensionality set over original variables identified using the specified technique and then run the Bayesian optimization method on a GP built over the reduced subspace
+This package executes code for calibration and exploration of POLARIS static variables such as those found in ```*DestinationChoiceModel.json ```. It combines Bayesian Optimization (BO), parallel evaluation, and Dimension Reduction (DR) techniques to handle large variable sets with few samples. Current DR techniques include:
 
 * *Principal Component Analysis* (PCA)
 * *Partial Least Squares* (PLS)
 * *Active Subspace* (AS)
 * *Neural Network* (NN)
 
-Additionally, an NN mean m(x) can be created for any GP(m(x),K(x,x')) constructed by the code using a Neural Network
+Additionally, a NN mean m(x) can be created for any GP(m(x),K(x,x')) constructed and subspaces can be made to update at regular intervals during the BO
+
+## Requirements
+## File Structure
+This program assumes the following structure:
+
+* ```data``` folder
+    * ```.json``` configuration file
+    * ```.json``` settings file
+*```PolarisOpt``` folder containing this package's code
+*```simulator``` folder
+    * ```POLARIS``` folder containing the necessary information to run the simulator
+    * ```Target``` folder containing the outputs calibration is seeking to match
 
 
-Required Packages
+## Packages
 -----------------
 * Python 3.6
 * **[Pytorch python package](https://pytorch.org/)**

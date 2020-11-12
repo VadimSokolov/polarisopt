@@ -20,7 +20,28 @@
             "min": "2.34",
             "max": "4.34",
             "size": 1
-        }
+        },        
+        {
+            "name": "HBW_NEST_AUTO",
+            "type": "float",
+            "min": "-8.801",
+            "max": "-6.801",
+            "size": 1
+        },        
+        {
+            "name": "HBO_ASC_N_AUTO",
+            "type": "float",
+            "min": "-7.602",
+            "max": "-5.602",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_BIKE",
+            "type": "float",
+            "min": "7.382999999999999",
+            "max": "9.383",
+            "size": 1
+        }        
     ],
     "BloomingtonDestinationChoiceModel.json": [
         {
@@ -35,6 +56,13 @@
             "type": "float",
             "min": "7.038",
             "max": "9.038",
+            "size": 1
+        },
+        {
+            "name": "BTTTRAN_WORK",
+            "type": "float",
+            "min": "8.127",
+            "max": "10.127",
             "size": 1
         }     
     ]

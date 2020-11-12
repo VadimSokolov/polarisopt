@@ -7,7 +7,8 @@ from . import (
     dim_red,
     nn,
     eval_sim,
-    setup_manager
+    setup_manager,
+    F
 )
 
 from . import utils

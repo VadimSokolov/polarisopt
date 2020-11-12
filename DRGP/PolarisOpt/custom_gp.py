@@ -137,17 +137,17 @@ class Mean_NN(Mean):
         self.orig_range = None
         self.obj_type = None
 
-    def calculate(self, problem_info, pr = False):
-        self.obj_type = problem_info.obj_type
-        train_X, train_Y = problem_info.load_results_orig #translated subspace data
-        self.orig_range = problem_info.orig_range[0]
+    def calculate(self, manager, quiet = False):
+        self.obj_type = manager.objective_type
+        train_X, train_Y = manager.load_results_orig() #translated subspace data
+        self.orig_range = manager.orig_range[0]
         X_0 = transforms.normalize(train_X, self.orig_range)
-        self.norm_range = np.c_[np.zeros(problem_info.dim_in), np.ones(problem_info.dim_in)]
+        self.norm_range = np.c_[np.zeros(manager.dim_in), np.ones(manager.dim_in)]
 
         #####################################################
         #Step 2: train NN model                             #
         #####################################################
-        NN.train_NN(X_0, train_Y, self.NN_mean_var[2], self.NN_func, pr)
+        NN.train_NN(X_0, train_Y, self.NN_mean_var[2], self.NN_func, quiet)
 
         return print('Mean_NN model created')
 
@@ -171,9 +171,9 @@ class Mean_NN(Mean):
 
         return torch.as_tensor(y_obj)[:,0]
 
-    def tune(self, problem_info, pr= False):
+    def tune(self, manager, quiet= False):
         #fake holder for now
-        return self.calculate(problem_info, pr)
+        return self.calculate(manager, quiet)
 
      
 

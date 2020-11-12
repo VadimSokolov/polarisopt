@@ -1,17 +1,16 @@
 {
 	"General simulation controls" :
 	{
-        "dim_out" : 288,
-        "simulation_path" : "C:\\Polaris_Runs\\DRGP\\simulator\\Polaris\\bloomington_model",
+        "simulation_path" : "C:\\POLARIS_Runs\\DRGP\\simulator\\Polaris\\bloomington_model",
         "simulation_scenario_name" : "scenario.json",
-        "target_output_filename" : "C:\\Polaris_Runs\\DRGP\\simulator\\Target\\bloomington-Result.sqlite",
+        "target_output_filename" : "bloomington-Result.sqlite",
         "output_SQL_query": "SELECT start_time,SUM(outbound_turn_travel_time - inbound_turn_travel_time) FROM 'TurnMOE' GROUP BY start_time"
     },
 
     "File controls" :
     {
-        "training_filename" : "C:\\Polaris_Runs\\DRGP\\data\\5var_training_data.txt",
-        "res_filename" : "C:\\Polaris_Runs\\DRGP\\data\\5var_None_results.dat"
+        "training_filename" : "3var_training_data.json",
+        "res_filename" : "3var_NN_results.json"
     },
 
     "General BO controls" :
@@ -27,8 +26,8 @@
 
     "General DR controls" :
     {
-        "method" : "None",
-        "dim_DR" : 3,
+        "method" : "NN",
+        "dim_DR" : 1,
         "seed_value" : 2,
         "method_update" : false,
         "method_update_interval" : 2,
@@ -42,9 +41,9 @@
         "learning_rate_n" : 0.001,
         "lambda_n" : 0.0005,
         "penalty_n" : 200,
-        "XDR_layer" : [800,700,400],
-        "DRX_layer" : [1000,1000],
-        "DRY_layer" : [300,900,400]
+        "XDR_layer" : [100],
+        "DRX_layer" : [500,100],
+        "DRY_layer" : [500,100]
     },
 
     "GP neural network mean controls" :

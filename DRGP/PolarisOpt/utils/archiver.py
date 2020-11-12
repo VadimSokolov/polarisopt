@@ -9,33 +9,7 @@ import sys
 import numpy as np
 import dill
 import json
-
-
-def import_dataset(data_fn):
-    r"""A helper function to parse a file of datapoints of form [Y, X]. Unevaluated points
-        are designated as ["P", X] 
-    
-    Args:
-        data_fn (filepath): the file containing the samples
-    
-    Return:
-        eval_samples (nd-array): an array with each row documenting an evaluated sample
-        pend_samples (nd-array): an array with each row documenting an unevaluated sample
-    """
-    if os.path.getsize(data_fn) == 0:
-        return np.array([]), np.array([])
-    else:
-        try:
-            all_samples = np.loadtxt(data_fn, dtype = np.str, delimiter = " ")
-            eval_samples = all_samples[all_samples[:, 0] != "P", :].astype(float)
-            pend_samples = all_samples[all_samples[:, 0] == "P", 1:].astype(float)
-        except ValueError:
-            with open(data_fn, 'r+') as fp:
-                temp = fp.readlines()
-            pend_samples = np.asarray([line[2:-1].split() for line in temp if line[0] == 'P']).astype(float)
-            eval_samples = np.asarray([line[:-1].split() for line in temp if line[0] != 'P']).astype(float)
-        return eval_samples, pend_samples
-
+from . import util
 
 def save_model(model, model_fn):
     r"""saves a model using dill
@@ -164,31 +138,96 @@ def load_update_settings(settings_filename):
         dictionary['General DR controls']['nn_mean_update_interval']]
     return DR_updates, mean_updates
 
-def convert_io(inputs,outputs):
+
+def import_dataset(data_fn, x_key = "orig_input", y_key = "target_err"):
+    r"""A helper function to parse a file of datapoints in a json file
+    
+    Args:
+        data_fn (filepath): the file containing the samples
+        x_key (text): whether to return the inputs in the original domain ("orig_input") or the DR domain ("DR_input")
+        y_key (text): whether to return the error by input ("target_rr") or BO objective function ("objective")
+    
+    Return:
+        eval_samples (nd-array): an array with each row documenting an evaluated sample
+        pend_samples (nd-array): an array with each row documenting an unevaluated sample
+    """
     try:
-        o = ' '.join(map(str,outputs))
-    except:
-        o = str(outputs)
+        dictionary = json.loads(open(data_fn).read())
+    except OSError:
+        return np.array([]), np.array([])
 
+    eval_samples = np.asarray([
+        (item[y_key] +' ' + item[x_key]).split()
+        for item in dictionary if item["status"]=="Completed"
+        ]).astype(float)        
+    pend_samples = np.asarray([
+        item[x_key].split()
+        for item in dictionary if item["status"]!="Completed"
+        ]).astype(float)        
+    return eval_samples, pend_samples
+
+def new_record(inputs, var_names = None, identifier_key = "orig_input"):
+    i = util.convert_2str(inputs)
+    if var_names is None:
+        v = "P"
+    else:
+        v = util.convert_2str(var_names)
+    new = {
+        "status": "Pending",
+        "variables": v,
+        }
+    if identifier_key == "DR_input":
+        new.update({
+            "orig_input": "P",
+            "DR_input": i,
+            })
+    else:
+        new.update({
+            "orig_input": i,
+            "DR_input": "P"
+            })
+    new.update({
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+        })
+    return new   
+
+def create_record(inputs, data_fn, var_names = None, identifier_key = "orig_input"):
     try:
-        i = ' '.join(map(str,inputs))
-    except:
-        i = str(inputs)
-    return i, o
+        dictionary = json.loads(open(data_fn).read())
+    except OSError:
+        dictionary = []
 
-def replace_pend(inputs,outputs,save_fn):
-    i, o = convert_io(inputs, outputs)
-    res_line = o + ' ' + i + "\n"
-    rep_line = "P " + i + "\n"
-    with open(save_fn,'r+') as fp:
-        temp = fp.readlines()
-    temp = [w.replace(rep_line,res_line) for w in temp]
-    with open(save_fn,'w+') as fp:
-        fp.writelines(temp)
+    for item in inputs:
+        new = new_record(item, var_names, identifier_key)
+        dictionary.append(new)
 
-def record_eval(inputs,outputs,save_fn):
-    i, o = convert_io(inputs,outputs)
-    res_line = o + ' ' + i + "\n"
-    with open(save_fn,'a+') as fp:
-        fp.write(res_line)
+    with open(data_fn, 'w') as fp:
+        json.dump(dictionary, fp, indent = 4)
 
+
+def update_record(inputs, keys, values, data_fn, identifier_key = "orig_input"):
+    try:
+        dictionary = json.loads(open(data_fn).read())
+    except OSError:
+        dictionary = []
+
+    for i, v in zip(inputs, list(zip(*values))):
+        ii = util.convert_2str(i)
+        flag = 0
+        for item in dictionary:
+            if item[identifier_key] == ii:
+                flag +=1
+                for k, vv in zip(keys, v):
+                    item[k] = util.convert_2str(vv)
+        if flag == 0:
+            new = new_record(ii, identifier_key = identifier_key)
+            for k, vv in zip(keys, v):
+                new[k] = util.convert_2str(vv)
+            dictionary.append(new)
+        if flag > 1:
+            print("INFO: you have a repeated sample in %s" % data_fn)
+
+    with open(data_fn, 'w') as fp:
+        json.dump(dictionary, fp, indent = 4)

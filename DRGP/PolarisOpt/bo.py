@@ -10,12 +10,13 @@ import gpytorch
 from . import acquisition
 from PolarisOpt import custom_gp as cgp
 from .utils import sampler
+from .utils import archiver
 from .utils.fit import fit_gpytorch_torch
 
-def main_loop(problem_info, DR_model = None, M_model = None):
+def main_loop(manager, DR_model = None, M_model = None):
     r"""main function to perform bayesian optimization
         Args:
-            problem_info (SetupManager class): object containing paths to evaluated samples and settings for BO, specifically
+            manager (SetupManager class): object containing paths to evaluated samples and settings for BO, specifically
                 num_rec_points (int): number of points to recommend per iteration
                 num_grid_points (int): number of potential candidates to be generated per iteration
                 acq_type (string): the type of acquisition function to use, such as 'EI' or 'SPE'
@@ -28,31 +29,29 @@ def main_loop(problem_info, DR_model = None, M_model = None):
 
         Example: 
             >>> if l<num_trials:
-            >>>     BO.main_loop(problem_info)
+            >>>     BO.main_loop(manager)
     """
     if DR_model is not None:
         method = DR_model.method
         x_range = DR_model.DR_range
     else:
         method = 'None'
-        x_range = problem_info.orig_range[0]
+        x_range = manager.orig_range[0]
     
-    eval_samples, pend_samples = problem_info.load_results()
+    eval_samples, pend_samples = manager.load_results()
     w = sys.stderr.write("#Evaluated Samples: %d #Pending: %d\n" % (np.shape(eval_samples)[0], np.shape(pend_samples)[0]))
     if len(eval_samples) == 0:
         raise ValueError('need to have a training set')
-    elif problem_info.acq_type == 'EI':
+    elif manager.acq_type == 'EI':
         w = sys.stderr.write("Current Best: %f (sample %d)\n" % (np.min(eval_samples[:, 0]), np.argmin(eval_samples[:, 0])+1))
 
-    unsam_pool = sampler.BO_pool(x_range, problem_info.num_grid_points, eval_samples, pend_samples) #in DR_subspace
+    unsam_pool = sampler.BO_pool(x_range, manager.num_grid_points, eval_samples, pend_samples) #in DR_subspace
     state_dict = None
-    for r in range(problem_info.num_rec_points):
+    for r in range(manager.num_rec_points):
         gp = initialize_GP(eval_samples[:,1:], eval_samples[:,:1], M_model)
-        best_x, unsam_pool = get_recommendation(gp, problem_info.acq_type, unsam_pool) #DR subspace
+        best_x, unsam_pool = get_recommendation(gp, manager.acq_type, unsam_pool) #DR subspace
 #        gp = gp.fantasize(best_x) #GP space
-        output = "P " + ' '.join(map(str, best_x[0,:])) + "\n" #DR subspace
-        with open(problem_info.res_filename, 'a+') as outfile:
-            outfile.write(output)
+        archiver.create_record(best_x[0,:], manager.res_filename, manager.var, identifier_key = "DR_input")
         inputs = torch.as_tensor(best_x, device = gp.device) #in DR range
         posterior = gp.forward(inputs) #results in GP range
         fake_y = gp.likelihood(posterior).loc.detach()[:, None] #in GP range

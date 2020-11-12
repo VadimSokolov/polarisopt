@@ -16,47 +16,49 @@ from . import eval_sim
 from .utils import archiver
 from .utils import transforms
 from .utils.objective_funcs import run_objective
+import shutil
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
-def create_DR(problem_info, training_file = None, pr = False):
+def create_DR(manager, training_file = '', quiet = False):
     r"""Main function to create dimension reduction model and accompanying information
 
     Args:
-        problem_info (SetupManager class): contains the details of the original problem and dataset
+        manager (SetupManager class): contains the details of the original problem and dataset
         training_file (path): full path to the sample set used to train the subspace on
-        pr (boolean): to (True) or not to (False) allow any subspace technique printouts
+        quiet (boolean): to (True) or not to (False) allow any subspace technique printouts
     Returns:
         dimension reduction model (class)
     """
-    if training_file is None:
-        training_file=problem_info.training_filename
+    if training_file == '':
+        training_file=manager.training_filename
+        
     ############################################
     #Step 1: Establish needed info             #
     ############################################
-    method, dim_DR, seed_value, NN_var, _ = archiver.load_DR_settings(problem_info.settings_filename)
+    method, dim_DR, seed_value, NN_var, _ = archiver.load_DR_settings(manager.settings_filename)
     torch.random.manual_seed(seed_value)
     #we automatically save the generated model in the same location as the results file given
     if not os.path.exists(training_file):
         ValueError('%s does not exist' % training_file)
-    m_folder = os.path.join(os.path.dirname(problem_info.res_filename), 'Models')   #automatically saved in the results file folder
+    m_folder = os.path.join(os.path.dirname(manager.res_filename), 'Models')   #automatically saved in the results file folder
     if not os.path.exists(m_folder):
         os.mkdir(m_folder)
-    model_fn = os.path.join(m_folder, problem_info.res_model_filename)
+    model_fn = os.path.join(m_folder, manager.res_model_filename)
 
     ############################################
     #Step 1: Create instance of technique model#
     ############################################
     if method=='None':
-        DR_model = No_method(problem_info.orig_range)
+        DR_model = No_method(manager.orig_range)
     elif method=='PCA':
-        DR_model = PCA_method(dim_DR, problem_info.orig_range)
+        DR_model = PCA_method(dim_DR, manager.orig_range)
     elif method=='PLS':
-        DR_model = PLS_method(dim_DR, problem_info.orig_range)                
+        DR_model = PLS_method(dim_DR, manager.orig_range)                
     elif method=='AS':
-        DR_model = AS_method(dim_DR, problem_info.orig_range)
+        DR_model = AS_method(dim_DR, manager.orig_range)
     elif method=='NN':
-        DR_model = NN_method(dim_DR, problem_info.orig_range, [problem_info.dim_in, problem_info.dim_out, *NN_var])
+        DR_model = NN_method(dim_DR, manager.orig_range, [manager.dim_in, manager.dim_out, *NN_var])
         #NN_var = [dim_in, dim_out, epochs, learning_rate, lambda, penalty, XDR_layer, DRX_layer, DRY_layer]
     else:
         raise ValueError('Method not valid')
@@ -65,45 +67,41 @@ def create_DR(problem_info, training_file = None, pr = False):
     #Step 2: read in and set up training file  #
     ############################################
 
-    train, _ = archiver.import_dataset(training_file)
-    if train.shape[1] != (problem_info.dim_in + problem_info.dim_out):
-        raise ValueError('Expected %s columns but got %s' % ((problem_info.dim_in + problem_info.dim_out), train.shape[1]))
-    train_X, train_Y = train[:, problem_info.dim_out:], train[:, :problem_info.dim_out]
-    train_Y, train_Y_orig = run_objective(train_Y,problem_info.objective_type)
+    train, _ = archiver.import_dataset(training_file, x_key = "orig_input", y_key = "target_err")
+    if train.shape[1] != (manager.dim_in + manager.dim_out):
+        raise ValueError('Expected %s columns but got %s' % ((manager.dim_in + manager.dim_out), train.shape[1]))
+    train_X, train_Y_err = train[:, manager.dim_out:], train[:, :manager.dim_out]
+    train_Y_obj, _ = run_objective(train_Y_err,manager.objective_type)
     
    ############################################
     #Step 3: Run the class' funct to train     #
     ############################################
     if method == 'NN':
-        DR_model.calculate(train_X, train_Y_orig, pr=pr)
+        DR_model.calculate(train_X, train_Y_err, quiet= quiet)
     else:
-        DR_model.calculate(train_X, train_Y)
+        DR_model.calculate(train_X, train_Y_obj)
     train_DR = DR_model.encode_X(train_X)
 
     ##################################################
     #Step 4: save results in results file used by GPs#
     ##################################################
-    np.savetxt(problem_info.res_filename, np.c_[train_Y, train_DR])
-    np.savetxt(problem_info.reso_filename, np.c_[train_Y_orig, train_X])
-
-    ############################################
-    #Step 5: save new subspace model for later #
-    ############################################
+    shutil.copyfile(training_file, manager.res_filename)
+    archiver.update_record(train_X, ["DR_input","objective"], [train_DR, train_Y_obj], manager.res_filename)
     _ = archiver.save_model(DR_model, model_fn)
     return DR_model
 
 
 
 
-def tune_DR(problem_info, pr=False):
+def tune_DR(manager, quiet=False):
     r"""Main function to update dimension reduction model and accompanying information
 
     Args:
-        problem_info (archiver.SetupManager class): contains the details of the original problem and dataset
+        manager (archiver.SetupManager class): contains the details of the original problem and dataset
     Returns:
         dimension reduction model (class)
     """
-    return create_DR(problem_info,problem_info.reso_filename,pr)
+    return create_DR(manager, training_file = manager.res_filename, quiet = quiet)
 
 ##########################################################################################################################################
 ##########################################################################################################################################
@@ -543,7 +541,7 @@ class NN_method(DR_Technique):
         self.Model = nn.DR_Network(self.dim_DR, self.NN_var).to(self.device)
         
 
-    def calculate(self, train_X, train_Y, pr=False):
+    def calculate(self, train_X, train_Y, quiet=False):
         #####################################################
         #Step 1: assumes must normalize X                   #
         #####################################################
@@ -553,7 +551,7 @@ class NN_method(DR_Technique):
         #####################################################
         #Step 2: create Model and train                     #
         #####################################################
-        nn.train_DRNN(X_0, train_Y, self.NN_var[2], self.Model, self.norm_range, pr)
+        nn.train_DRNN(X_0, train_Y, self.NN_var[2], self.Model, self.norm_range, quiet)
         self.DR_range = self.Model.DR_range
         return print('NN model created')
 

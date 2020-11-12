@@ -1,23 +1,31 @@
-A settings ```json``` file is used to define the static parameters necessary to run ```PolarisOpt``` functions. Below outlines the
-information that should be provided to each control parameter section.
+A settings ```json``` file is used to define the static parameters necessary to run ```PolarisOpt``` functions. Below outlines the information that must be provided to each control parameter section.
 
 
 ### General simulation controls
 
-* ```dim_out``` (integer): the number of outputs produced by the simulator after evaluating a single sample
-
-* ```simulation_path``` (path): path pointing to the folder of the simulator's executable and accompanying files. Filenames defined in the config.json file are assumed to be located using this path
+* ```simulation_path``` (path): full path pointing to the folder of the simulator's executable and accompanying files. Filenames defined in the ```config.json``` file are assumed to be located using this path
 * ```simulation_scenario_name``` (filename): the name of the ```scenario.json``` file required to run the POLARIS executable
-* ```target_output_filename``` (path):  the full path to the file containing the simulation outputs we are targetting to match via calibration
+* ```target_output_filename``` (filename):  the name of the file located in the ```simulator\Target``` folder which contains the simulation outputs calibration seeks to match
 * ```output_SQL_query```(text): the SQL query that should be run on the ```target_output_filename``` and the evaluated simulation outputs for use in the objective function. Assumed to have 2 columns with the 2nd column recording the difference between the target and evaluated outputs
 
 ### File controls
-* ```training_filename``` (path): the full path to a ```.dat``` or ```.txt``` file containing an initial sample set of evaluated points ```[Y,X]```. These points are used for training the subspace projections and as a starting basis for the Bayesian Optimization algorithm
+* ```training_filename``` (filename): a ```.json``` file name which contains an initial sample set of evaluated points in the following format:
 
-NOTES: ```Y``` refers to the differance of each ```dim_out``` simulation outputs from the corresponding targeted output. Must contain at least 1 point for Bayesian Optimization to run and must contain ```>2*``````dim_in``` points to run ```Active Subspace``` dimension reduction method
-* ```res_filename``` (path): the path to a ```.dat``` or ```.txt``` file where all samples resulting from the Bayesian Optimization algorithm should be stored. Samples which have yet to be evaluated are designated with a ```P``` until the objective is calcuated
-
-NOTES: These samples are stored in a ```Obj,X``` format where ```Obj``` refers to the single value objective function calculated from the ```Y``` evaluation results. A second file using the ```res_filename_orig``` will be produced containing the ```[Y,X]``` format.
+```json
+[
+    {
+        "status": "Pending",
+        "variables": "variable_1 variable_2...",
+        "orig_input": "X1 X2...",
+        "DR_input": "",
+        "target_err": "Y1 Y2...",
+        "objective": "P",
+        "run_time": "P"
+    }
+]
+```
+These points are used for training the subspace projections and as a starting basis for the Bayesian Optimization algorithm; it must contain at least 1 point for Bayesian Optimization to run. To run ```Active Subspace``` dimension reduction method, must contain more than twice the number of variables being calibrated.
+* ```res_filename``` (filename): a ```.json``` file name for where all samples resulting from the Bayesian Optimization algorithm should be stored in the ```data``` folder. Samples which have yet to be evaluated are designated with a ```status: "Pending"``` until the objective is calculated
 
 
 ### General BO controls
@@ -104,15 +112,14 @@ This section is only read when ```add_nn_GP_mean = true```
 {
 	"General simulation controls" :
 	{
-        "dim_out" : 288,
         "simulation_path" : "C:\\POLARIS_Runs\\simulator\\Polaris\\bloomington_model",
         "simulation_scenario_name" : "scenario.json"
     },
 
     "File controls" :
     {
-        "training_filename" : "C:\\POLARIS_Runs\\data\\training_data.txt",
-        "res_filename" : "C:\\POLARIS_Runs\\data\\NN_results.dat"
+        "training_filename" : "training_data.txt",
+        "res_filename" : "NN_results.dat"
     },
 
     "General BO controls" :
