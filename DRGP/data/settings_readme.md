@@ -118,8 +118,8 @@ This section is only read when ```add_nn_GP_mean = true```
 
     "File controls" :
     {
-        "training_filename" : "training_data.txt",
-        "res_filename" : "NN_results.dat"
+        "training_filename" : "training_data.json",
+        "res_filename" : "NN_results.json"
     },
 
     "General BO controls" :

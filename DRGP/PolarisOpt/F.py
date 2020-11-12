@@ -88,8 +88,7 @@ def calibrate_simulation(manager, DR_model, M_model = None, quiet=True):
     Returns:
       a .pickle file containing the dimension-reduction model
       a .pickle file containing the mean model, if applicable
-      a .dat file containing the Bayes Opt results in the objective function's single-dimension value and DR of format [Y, X]
-      a .dat file containing the Bayes Opt results in the objective function's simulation-output dimensions of format [Y, X]
+      a .json file containing the Bayes Opt results 
     """
 
     DR_updates, mean_updates = archiver.load_update_settings(manager.settings_filename)
@@ -120,5 +119,5 @@ def calibrate_simulation(manager, DR_model, M_model = None, quiet=True):
             print("running loop number %d of %d" % (l+1, manager.num_BO_loops))
             bo.main_loop(manager, DR_model = DR_model, M_model = M_model)
 
-    print("Review results.dat file in data directory")        
+    print("Review %s file in data directory"% manager.res_filename)        
 

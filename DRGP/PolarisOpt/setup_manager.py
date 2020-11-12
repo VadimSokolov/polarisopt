@@ -18,7 +18,7 @@ class SetupManager:
         r"""
         Args:
             settings_filename (path): the path to a json file containing the simulation, reductive subspace, 
-                                  and Bayesian Optimization controls. See "settings_readme.txt" 
+                                  and Bayesian Optimization controls. See "settings_readme.md" 
                                   for more information
             config_filename (path):   the path to a json file containing information on the variables of the 
                                   simulation being optimized. See "example_config.json" for structure help
