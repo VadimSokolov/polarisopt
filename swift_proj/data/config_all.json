@@ -1,0 +1,3650 @@
+{
+    "BloomingtonModeChoiceModel.json": [
+        {
+            "name": "HBW_NEST_NM",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_ASC_N_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_over65_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_over65_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_ttime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_vehavail_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_male_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_male_taxi",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_notalone_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_ASC_PASS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_peak_auto",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_ttime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_ttime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_WALK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_vehavail_taxi",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_WALK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_ttime_bike",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_over65_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_TRAN",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_vehavail_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_waittime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_cbd_pa",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_ttime_walk",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_ASC_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_cbd_pa",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_cost",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_PASS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_cbd_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_ttime_walk",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_cbd_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_NEST_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_vehavail_taxi",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_PASS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_cbd_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_cost_minc",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_vehavail_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_N_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_N_NM",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_NEST_NM",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_ASC_BIKE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_cbd_pa",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_NEST_NM",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_vehavail_taxi",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_vehavail_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_dens_bike",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_cost_hinc",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_TRAN",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_cost_hinc",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_waittime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_vehavail_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_notalone_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_N_NM",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_TAXI",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_male_taxi",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_male_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_NEST_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_vehavail_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_BIKE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_vehavail_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_vehavail_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_peak_auto",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_ovttime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_ovttime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_vehavail_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_dens_walk",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_notalone_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_ttime_walk",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_NEST_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_u18_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_u18_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_male_taxi",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_dens_walk",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_over65_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_dens_bike",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_ASC_TAXI",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_cost",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_cost_minc",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_cost_hinc",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_TAXI",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_dens_walk",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_cost",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_ASC_WALK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_ASC_N_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_over65_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_ASC_TRAN",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_dens_bike",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_waittime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_male_nm",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_ttime_bike",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_B_cost_minc",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_BIKE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBW_ASC_AUTO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_peak_auto",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_ovttime_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_over65_tran",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_ASC_N_NM",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "NHB_B_ttime_bike",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "HBO_B_u18_pass",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        }
+    ],
+    "BloomingtonDestinationChoiceModel.json": [
+        {
+            "name": "BArRes_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmUnrelated_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTTOTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTTAUTO_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BHOME_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTTTRAN_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmMan_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAG_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_MAJ_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmOth_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAI_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArOff_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "GAMMA_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETA_UR_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAS_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmRet_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAM_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmGov_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAO_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmSer_CIVIC",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BTT_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_OTHER_WORK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETAR_MIN_SHOP",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BEmInd_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        }
+    ],
+    "BloomingtonTelecommuteChoiceModel.json": [
+        {
+            "name": "Z_CONSTANT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_MALE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_INCOME_LOW",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_EDUC_NO_COLLEGE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_WORK_TRIP_DIST",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_NWORKERS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_FLEX_WORK_INDICATOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_OCC_TRANS_UTILITY",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_OCC_MANAGEMENT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_OCC_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_EMP_DENSITY_OVER_20000",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "Z_POP_DENSITY",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_CONSTANT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_INCOME_MED",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_AGE_35_55",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_EDUC_GRAD_DEGREE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_WORK_TRIP_TTIME",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_NVEHICLE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_FLEX_WORK_INDICATOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_OCC_GOVERNMENT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_OCC_COMMUNICATION",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_OCC_MANUFACTURING",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "O_EMP_DENSITY_UNDER_3000",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "T_WORK_DURATION",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "T_VEH_AVAILABLE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "T_HH_VEH_OVER_2_INDICATOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "T_C1",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "T_C2",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "T_C3",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "T_RHO",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        }
+    ],
+    "BloomingtonTimingChoiceModel.json": [
+        {
+            "name": "S_AMPEAK_AGE_60 ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMPEAK_HH_WORKERS ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMPEAK_FLEX_START ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMPEAK_FLEX_DURATION ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMPEAK_PARTY_JOINT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMOFFPEAK_WORK_PARTTIME ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMOFFPEAK_STUDENT_FULLTIME ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMOFFPEAK_MODE_PASSENGER ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMOFFPEAK_INCOME_LOW ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMOFFPEAK_MODE_TRANSIT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMPEAK_WORK_FULLTIME ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMPEAK_INCOME_HIGH ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMPEAK_HH_WORKERS ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMPEAK_FLEX_START ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_EVENING_TELEWORK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_EVENING_INCOME_LOW ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_EVENING_DEGREE_COLLEGE ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMPEAK_TT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMOFFPEAK_OCCUPANCY ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMOFFPEAK_TTV ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_AMOFFPEAK_TT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMOFFPEAK_OCCUPANCY ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMOFFPEAK_TT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMPEAK_OCCUPANCY ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_PMPEAK_TT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "S_EVENING_TT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMPEAK_CONSTANT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMPEAK_FLEX_DURATION ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMPEAK_TELEWORK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMPEAK_WORK_FULLTIME ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMPEAK_OCCUPANCY ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMOFFPEAK_CONSTANT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMOFFPEAK_TELEWORK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMOFFPEAK_INCOME_HIGH ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMOFFPEAK_MODE_AUTO ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMOFFPEAK_WORK_FULLTIME ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_AMOFFPEAK_OCCUPANCY ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_PMOFFPEAK_CONSTANT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_PMOFFPEAK_HH_SIZE ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_PMOFFPEAK_MODE_PASSENGER ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_PMOFFPEAK_AGE_18_24 ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_PMOFFPEAK_OCCUPANCY ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_PMPEAK_CONSTANT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_PMPEAK_PARTY_ALONE ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_PMPEAK_AGE_60 ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_EVENING_CONSTANT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_EVENING_WORK_FULLTIME ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_EVENING_MODE_TRANSIT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_EVENING_AGE_60 ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_NIGHT_INCOME_HIGH ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "D_NIGHT_LOCATION_SUBURBS ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETA_AMPEAK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETA_AMOFFPEAK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETA_PMOFFPEAK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETA_PMPEAK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETA_EVENING ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "THETA_NIGHT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "SIGMA_AMPEAK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "SIGMA_AMOFFPEAK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "SIGMA_PMOFFPEAK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "SIGMA_PMPEAK ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "SIGMA_EVENING ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "SIGMA_NIGHT ",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_ERRANDS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_HEALTHCARE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_PERSONAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_RELIGIOUS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_SHOP_MAJOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_SHOP_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_NIGHT_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_ERRANDS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_HEALTHCARE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_PERSONAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_RELIGIOUS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_SHOP_MAJOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_SHOP_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMPEAK_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_ERRANDS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_HEALTHCARE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_PERSONAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_RELIGIOUS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_SHOP_MAJOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_SHOP_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_AMOFFPEAK_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_ERRANDS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_HEALTHCARE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_PERSONAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_RELIGIOUS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_SHOP_MAJOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_SHOP_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMOFFPEAK_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_ERRANDS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_HEALTHCARE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_PERSONAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_RELIGIOUS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_SHOP_MAJOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_SHOP_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_PMPEAK_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_EAT_OUT",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_ERRANDS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_HEALTHCARE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_LEISURE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_PERSONAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_RELIGIOUS",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_SERVICE",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_SHOP_MAJOR",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_SHOP_OTHER",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "C_EVENING_SOCIAL",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        }
+    ]
+}

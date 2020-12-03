@@ -9,6 +9,10 @@ import numpy as np
 import threading
 import time
 
+from emews import Pool
+
+
+
 def thread_it(f, a):
     r"""Generic Threading Function 
     Args:
