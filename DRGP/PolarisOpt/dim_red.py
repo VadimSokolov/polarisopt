@@ -7,16 +7,22 @@ import math
 from . import nn
 import numpy as np
 import matplotlib.pyplot as plt
-from sklearn.decomposition import PCA
-from sklearn.cross_decomposition import PLSRegression
-from sklearn.linear_model import LinearRegression
-import active_subspaces as ac
 from scipy import optimize
 from . import eval_sim
 from .utils import archiver
 from .utils import transforms
 from .utils.objective_funcs import run_objective
 import shutil
+try:
+    import active_subspaces as ac
+except ImportError:
+    print('Active Subspace dimension reduction technique is unavailable; Active Subspace package could not be loaded')
+try:
+    from sklearn.decomposition import PCA
+    from sklearn.cross_decomposition import PLSRegression
+    from sklearn.linear_model import LinearRegression
+except ImportError:
+    print ('Principal Componenet Analysis and Partial Least Squares dimension reduction techniques are unavailable; sklearn package could not be loaded')
 
 torch.set_default_tensor_type(torch.DoubleTensor)
 
