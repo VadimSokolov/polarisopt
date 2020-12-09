@@ -114,7 +114,7 @@ def eval_sample_task(manager,output_fn,inputs,task):
          inputs, 
          ["status", "run_time"], 
          ["Errored", rtime], 
-         manager.res_filename,
+         output_fn,
          identifier_key = "orig_input"
          )
    else:
@@ -122,7 +122,7 @@ def eval_sample_task(manager,output_fn,inputs,task):
          inputs,
          ["status", "objective", "target_error", "run_time"], 
          ["Completed", obj, y_err, rtime], 
-         manager.res_filename,
+         output_fn,
          identifier_key = "orig_input"
          )
 
