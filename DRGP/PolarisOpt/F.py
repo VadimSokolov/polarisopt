@@ -15,7 +15,7 @@ from PolarisOpt import bo
 from PolarisOpt import dim_red
 
 
-def build_sampleset(manager, res_filename, max_parallel = 2, num_samples = 0):
+def build_sampleset(manager, res_filename, max_parallel = 2, num_samples = 0, use_emews=False):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
     Args:
         manager (SetupManager class): central parameter keeper
@@ -38,10 +38,17 @@ def build_sampleset(manager, res_filename, max_parallel = 2, num_samples = 0):
     else:
         _, pend_samples = archiver.import_dataset(res_filename, x_key = "orig_input", y_key = "target_err")
 
-    while len(pend_samples)>0:
-        tasks = min(len(pend_samples), max_parallel)
-        util.thread_it(eval_sim.eval_sample_task, [(manager, res_filename, pend_samples[row], row) for row in range(tasks)])
-        _, pend_samples = archiver.import_dataset(res_filename, x_key = "orig_input", y_key = "target_err")
+    if use_emews:
+        import emews
+        args = [(manager, res_filename, pend_samples[row], row) for row in range(len(pend_samples))]
+        tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
+        pool = emews.Pool(tmp_dir, rank_type="workers")
+        pool.map(eval_sim.eval_sample_task, args)
+    else:
+        while len(pend_samples)>0:
+            tasks = min(len(pend_samples), max_parallel)
+            util.thread_it(eval_sim.eval_sample_task, [(manager, res_filename, pend_samples[row], row) for row in range(tasks)])
+            _, pend_samples = archiver.import_dataset(res_filename, x_key = "orig_input", y_key = "target_err")
 
 
 

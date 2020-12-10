@@ -1,0 +1,6 @@
+{
+    "run_type" : "sampleset",
+    "settings_file" : "../../DRGP/data/settings_nc.json",
+    "config_file" : "../../DRGP/data/config_9.json",
+    "num_samples" : 2
+}

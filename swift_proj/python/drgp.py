@@ -1,0 +1,54 @@
+import sys
+import os
+import json
+
+from PolarisOpt.setup_manager import SetupManager
+from PolarisOpt import F
+
+from emews import eqpy
+
+
+def create_manager(params):
+    emews_root = os.environ['EMEWS_PROJECT_ROOT']
+    data_dir = os.path.join(emews_root, 'data')
+    settings_file = os.path.join(data_dir, params['settings_file'])
+    config_file = os.path.join(data_dir, params['config_file'])
+    manager = SetupManager(settings_file, config_file)
+    return manager
+
+
+def run_sampleset(params):
+    num_samples = int(params['num_samples'])
+    manager = create_manager(params)
+    F.build_sampleset(manager, manager.training_filename, num_samples=num_samples, use_emews=True)
+
+
+def run_calibration(params):
+    manager = create_manager(params)
+    DR_model, M_model = F.build_calibration(manager, quiet=False)
+
+
+def run():
+    eqpy.OUT_put("Params")
+    algo_params_file = eqpy.IN_get()
+    with open(algo_params_file) as f_in:
+        params = json.load(f_in)
+    print(params, flush=True)
+
+    run_type = params['run_type']
+    if run_type == 'sampleset':
+        run_sampleset(params)
+    elif run_type == 'calibration':
+        run_calibration(params)
+
+    eqpy.OUT_put("DONE")
+    eqpy.OUT_put("See DRGP Output for Results")
+
+
+if __name__ == "__main__":
+    # export EMEWS_PROJECT_ROOT=$HOME/Documents/repos/polaris-hpc/swift_proj
+    # export PYTHONPATH=$HOME/Documents/repos/polaris-hpc/DRGP:$HOME//Documents/repos/polaris-hpc/swift_proj/ext/eqpy
+    with open(sys.argv[1]) as f_in:
+        params = json.load(f_in)
+    print(params, flush=True)
+    run_calibration(params)
