@@ -212,8 +212,12 @@ def update_record(inputs, keys, values, data_fn, identifier_key = "orig_input"):
         dictionary = json.loads(open(data_fn).read())
     except OSError:
         dictionary = []
-
-    for i, v in zip(inputs, list(zip(*values))):
+    try:
+        v_list= list(zip(*values))
+    except:
+        v_list= values
+        
+    for i, v in zip(inputs, v_list):
         ii = util.convert_2str(i)
         flag = 0
         for item in dictionary:
