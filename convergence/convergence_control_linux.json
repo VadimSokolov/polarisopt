@@ -1,19 +1,25 @@
 {
   "python_path" : "C:/Program Files/Python36/",
   "sqlite3_path" : "%CD%\\third_party\\Sqlite3\\",
-  "tail_app" : "/mnt/d/rweimer/polaris/polaris-hpc/convergence/tail.sh",
+  "tail_app" : "%CD%\\third_party\\baretail.exe",
   "cloud_backup_path" : "\\\\vms-fs2\\VMS_FY19_SMART_Runs\\Chicago_ABM_Convergence2018\\Chicago_202000406_results\\",
 
   "scenario_main_init" : "scenario_abm_init.json",
   "scenario_main" : "scenario_abm.json",
   "num_abm_runs" : "12",
-  "output_directories" : "bloomington_abm",
-  "num_threads" : "10",
-  "database_base_name" : "bloomington",
+  "output_directories" : "grid_abm",
+  "num_threads" : "20",
+  "database_name" : "grid",
+  "POLARIS_EXE" : "bin_new\\Integrated_Model.exe",
 
-  "model": "/mnt/d/rweimer/polaris/polaris-20201204/build/release/bin/Integrated_Model",
-  "data_no_longer_used": "/mnt/d/rweimer/polaris/models/Bloomington_For_Randy",
-  "scripts_dir": "/mnt/d/rweimer/polaris/scripts",
+  "model-cp-windows": "D:/rweimer/polaris/polaris-20200915/build_vs2015/bin/Release/Integrated_Model.exe",
+  "model-cp-linux": "/mnt/d/rweimer/polaris/polaris-20201013/build/release/bin/Integrated_Model",
+  "model-dev" : "D:/rweimer/polaris/polaris-dev-20201019/build_vs2015/bin/Release/Integrated_Model.exe",
+  "model": "/mnt/d/rweimer/polaris/polaris-20201013/build/release/bin/Integrated_Model",
+  "data-windows": "D:/rweimer/polaris/Grid",
+  "data-linux": "/mnt/d/rweimer/polaris/Grid",
+  "data": "/mnt/d/rweimer/polaris/Grid",
+  "model_scenario": "scenario_convergence_abm.json",
   "standard_dir": "bloomington_abm",
-  "results_dir": "convergence_results"
+  "results_dir": "regression_results"
 }
