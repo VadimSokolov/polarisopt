@@ -107,7 +107,7 @@ class Calibrate_NN(ABC):
 
 
 
-class Calibrate_DRNN(Calibrate_NN):
+@ -224,7 +224,7 @@ class Calibrate_DRNN(Calibrate_NN):
     r"""Performs a mini bayesian optimization to recommend the best DRNN structures to 
 
     Args:
@@ -227,7 +227,7 @@ class Calibrate_DRNN(Calibrate_NN):
         archiver.update_record([variables], ["objective"], [y], self.res_filename)
 
 
-class Calibrate_Mean_NN(Calibrate_NN):
+@ -314,7 +314,7 @@ class Calibrate_Mean_NN(Calibrate_NN):
     r"""Performs a mini bayesian optimization to recommend the best GP NN mean structures to 
 
     Args:

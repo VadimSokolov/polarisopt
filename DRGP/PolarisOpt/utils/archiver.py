@@ -193,7 +193,7 @@ def new_record(inputs, var_names = None, identifier_key = "orig_input"):
         })
     return new   
 
-def create_record(inputs, data_fn, var_names = None, identifier_key = "orig_input"):
+@ -208,16 +208,13 @@ def create_record(inputs, data_fn, var_names = None, identifier_key = "orig_input"):
     try:
         dictionary = json.loads(open(data_fn).read())
     except OSError:

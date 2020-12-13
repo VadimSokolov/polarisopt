@@ -25,8 +25,7 @@ except ImportError:
     print ('Principal Componenet Analysis and Partial Least Squares dimension reduction techniques are unavailable; sklearn package could not be loaded')
 
 torch.set_default_tensor_type(torch.DoubleTensor)
-
-def create_DR(manager, training_file = '', quiet = False):
+@ -92,7 +92,7 @@ def create_DR(manager, training_file = '', quiet = False):
     r"""Main function to create dimension reduction model and accompanying information
 
     Args:

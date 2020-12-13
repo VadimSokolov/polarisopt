@@ -11,7 +11,7 @@ from PolarisOpt.utils import archiver
 from PolarisOpt.utils import util
 from PolarisOpt import F
 from PolarisOpt import eval_sim
-from PolarisOpt import bo
+@ -15,7 +15,7 @@ from PolarisOpt import bo
 from PolarisOpt import dim_red
 
 

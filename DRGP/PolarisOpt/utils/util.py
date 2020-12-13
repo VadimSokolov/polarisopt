@@ -5,7 +5,7 @@
 """
 
 import os, sys
-import numpy as np
+@@ -9,10 +9,6 @@ import numpy as np
 import threading
 import time
 
