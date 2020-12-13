@@ -224,7 +224,7 @@ class Calibrate_DRNN(Calibrate_NN):
         y = loss.item() + (max(1, loss.item*.1)*count)
         if not quiet:
             print(y)
-        archiver.update_record(variables, ["objective"], [y], self.res_filename)
+        archiver.update_record([variables], ["objective"], [y], self.res_filename)
 
 
 class Calibrate_Mean_NN(Calibrate_NN):
@@ -314,7 +314,7 @@ class Calibrate_Mean_NN(Calibrate_NN):
         y = loss.item() + (max(1, loss.item*.1)*count)
         if not quiet:
             print(y)
-        archiver.update_record(variables, ["objective"], [y], self.res_filename)
+        archiver.update_record([variables], ["objective"], [y], self.res_filename)
 
 
 
