@@ -9,9 +9,8 @@ from PolarisOpt import custom_gp as cgp
 from PolarisOpt.utils import sampler
 from PolarisOpt.utils import archiver
 from PolarisOpt.utils import util
-from PolarisOpt import F
 from PolarisOpt import eval_sim
-@ -15,7 +15,7 @@ from PolarisOpt import bo
+from PolarisOpt import bo
 from PolarisOpt import dim_red
 
 
