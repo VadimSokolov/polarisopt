@@ -1,17 +1,16 @@
-@ -1,16 +1,16 @@
 {
 	"General simulation controls" :
 	{
-        "simulation_path" : "C:\\POLARIS_Runs\\DRGP\\simulator\\Polaris\\bloomington_model",
-        "simulation_scenario_name" : "scenario.json",
-        "target_output_filename" : "bloomington-Result.sqlite",
+        "simulation_path" : "/home/nick/Documents/polaris_runs/DGRP/simulator/Polaris/Bloomington_Convergence",
+        "simulation_scenario_name" : "scenario_convergence_abm.json",
+        "target_output_filename" : "/home/nick/Documents/polaris_runs/DGRP/simulator/Target/bloomington-Result.sqlite",
         "output_SQL_query": "SELECT start_time,SUM(outbound_turn_travel_time - inbound_turn_travel_time) FROM 'TurnMOE' GROUP BY start_time"
     },
 
     "File controls" :
     {
-        "training_filename" : "3var_training_data.json",
-        "res_filename" : "3var_NN_results.json"
+        "training_filename" : "5var_training_data.txt",
+        "res_filename" : "5var_None_results.dat"
     },
 
     "General BO controls" :
