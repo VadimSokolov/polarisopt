@@ -66,11 +66,12 @@ def run_sim(task_dir, exe_fn, sc_fn):
     cur_dir = os.getcwd()
     os.chdir(task_dir)
     # Run the Polaris exe file via pipe
-    if platform.system().lower() == 'windows':
-        p1 = Popen([exe_fn, sc_fn], shell=True)
-    else:
-        num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
-        p1 = Popen([exe_fn, sc_fn, num_threads], shell=False)
+    num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
+#    if platform.system().lower() == 'windows':
+#        p1 = Popen([exe_fn, sc_fn,num_threads], shell=True)
+#    else:
+#        num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
+    p1 = Popen([exe_fn, sc_fn, num_threads], shell=False)
     p1.wait()
     os.chdir(cur_dir)
     return print("task completed")
@@ -130,17 +131,17 @@ def eval_sample_task(manager, output_fn, inputs, task):
     # print(f'{obj}, {y_err}, {rtime}', flush=True)
     if obj == "P":
         archiver.update_record(
-            inputs,
+            [inputs],
             ["status", "run_time"],
-            ["Errored", rtime],
+            [["Errored", rtime]],
             output_fn,
             identifier_key="orig_input"
         )
     else:
         archiver.update_record(
-            inputs,
+            [inputs],
             ["status", "objective", "target_error", "run_time"],
-            ["Completed", obj, y_err, rtime],
+            [["Completed", obj, y_err, rtime]],
             output_fn,
             identifier_key="orig_input"
         )
@@ -165,17 +166,17 @@ def eval_DR_task(manager, DR_model, DR_input, task):
     obj, y_err, rtime = run_task(manager, xhat, task)
     if obj == "P":
         archiver.update_record(
-            DR_input,
+            [DR_input],
             ["status", "orig_input", "run_time"],
-            ["Errored", xhat, rtime],
+            [["Errored", xhat, rtime]],
             manager.res_filename,
             identifier_key="DR_input"
         )
     else:
         archiver.update_record(
-            DR_input,
+            [DR_input],
             ["status", "orig_input", "objective", "target_error", "run_time"],
-            ["Completed", xhat, obj, y_err, rtime],
+            [["Completed", xhat, obj, y_err, rtime]],
             manager.res_filename,
             identifier_key="DR_input"
         )
