@@ -140,7 +140,7 @@ def eval_sample_task(manager, output_fn, inputs, task):
     else:
         archiver.update_record(
             [inputs],
-            ["status", "objective", "target_error", "run_time"],
+            ["status", "objective", "target_err", "run_time"],
             [["Completed", obj, y_err, rtime]],
             output_fn,
             identifier_key="orig_input"
@@ -175,7 +175,7 @@ def eval_DR_task(manager, DR_model, DR_input, task):
     else:
         archiver.update_record(
             [DR_input],
-            ["status", "orig_input", "objective", "target_error", "run_time"],
+            ["status", "orig_input", "objective", "target_err", "run_time"],
             [["Completed", xhat, obj, y_err, rtime]],
             manager.res_filename,
             identifier_key="DR_input"

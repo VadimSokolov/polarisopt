@@ -1,38 +1,24 @@
 {
-    "MultiModalRoutingModel.json": [
+    "BloomingtonModeChoiceModel.json": [
         {
-            "name": "waitWeight",
+            "name": "HBW_bCost_Generic",
             "type": "float",
-            "min": "0.1",
-            "max": "3",
+            "min": "-2",
+            "max": "1",
             "size": 1
         },
         {
-            "name": "walkWeight",
+            "name": "HBW_bCost_drive_Parking",
             "type": "float",
-            "min": "0.1",
-            "max": "3",
+            "min": "-2",
+            "max": "1",
             "size": 1
         },
         {
-            "name": "bikeWeight",
+            "name": "HBW_bIVTT_drive",
             "type": "float",
-            "min": "0.1",
-            "max": "3",
-            "size": 1
-        },
-        {
-            "name": "ivtWeight",
-            "type": "float",
-            "min": "0.1",
-            "max": "3",
-            "size": 1
-        },
-        {
-            "name": "carWeight",
-            "type": "float",
-            "min": "2.34",
-            "max": "4.34",
+            "min": "-1",
+            "max": "1",
             "size": 1
         }
     ]
