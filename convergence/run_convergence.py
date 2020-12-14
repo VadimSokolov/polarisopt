@@ -15,6 +15,7 @@ import traceback
 import regression
 import modify_scenario
 import CSV_Utillities
+import init_model
 
 
 # +++++++++++++++++++++++++++++++++++++++
@@ -280,4 +281,5 @@ if __name__ == '__main__':
         print(f'Usage {sys.argv[0]} <json_control_file> <data_directory>')
         sys.exit(-1)
 
+    init_model.init_model(sys.argv[2])
     run_conv(sys.argv[1], sys.argv[2])
