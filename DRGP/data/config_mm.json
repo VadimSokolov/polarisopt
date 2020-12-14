@@ -1,0 +1,25 @@
+{
+    "BloomingtonModeChoiceModel.json": [
+        {
+            "name": "HBW_bCost_Generic",
+            "type": "float",
+            "min": "-2",
+            "max": "1",
+            "size": 1
+        },
+        {
+            "name": "HBW_bCost_drive_Parking",
+            "type": "float",
+            "min": "-2",
+            "max": "1",
+            "size": 1
+        },
+        {
+            "name": "HBW_bIVTT_drive",
+            "type": "float",
+            "min": "-1",
+            "max": "1",
+            "size": 1
+        }
+    ]
+}

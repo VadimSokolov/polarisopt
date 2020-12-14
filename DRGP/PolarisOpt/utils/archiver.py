@@ -87,7 +87,8 @@ def update_json(vnames, new_values, dest_dir):
         dictionary = json.loads(open(t_fn).read())
         for dkey in dictionary:
             for ind in vkey[1]:
-                dictionary[dkey][ind], new_values = new_values[0], np.delete(new_values,0)
+               if ind in dictionary[dkey]:
+                    dictionary[dkey][ind], new_values = new_values[0], np.delete(new_values,0)
         with open(t_fn, 'w') as fp:
             json.dump(dictionary, fp, indent = 4)
 
@@ -212,8 +213,8 @@ def update_record(inputs, keys, values, data_fn, identifier_key = "orig_input"):
         dictionary = json.loads(open(data_fn).read())
     except OSError:
         dictionary = []
-
-    for i, v in zip(inputs, list(zip(*values))):
+        
+    for i, v in zip(inputs, values):
         ii = util.convert_2str(i)
         flag = 0
         for item in dictionary:
