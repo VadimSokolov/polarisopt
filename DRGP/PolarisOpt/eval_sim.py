@@ -24,6 +24,15 @@ def query_db(db_path, SQL_query):
     db.close()
     return np.asarray(output)
 
+def copy_simulation(src_dir, dst_dir):
+    names = os.listdir(src_dir)
+    os.makedirs(dst_dir)
+    for name in names:
+        src_name = os.path.join(src_dir, name)
+        if not os.path.isdir(src_name):
+            dst_name = os.path.join(dst_dir, name)
+            shutil.copy2(src_name, dst_name)
+
 
 def run_task(manager, inputs, task):
     r"""Evaluates a set of inputs in the simulator
@@ -41,14 +50,21 @@ def run_task(manager, inputs, task):
     src_dir = manager.simulation_path
     if os.path.exists(task_dir):
         shutil.rmtree(task_dir)
-    shutil.copytree(src_dir, task_dir)
+    
+    copy_simulation(src_dir, task_dir)
+    # shutil.copytree(src_dir, task_dir)
 
     archiver.update_json(manager.vnames, inputs, task_dir)
 
-    if platform.system().lower() == 'windows':
-        exe_fn = os.path.join(manager.simulation_path, 'Integrated_model.exe')
+    if hasattr(manager, 'polaris_executable'):
+        exe_fn = manager.polaris_executable
     else:
-        exe_fn = os.path.join(manager.simulation_path, 'Integrated_Model')
+        if platform.system().lower() == 'windows':
+            exe_fn = os.path.join(manager.simulation_path, 'Integrated_model.exe')
+        else:
+            exe_fn = os.path.join(manager.simulation_path, 'Integrated_Model')
+    
+    print('Polaris Executable: {}'.format(exe_fn), flush=True)
 
     run_sim(task_dir, exe_fn, manager.simulation_scenario_name,manager.working_dir)
     print(os.getcwd())

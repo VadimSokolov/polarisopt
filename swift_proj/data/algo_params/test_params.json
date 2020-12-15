@@ -1,6 +1,8 @@
 {
+  "COMMENT" : "PATHS ARE RELATIVE TO swift_proj/data DIRECTORY",
+
   "run_type" : "calibration",
-  "settings_file" : "../../DRGP/data/settings_nc.json",
+  "settings_file" : "../../DRGP/data/settings_bebop_nc.json",
   "config_file" : "../../DRGP/data/config_mm.json",
   "num_samples" : 2,
 

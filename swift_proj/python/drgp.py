@@ -8,7 +8,6 @@ from PolarisOpt import F
 from PolarisOpt.utils.archiver import load_model
 from PolarisOpt.F import calibrate_simulation
 
-
 from emews import eqpy
 
 
@@ -68,6 +67,7 @@ def run_calibration(params):
 
 
 def run():
+    os.chdir(os.environ['TURBINE_OUTPUT'])
     eqpy.OUT_put("Params")
     algo_params_file = eqpy.IN_get()
     with open(algo_params_file) as f_in:
