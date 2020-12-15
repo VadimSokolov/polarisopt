@@ -50,20 +50,20 @@ def run_task(manager, inputs, task):
     else:
         exe_fn = os.path.join(manager.simulation_path, 'Integrated_Model')
 
-    run_sim(task_dir, exe_fn, manager.simulation_scenario_name)
+    run_sim(task_dir, exe_fn, manager.simulation_scenario_name,manager.working_dir)
+    print(os.getcwd())
     obj, y_err = pull_result(task_dir, manager)
     end = time.perf_counter()
     return obj, y_err, convert_time(end-start)
 
 
-def run_sim(task_dir, exe_fn, sc_fn):
+def run_sim(task_dir, exe_fn, sc_fn, working_dir):
     r"""runs the POLARIS executable with the associated scenario file
     Args:
         task_dir: (path) path to the folder containing the scenario and variable-related files
         exe_fn: (path) full path to the Polaris Integrated_model.exe
         sc_fn: (path) scenario filename within task_dir for the .json needed to run an instance of the executable
     """
-    cur_dir = os.getcwd()
     os.chdir(task_dir)
     # Run the Polaris exe file via pipe
     num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
@@ -73,7 +73,7 @@ def run_sim(task_dir, exe_fn, sc_fn):
 #        num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
     p1 = Popen([exe_fn, sc_fn, num_threads], shell=False)
     p1.wait()
-    os.chdir(cur_dir)
+    os.chdir(working_dir)
     return print("task completed")
 
 
