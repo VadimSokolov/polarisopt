@@ -6,14 +6,14 @@
 
   "scenario_main_init" : "scenario_abm_init.json",
   "scenario_main" : "scenario_abm.json",
-  "num_abm_runs" : "12",
+  "num_abm_runs" : "3",
   "output_directories" : "bloomington_abm",
   "num_threads" : "10",
   "database_base_name" : "bloomington",
 
   "model": "/mnt/d/rweimer/polaris/polaris-20201204/build/release/bin/Integrated_Model",
   "data_no_longer_used": "/mnt/d/rweimer/polaris/models/Bloomington_For_Randy",
-  "scripts_dir": "/mnt/d/rweimer/polaris/scripts",
+  "scripts_dir": "/mnt/d/rweimer/polaris/models/scripts",
   "standard_dir": "bloomington_abm",
   "results_dir": "convergence_results"
 }

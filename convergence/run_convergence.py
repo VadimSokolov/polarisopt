@@ -15,6 +15,7 @@ import traceback
 import regression
 import modify_scenario
 import CSV_Utillities
+import init_model
 
 
 # +++++++++++++++++++++++++++++++++++++++
@@ -123,7 +124,8 @@ def run_conv(control_file_name, data_directory):
     # set cloud_backup_path=\\vms-fs2\VMS_FY19_SMART_Runs\Chicago_ABM_Convergence2018\Chicago_202000406_results\
     #
 
-    tail_app = json_data["tail_app"]
+    #tail_app = json_data["tail_app"]
+    tail_app="nothing"
     database_base_name = json_data["database_base_name"]
 
     # -- SET THE POLARIS RUN INFORMATION
@@ -146,7 +148,7 @@ def run_conv(control_file_name, data_directory):
 
     # -- SET THE OUTPUT DIRECTORIES AS SPECIFIED IN THE SCENARIO FILES
     # output_directories = json_data["output_directories"]
-    cloud_backup_path = Path(json_data["cloud_backup_path"])
+    #cloud_backup_path = Path(json_data["cloud_backup_path"])
 
     # -------------------------------------------------------------------------------------------
     # Do not modify below here
@@ -260,19 +262,19 @@ def run_conv(control_file_name, data_directory):
         # 	xcopy "%WORKDIR%\!out_local!\%DB%-Demand.sqlite" "%cloud_backup_path%\!out_local!\" /y /i
         # 	xcopy "%WORKDIR%\!out_local!\%DB%-Result.sqlite" "%cloud_backup_path%\!out_local!\" /y /i
         # 	xcopy "%WORKDIR%\!out_local!\highway_skim_file.bin" "%cloud_backup_path%\!out_local!\" /y /i
-        if not os.path.exists(cloud_backup_path / latest_subdir):
-            os.makedirs(cloud_backup_path / latest_subdir)
-        shutil.copyfile(str(working_dir / 'artificial_count.csv'), str(cloud_backup_path / 'artificial_count.csv'))
-        shutil.copyfile(str(working_dir / 'gap_calculations.csv'), str(cloud_backup_path / 'gap_calculations.csv'))
-        shutil.copyfile(str(working_dir / 'gap_breakdown.csv'), str(cloud_backup_path / 'gap_breakdown.csv'))
-        shutil.copyfile(str(working_dir / 'in_network.csv'), str(cloud_backup_path / 'in_network.csv'))
-        shutil.copyfile(str(working_dir / latest_subdir / 'summary.csv'), str(cloud_backup_path / latest_subdir / 'summary.csv'))
-        shutil.copyfile(str(working_dir / latest_subdir / demand_db_name), str(cloud_backup_path / latest_subdir / demand_db_name))
-        shutil.copyfile(str(working_dir / latest_subdir / result_db_name), str(cloud_backup_path / latest_subdir / result_db_name))
-        if loop > 0:
-            shutil.copyfile(str(working_dir / latest_subdir / 'highway_skim_file.bin'), str(cloud_backup_path / latest_subdir / 'highway_skim_file.bin'))
-            #shutil.copyfile(str(working_dir / latest_subdir / 'transit_skim_file.bin'), str(cloud_backup_path / latest_subdir / 'transit_skim_file.bin'))
-            shutil.copyfile(str(working_dir / latest_subdir / 'in_network.png'), str(cloud_backup_path / latest_subdir / 'in_network.png'))
+        #if not os.path.exists(cloud_backup_path / latest_subdir):
+        #    os.makedirs(cloud_backup_path / latest_subdir)
+        #shutil.copyfile(str(working_dir / 'artificial_count.csv'), str(cloud_backup_path / 'artificial_count.csv'))
+        #shutil.copyfile(str(working_dir / 'gap_calculations.csv'), str(cloud_backup_path / 'gap_calculations.csv'))
+        #shutil.copyfile(str(working_dir / 'gap_breakdown.csv'), str(cloud_backup_path / 'gap_breakdown.csv'))
+        #shutil.copyfile(str(working_dir / 'in_network.csv'), str(cloud_backup_path / 'in_network.csv'))
+        #shutil.copyfile(str(working_dir / latest_subdir / 'summary.csv'), str(cloud_backup_path / latest_subdir / 'summary.csv'))
+        #shutil.copyfile(str(working_dir / latest_subdir / demand_db_name), str(cloud_backup_path / latest_subdir / demand_db_name))
+        #shutil.copyfile(str(working_dir / latest_subdir / result_db_name), str(cloud_backup_path / latest_subdir / result_db_name))
+        #if loop > 0:
+        #    shutil.copyfile(str(working_dir / latest_subdir / 'highway_skim_file.bin'), str(cloud_backup_path / latest_subdir / 'highway_skim_file.bin'))
+        #    #shutil.copyfile(str(working_dir / latest_subdir / 'transit_skim_file.bin'), str(cloud_backup_path / latest_subdir / 'transit_skim_file.bin'))
+        #    shutil.copyfile(str(working_dir / latest_subdir / 'in_network.png'), str(cloud_backup_path / latest_subdir / 'in_network.png'))
 
 
 if __name__ == '__main__':
@@ -280,4 +282,5 @@ if __name__ == '__main__':
         print(f'Usage {sys.argv[0]} <json_control_file> <data_directory>')
         sys.exit(-1)
 
+    init_model.init_model(sys.argv[2])
     run_conv(sys.argv[1], sys.argv[2])

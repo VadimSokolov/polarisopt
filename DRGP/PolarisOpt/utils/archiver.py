@@ -146,7 +146,7 @@ def import_dataset(data_fn, x_key = "orig_input", y_key = "target_err"):
     Args:
         data_fn (filepath): the file containing the samples
         x_key (text): whether to return the inputs in the original domain ("orig_input") or the DR domain ("DR_input")
-        y_key (text): whether to return the error by input ("target_rr") or BO objective function ("objective")
+        y_key (text): whether to return the error by input ("target_err") or BO objective function ("objective")
     
     Return:
         eval_samples (nd-array): an array with each row documenting an evaluated sample
