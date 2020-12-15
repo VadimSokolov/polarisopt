@@ -83,7 +83,7 @@ def build_calibration(manager, quiet = True):
 
 
 
-def calibrate_simulation(manager, DR_model, M_model = None, quiet=True):
+def calibrate_simulation(manager, DR_model, M_model = None, quiet=True, use_emews=False):
     r"""Function which runs all necessary steps to create models and run Bayesian Opt per settings.json file
     Args:
         manager (SetupManager class): central parameter keeper
@@ -104,7 +104,14 @@ def calibrate_simulation(manager, DR_model, M_model = None, quiet=True):
         #After a Bayes set is recorded, we need to evaluate the pending ones denoted with 'P'
         eval_samples, pend_samples = manager.load_results()
         if abs(min(eval_samples[:,0])) > manager.epsilon_stop:
-            util.thread_it(eval_sim.eval_DR_task, [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))])
+            if use_emews:
+                import emews
+                args = [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))]
+                tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
+                pool = emews.Pool(tmp_dir, rank_type="workers")
+                pool.map(eval_sim.eval_DR_task, args)
+            else:
+               util.thread_it(eval_sim.eval_DR_task, [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))])
 
         if DR_updates[0]:
             #TODO: this currently wipes out any pending recommended samples when updating

@@ -86,7 +86,8 @@ USER_VARS=()
 # log variables and script to to TURBINE_OUTPUT directory
 log_script
 
-# echo's anything following this to standard out
+# Required as the drgp code uses current working directory 
+# and that should be the experiment directory
 cd $TURBINE_OUTPUT
 set -x
 swift-t -n $PROCS $MACHINE -p -I $EQPY -r $EQPY \

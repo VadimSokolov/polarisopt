@@ -1,6 +1,10 @@
 {
-    "run_type" : "sampleset",
-    "settings_file" : "../../DRGP/data/settings_nc.json",
-    "config_file" : "../../DRGP/data/config_9.json",
-    "num_samples" : 2
+  "run_type" : "calibration",
+  "settings_file" : "../../DRGP/data/settings_nc.json",
+  "config_file" : "../../DRGP/data/config_mm.json",
+  "num_samples" : 2,
+
+  "dr_model_file" : "training_data/Models/mm_results_model.pickle",
+  "m_model_file" : "",
+  "quiet" : "False"
 }

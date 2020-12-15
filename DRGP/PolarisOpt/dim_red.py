@@ -92,6 +92,7 @@ def create_DR(manager, training_file = '', quiet = False):
     ##################################################
     shutil.copyfile(training_file, manager.res_filename)
     archiver.update_record(train_X, ["DR_input","objective"], list(zip(train_DR, train_Y_obj)), manager.res_filename)
+    print(model_fn, flush=True)
     _ = archiver.save_model(DR_model, model_fn)
     return DR_model
 

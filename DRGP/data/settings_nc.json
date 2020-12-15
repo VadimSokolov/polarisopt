@@ -9,13 +9,15 @@
 
     "File controls" :
     {
-        "training_filename" : "5var_training_data.txt",
-        "res_filename" : "5var_None_results.dat"
+        "comment" : "mm_results is the result of building (step 3 readme) the model using the specified training data",
+        "training_filename" : "/home/nick/Documents/repos/polaris-hpc/swift_proj/data/training_data/mm_training_data.json",
+        "res_filename" : "/home/nick/Documents/repos/polaris-hpc/swift_proj/data/training_data/mm_results.json"
     },
 
     "General BO controls" :
 	{
-        "num_BO_loops" : 20,
+        "xxxnum_BO_loops" : 20,
+        "num_BO_loops" : 2,
         "num_rec_points" : 2,
         "num_grid_points" : 2000,
         "acq_type" : "EI",
