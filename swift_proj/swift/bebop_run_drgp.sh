@@ -96,5 +96,7 @@ swift-t -n $PROCS $MACHINE -p -I $EQPY -r $EQPY \
     -e ADLB_DEBUG \
     -e SITE_FILE \
     -e EMEWS_PROJECT_ROOT \
+    -e PROCS \
+    -e PPN \
     $EMEWS_PROJECT_ROOT/swift/drgp.swift \
     $CMD_LINE_ARGS
