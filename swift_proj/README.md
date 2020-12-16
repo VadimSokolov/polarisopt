@@ -4,6 +4,23 @@ The EMEWS calibration workflow runs the PolarisOpt calibration using EMEWS to di
 the polaris runs. The python code (i.e., `eval_sim.eval_DR_task` and `eval_sim.eval_sample_task`)
 that launches each polaris run is run in its own Python interpreter. 
 
+## Dependencies
+
+The calibration workflow requires additional python packages to be installed.
+
+```
+# load the correct Python
+module load anaconda3/2020.07
+# install pytorch
+pip3 install torch --user
+# install gpytorch
+pip3 install gpytorch --user
+# install botorch v.0.1.4
+pip3 install botorch==0.1.4 --user
+```
+
+
+
 ## Running the Workflow on Bebop
 
 ```
