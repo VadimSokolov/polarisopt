@@ -124,8 +124,7 @@ def run_conv(control_file_name, data_directory):
     # set cloud_backup_path=\\vms-fs2\VMS_FY19_SMART_Runs\Chicago_ABM_Convergence2018\Chicago_202000406_results\
     #
 
-    #tail_app = json_data["tail_app"]
-    tail_app="nothing"
+    tail_app = json_data["tail_app"]
     database_base_name = json_data["database_base_name"]
 
     # -- SET THE POLARIS RUN INFORMATION
@@ -140,6 +139,7 @@ def run_conv(control_file_name, data_directory):
     scripts_dir = Path(json_data["scripts_dir"])
 
     # -- SET THE MAIN AND DTA RUN SCENARIO FILES
+    scenario_skim_init = json_data["scenario_skim_init"]
     scenario_main_init = json_data["scenario_main_init"]
     scenario_main = json_data["scenario_main"]
 
@@ -148,7 +148,7 @@ def run_conv(control_file_name, data_directory):
 
     # -- SET THE OUTPUT DIRECTORIES AS SPECIFIED IN THE SCENARIO FILES
     # output_directories = json_data["output_directories"]
-    #cloud_backup_path = Path(json_data["cloud_backup_path"])
+    cloud_backup_path = Path(json_data["cloud_backup_path"])
 
     # -------------------------------------------------------------------------------------------
     # Do not modify below here
@@ -192,6 +192,9 @@ def run_conv(control_file_name, data_directory):
     # list of result directories
     result_paths = []
 
+    # clean the demand DB
+    execute_sql_script(working_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
+
     for loop in range(0, int(num_abm_runs)):
         print("\n------------------------------------------------------------------------")
         # Create results Directory if don't exist
@@ -202,11 +205,14 @@ def run_conv(control_file_name, data_directory):
             print(f"Directory: {results_dir} already exists")
 
         if loop == 0:
+            scenario_file = scenario_skim_init
+            print(f"Running Polaris SCENARIO_SKIM_INIT instance {loop} - see {results_dir / 'simulation_out.log'}")
+        elif loop == 1:
             scenario_file = scenario_main_init
             print(f"Running Polaris SCENARIO_MAIN_INIT instance {loop} - see {results_dir / 'simulation_out.log'}")
         else:
             scenario_file = scenario_main
-            modify_scenario.modify(scenario_main, "time_dependent_routing_weight_factor", 1.0)
+            #modify_scenario.modify(scenario_main, "time_dependent_routing_weight_factor", 1.0)
             print(f"Running Polaris SCENARIO_MAIN instance #{loop} - see {results_dir / 'simulation_out.log'}")
 
         arguments = scenario_file + ' ' + num_threads
@@ -224,18 +230,16 @@ def run_conv(control_file_name, data_directory):
         results_dir_moved = working_dir / latest_subdir / json_data["results_dir"]
         print(f'Moving: {results_dir} to: {results_dir_moved}')
         shutil.move(str(results_dir), str(results_dir_moved))
-        # os.rename('./simulation_out.log', simulated_dir + '/simulation_out.log')
-        # os.rename('./simulation_err.log', simulated_dir + '/simulation_err.log')
 
-        # copy local results back to the main run directory for the next run
-        copyreplacefile(working_dir / latest_subdir / demand_db_name, working_dir)
+        # copy local results back to the main run directory and clean database for the next run
+        if loop ==0:
+            copyreplacefile(working_dir / latest_subdir / demand_db_name, working_dir)
+            execute_sql_script(working_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
+
         copyreplacefile(working_dir / latest_subdir / result_db_name, working_dir)
-        if loop > 0:
-            copyreplacefile(working_dir / latest_subdir / highway_skim_file_name, working_dir)
-            #copyreplacefile(working_dir / latest_subdir / transit_skim_file_name, working_dir)
+        copyreplacefile(working_dir / latest_subdir / highway_skim_file_name, working_dir)
+        #copyreplacefile(working_dir / latest_subdir / transit_skim_file_name, working_dir)
 
-        # %sqlite3_path%sqlite3.exe "%WORKDIR%\%DB%-Demand.sqlite" < clean_db_after_abm_for_abm.sql
-        execute_sql_script(working_dir / demand_db_name, scripts_dir / "clean_db_after_abm_for_abm.sql")
 
         # ren %WORKDIR%\!out_local!\summary.csv summary_abm_%%S.csv
         latest_demand_db = working_dir / latest_subdir / demand_db_name
@@ -269,19 +273,19 @@ def run_conv(control_file_name, data_directory):
         # 	xcopy "%WORKDIR%\!out_local!\%DB%-Demand.sqlite" "%cloud_backup_path%\!out_local!\" /y /i
         # 	xcopy "%WORKDIR%\!out_local!\%DB%-Result.sqlite" "%cloud_backup_path%\!out_local!\" /y /i
         # 	xcopy "%WORKDIR%\!out_local!\highway_skim_file.bin" "%cloud_backup_path%\!out_local!\" /y /i
-        #if not os.path.exists(cloud_backup_path / latest_subdir):
-        #    os.makedirs(cloud_backup_path / latest_subdir)
-        #shutil.copyfile(str(working_dir / 'artificial_count.csv'), str(cloud_backup_path / 'artificial_count.csv'))
-        #shutil.copyfile(str(working_dir / 'gap_calculations.csv'), str(cloud_backup_path / 'gap_calculations.csv'))
-        #shutil.copyfile(str(working_dir / 'gap_breakdown.csv'), str(cloud_backup_path / 'gap_breakdown.csv'))
-        #shutil.copyfile(str(working_dir / 'in_network.csv'), str(cloud_backup_path / 'in_network.csv'))
-        #shutil.copyfile(str(working_dir / latest_subdir / 'summary.csv'), str(cloud_backup_path / latest_subdir / 'summary.csv'))
-        #shutil.copyfile(str(working_dir / latest_subdir / demand_db_name), str(cloud_backup_path / latest_subdir / demand_db_name))
-        #shutil.copyfile(str(working_dir / latest_subdir / result_db_name), str(cloud_backup_path / latest_subdir / result_db_name))
-        #if loop > 0:
-        #    shutil.copyfile(str(working_dir / latest_subdir / 'highway_skim_file.bin'), str(cloud_backup_path / latest_subdir / 'highway_skim_file.bin'))
-        #    #shutil.copyfile(str(working_dir / latest_subdir / 'transit_skim_file.bin'), str(cloud_backup_path / latest_subdir / 'transit_skim_file.bin'))
-        #    shutil.copyfile(str(working_dir / latest_subdir / 'in_network.png'), str(cloud_backup_path / latest_subdir / 'in_network.png'))
+        if not os.path.exists(cloud_backup_path / latest_subdir):
+            os.makedirs(cloud_backup_path / latest_subdir)
+        shutil.copyfile(str(working_dir / 'artificial_count.csv'), str(cloud_backup_path / 'artificial_count.csv'))
+        shutil.copyfile(str(working_dir / 'gap_calculations.csv'), str(cloud_backup_path / 'gap_calculations.csv'))
+        shutil.copyfile(str(working_dir / 'gap_breakdown.csv'), str(cloud_backup_path / 'gap_breakdown.csv'))
+        shutil.copyfile(str(working_dir / 'in_network.csv'), str(cloud_backup_path / 'in_network.csv'))
+        shutil.copyfile(str(working_dir / latest_subdir / 'summary.csv'), str(cloud_backup_path / latest_subdir / 'summary.csv'))
+        shutil.copyfile(str(working_dir / latest_subdir / demand_db_name), str(cloud_backup_path / latest_subdir / demand_db_name))
+        shutil.copyfile(str(working_dir / latest_subdir / result_db_name), str(cloud_backup_path / latest_subdir / result_db_name))
+        if loop > 0:
+            shutil.copyfile(str(working_dir / latest_subdir / 'highway_skim_file.bin'), str(cloud_backup_path / latest_subdir / 'highway_skim_file.bin'))
+            #shutil.copyfile(str(working_dir / latest_subdir / 'transit_skim_file.bin'), str(cloud_backup_path / latest_subdir / 'transit_skim_file.bin'))
+            shutil.copyfile(str(working_dir / latest_subdir / 'in_network.png'), str(cloud_backup_path / latest_subdir / 'in_network.png'))
 
 
 if __name__ == '__main__':
@@ -289,5 +293,5 @@ if __name__ == '__main__':
         print(f'Usage {sys.argv[0]} <json_control_file> <data_directory>')
         sys.exit(-1)
 
-    init_model.init_model(sys.argv[2])
+    #init_model.init_model(sys.argv[2])
     run_conv(sys.argv[1], sys.argv[2])

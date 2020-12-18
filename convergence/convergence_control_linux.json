@@ -4,7 +4,8 @@
   "tail_app" : "/mnt/d/rweimer/polaris/polaris-hpc/convergence/tail.sh",
   "cloud_backup_path" : "\\\\vms-fs2\\VMS_FY19_SMART_Runs\\Chicago_ABM_Convergence2018\\Chicago_202000406_results\\",
 
-  "scenario_main_init" : "scenario_abm_init.json",
+  "scenario_skim_init" : "scenario_skim_init.json",
+  "scenario_main_init" : "scenario_abm.json",
   "scenario_main" : "scenario_abm.json",
   "num_abm_runs" : "3",
   "output_directories" : "bloomington_abm",
