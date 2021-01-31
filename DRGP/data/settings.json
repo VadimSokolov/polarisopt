@@ -1,21 +1,25 @@
 {
 	"General simulation controls" :
 	{
-        "simulation_path" : "/home/lschultz/DR_GP/simulator/POLARIS/Bloomington_Convergence/",
-        "simulation_scenario_name" : "scenario_convergence_abm.json",
-        "target_output_filename" : "/home/lschultz/DR_GP/simulator/Target/bloomington-Result.sqlite",
+        "polaris_executable" : "/lcrc/project/POLARIS/bebop/polaris/model/Integrated_Model",
+        "simulation_path" : "/gpfs/fs1/home/lschultz/DR_GP/simulator/POLARIS/Bloomington",
+        "convergence_path": "/gpfs/fs1/home/lschultz/DR_GP/simulator/convergence",
+        "convergence": true,
+        "simulation_scenario_name" : "scenario_abm.json",
+        "target_output_filename" : "bloomington-Result.sqlite",
         "output_SQL_query": "SELECT start_time,SUM(outbound_turn_travel_time - inbound_turn_travel_time) FROM 'TurnMOE' GROUP BY start_time"
     },
 
     "File controls" :
     {
-        "training_filename" : "mm_training_data.json",
-        "res_filename" : "mm_results.json"
+        "training_filename" : "timedep_training_data.json",
+        "res_filename" : "timedep_results.json"
     },
 
     "General BO controls" :
 	{
-        "num_BO_loops" : 20,
+        "xxxnum_BO_loops" : 20,
+        "num_BO_loops" : 3,
         "num_rec_points" : 2,
         "num_grid_points" : 2000,
         "acq_type" : "EI",
@@ -26,7 +30,7 @@
 
     "General DR controls" :
     {
-        "method" : "NN",
+        "method" : "None",
         "dim_DR" : 1,
         "seed_value" : 2,
         "method_update" : false,

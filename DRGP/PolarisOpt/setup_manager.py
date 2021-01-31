@@ -10,18 +10,19 @@ class SetupManager:
         required to run package functions 
         
         Example:
-        >>> settings_filename = os.path.join(os.getcwd(), 'settings.json')
-        >>> config_filename = os.path.join(os.getcwd(), 'config.json')
+        >>> settings_filename = 'settings.json'
+        >>> config_filename = 'config.json'
         >>> manager = SetupManager(settings_filename, config_filename)
         """
     def __init__(self, settings_filename, config_filename):
         r"""
         Args:
-            settings_filename (path): the path to a json file containing the simulation, reductive subspace, 
-                                  and Bayesian Optimization controls. See "settings_readme.md" 
-                                  for more information
-            config_filename (path):   the path to a json file containing information on the variables of the 
-                                  simulation being optimized. See "example_config.json" for structure help
+            settings_filename (str): the filename for the json file containing the simulation, reductive subspace, 
+                                  and Bayesian Optimization controls. This file must be located in the "data" folder.
+                                  See "settings_readme.md" for more information
+            config_filename (str):   the filename for the json file containing information on the variables of the 
+                                  simulation being optimized. This file must be located in the "data" folder.
+                                  See "example_config.json" for structure help
 
         Returns:
            a class object containing the information necessary to perform package functionality
@@ -43,78 +44,93 @@ class SetupManager:
 
     @settings_filename.setter
     def settings_filename(self, file_fn):
-        file_path = os.path.join(self.working_dir, 'data', file_fn)
-        if not file_path.endswith('.json'):
-            raise ValueError('The settings file must be a json file' % file_path)
-        elif not os.path.exists(file_path):
-            raise ValueError('The settings file path is invalid')
-        self._settings_filename = file_path
-        self._load_jsonfile(file_path)
-        self._set_paths()        
-        self.dim_out = len(eval_sim.query_db(self.target_output_filename, self.output_SQL_query))
+        self._settings_filename, self._settings_filepath = self._check_file(file_fn)
+        print('load %s' % self._settings_filepath)
+        self._load_jsonfile(self._settings_filepath)
+        print('load paths')
+        self._set_paths()   
+        self.dim_out = len(eval_sim.query_db(self._target_output_filepath, self.output_SQL_query))
 
     def _set_paths(self):
-        data_path = os.path.join(self.working_dir,'data')
-        self.training_filename = os.path.join(data_path, self.training_filename)
-        self.res_filename = os.path.join(data_path, self.res_filename)
-        self.target_output_filename = os.path.join(self.working_dir,'simulator','Target',self.target_output_filename)
-       
+        self.training_filename,self._training_filepath = self._check_file(self.training_filename)
+        self.res_filename,self._res_filepath = self._check_file(self.res_filename)
+        self._target_output_filepath = os.path.join(self.working_dir,'simulator','Target',self.target_output_filename)
+        if not os.path.exists(self._target_output_filepath):
+            raise ValueError('Target Output path %s is invalid' % self._target_output_filepath)
+        self.model_dir = os.path.join(self.working_dir, 'data', 'Models')   #automatically saved in the results file folder
+        if not os.path.exists(self.model_dir):
+            os.mkdir(self.model_dir)
+    
     @property
     def config_filename(self):
         return self._config_filename
 
     @config_filename.setter
     def config_filename(self, file_fn):
-        file_path = os.path.join(self.working_dir, 'data', file_fn)
-        if not file_path.endswith('.json'):
-            raise ValueError('The configuration file must be a json file')
-        elif not os.path.exists(file_path):
-            raise ValueError('The configuration file path is invalid')
-        self._config_filename = file_path
-        self.vnames, self.dim_in, self.orig_range = archiver.read_config(file_path) 
+        self._config_filename, self._config_filepath = self._check_file(file_fn)
+        self.vnames, self.dim_in, self.orig_range = archiver.read_config(self._config_filepath) 
         self.var = [i for v in self.vnames for i in v[1]]
 
-    def _load_jsonfile(self, json_fn):
-            dictionary = json.loads(open(json_fn).read())
-            p = [vkey for vkey in dictionary]
-            for vkey in p[:3]:
-                for key, value in dictionary[vkey].items(): 
-                    self.__dict__[key] = value      
-
-    def set_attribute(self, name, value):
-        if hasattr(self, name):
-            self.__dict__[name] = value
+    def _check_file(self,file_fn):
+        if os.path.dirname(file_fn)=='':
+            file_path = os.path.join(self.working_dir, 'data', file_fn)
         else:
-            raise ValueError("Attribute does not exist. If attempting to change a DR variable, change in settings.json file")
+            file_path = file_fn
+            file_fn = os.path.basename(file_fn)
+        if not file_path.endswith('.json'):
+            raise ValueError('File %s must be a json file' % file_path)
+        else:
+            return file_fn, file_path
+
+    def _load_jsonfile(self, json_fp):
+        print('loading file %s' % json_fp)
+        if not os.path.exists(json_fp):
+            raise ValueError('File path %s is invalid' % json_fp)
+        dictionary = json.loads(open(json_fp).read())
+        p = [vkey for vkey in dictionary]
+        for vkey in p[:3]:
+            for key, value in dictionary[vkey].items(): 
+                self.__dict__[key] = value 
+
+    def update_parameter(self, name, value):
+        if name == "settings_filename":
+            self._settings_filename, self._settings_filepath = self._check_file(value)
+        elif name == "config_filename":
+            self._config_filename, self._config_filepath = self._check_file(value)
+        elif hasattr(self, name):
+            self.__dict__[name] = value
+            if "filename" in name:
+                self._set_paths()
+        else:
+            raise ValueError("Parameter does not exist. If attempting to change a DR variable, this function is not needed; change in settings.json file directly")
 
     @property
-    def res_model_filename(self):
-        d,n = os.path.split(self.res_filename.split(os.extsep)[0])
-        return os.path.join(d, 'Models',n+'_model.pickle')
+    def res_model_filepath(self):
+        n = os.path.split(self.res_filename.split(os.extsep)[0])[0]
+        return os.path.join(self.model_dir,n+'_model.pickle')
 
     def load_training(self):
-        if self.training_filename is None:
+        if self._training_filepath is None:
             raise ValueError('A training file path is required but has not been defined')
-        self.training_filename = os.path.join(self.working_dir,'data',self.training_filename)
-        if not os.path.exists(self.training_filename):
+        if not os.path.exists(self._training_filepath):
             raise ValueError('The current training data file path is invalid')
-        train, _ = archiver.import_dataset(self.training_filename, x_key = "orig_input", y_key = "target_err")
+        train, _ = archiver.import_dataset(self._training_filepath, x_key = "orig_input", y_key = "target_err")
         if train.shape[1] != (self.dim_in + self.dim_out):
             raise ValueError('Expected %s columns but got %s' % ((self.dim_in + self.dim_out), train.shape[1]))
         return train[:, self.dim_out:], train[:, :self.dim_out]
         
     def load_results(self):
-        if self.res_filename is None:
+        if self._res_filepath is None:
             raise ValueError('A results file path is required but has not been defined')
         else:
-            return archiver.import_dataset(self.res_filename, x_key = "DR_input", y_key = "objective")
+            return archiver.import_dataset(self._res_filepath, x_key = "DR_input", y_key = "objective")
 
     def load_results_orig(self):
-        if self.res_filename is None:
+        if self._res_filepath is None:
             raise ValueError('A results file path is required but has not been defined')
-        if not os.path.exists(self.res_filename):
+        if not os.path.exists(self._res_filepath):
             raise ValueError('No original-subspace results file exists')
-        train, _ = archiver.import_dataset(self.res_filename, x_key = "orig_input", y_key = "objective")
+        train, _ = archiver.import_dataset(self._res_filepath, x_key = "orig_input", y_key = "objective")
         if train.shape[1] != (self.dim_in + self.dim_out):
             raise ValueError('Expected %s columns but got %s' % ((self.dim_in + self.dim_out), train.shape[1]))
         return train[:, self.dim_out:], train[:, :self.dim_out]

@@ -57,64 +57,108 @@ def run_task(manager, inputs, task):
     archiver.update_json(manager.vnames, inputs, task_dir)
 
     if hasattr(manager, 'polaris_executable'):
-        exe_fn = manager.polaris_executable
+        exe_fp = manager.polaris_executable
     else:
         if platform.system().lower() == 'windows':
-            exe_fn = os.path.join(manager.simulation_path, 'Integrated_model.exe')
+            exe_fp = os.path.join(manager.polaris_executable, 'Integrated_model.exe')
         else:
-            exe_fn = os.path.join(manager.simulation_path, 'Integrated_Model')
+            exe_fp = os.path.join(manager.polaris_executable, 'Integrated_Model')
     
-    print('Polaris Executable: {}'.format(exe_fn), flush=True)
+    print('Polaris Executable: {}'.format(exe_fp), flush=True)
 
-    run_sim(task_dir, exe_fn, manager.simulation_scenario_name,manager.working_dir)
+    sc_fp = os.path.join(task_dir, manager.simulation_scenario_name)
+    if manager.convergence:
+       cv_fp=manager.convergence_path
+    else:
+       cv_fp=None
+    print('Polaris Convergence: {}'.format(cv_fp), flush=True)
+    run_sim(task_dir, exe_fp, sc_fp, manager.working_dir, cv_fp)
     print(os.getcwd())
     obj, y_err = pull_result(task_dir, manager)
     end = time.perf_counter()
     return obj, y_err, convert_time(end-start)
 
 
-def run_sim(task_dir, exe_fn, sc_fn, working_dir):
+def run_sim(task_dir, exe_fp, sc_fp, working_dir, cv_fp=None):
     r"""runs the POLARIS executable with the associated scenario file
     Args:
         task_dir: (path) path to the folder containing the scenario and variable-related files
-        exe_fn: (path) full path to the Polaris Integrated_model.exe
-        sc_fn: (path) scenario filename within task_dir for the .json needed to run an instance of the executable
+        exe_fp: (path) full path to the Polaris Integrated_model.exe
+        sc_fp: (path) scenario filename within task_dir for the .json needed to run an instance of the executable
+        cv_fp: (path) convergence directory path if convergence should be run
     """
     os.chdir(task_dir)
     # Run the Polaris exe file via pipe
     num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
 #    if platform.system().lower() == 'windows':
-#        p1 = Popen([exe_fn, sc_fn,num_threads], shell=True)
+#        p1 = Popen([exe_fp, sc_fp, num_threads], shell=True)
 #    else:
 #        num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
-    p1 = Popen([exe_fn, sc_fn, num_threads], shell=False)
+
+    # create an init scenario file for local task_dir from scenario.json file
+    if cv_fp is not None:
+        control_fp=create_conv_files(sc_fp, exe_fp, cv_fp, num_threads)
+        p1= Popen(['python', os.path.join(cv_fp,'run_convergence.py'),control_fp,task_dir],shell=False)
+    else:
+        p1 = Popen([exe_fp, sc_fp, num_threads], shell=False)
     p1.wait()
     os.chdir(working_dir)
     return print("task completed")
 
 
+def create_conv_files(sc_fp,exe_fp, cv_fp, num_threads):
+    #create an init version of scenario
+    p,f= sc_fp.split(os.extsep) 
+    sc_fp_init = p + "_init."+f
+    output_base, database_base = pull_basenames(sc_fp)
+    output_control_fp = os.path.join(os.path.dirname(sc_fp),database_base + "_control.json")
+    dictionary = json.loads(open(sc_fp).read())
+    #check with randy
+    dictionary["Routing and skimming controls"]["time_dependent_routing"]=False
+    dictionary["Population synthesizer controls"]["read_population_from_database"]=False
+    dictionary["Population synthesizer controls"]["percent_to_synthesize"]=0.01
+    dictionary["Population synthesizer controls"]["demand_reduction_factor"]=0
+    with open(sc_fp_init, 'w+') as fp:
+        json.dump(dictionary, fp, indent = 4)
+
+    #TO DO: right now num_abm_runs set to 3 by default
+    dictionary = {}
+    dictionary["scenario_main_init"] = sc_fp_init
+    dictionary["scenario_main"] = sc_fp
+    dictionary["num_abm_runs"] = 3
+    dictionary["output_directories"] = output_base
+    dictionary["num_threads"] = num_threads
+    dictionary["database_base_name"] = database_base
+    dictionary["model"] = exe_fp
+    dictionary["scripts_dir"] = cv_fp
+    #dictionary["standard_dir"]= 
+    dictionary["results_dir"]= "convergence_results"
+    with open(output_control_fp, 'w+') as fp:
+        json.dump(dictionary, fp, indent = 4)
+    return output_control_fp
+
+def pull_basenames(sc_fp):
+        dictionary = json.loads(open(sc_fp).read())
+        output_base = dictionary['Output controls']['output_dir_name']
+        database_base = dictionary["General simulation controls"]['database_name']
+        #if platform.system().lower() == 'linux':
+        #    output_base = 'linux_{}'.format(output_base)
+        return output_base, database_base
+        
 def pull_result(task_dir, manager):
     r"""Performs a SQL query to retrieve the results and calculates the objective value
     Args:
         task_dir (path): folder path containing the sample-instance files
         manager (class): object containing settings for simulation
-            simulation_path: path to the folder containing the simulation
     Returns:
         the uncollapsed distance from the target outputs and objective
         value
     """
-    sc_fn = os.path.join(task_dir, manager.simulation_scenario_name)
-    dictionary = json.loads(open(sc_fn).read())
-    output_dir = dictionary['Output controls']['output_dir_name']
-    if platform.system().lower() == 'linux':
-        output_dir = 'linux_{}'.format(output_dir)
-    print(output_dir, flush=True)
     task_db = os.path.join(
         task_dir,
-        output_dir,
-        os.path.split(manager.target_output_filename)[1]
+        manager.target_output_filename
     )
-    target_db = manager.target_output_filename
+    target_db = manager._target_output_filepath
 
     new_output = query_db(task_db, manager.output_SQL_query)
     ref_output = query_db(target_db, manager.output_SQL_query)
@@ -128,13 +172,12 @@ def pull_result(task_dir, manager):
         return run_objective(ref_output[:, 1]-new_output[:, 1], manager.objective_type)
 
 
-def eval_sample_task(manager, output_fn, inputs, task):
+def eval_sample_task(manager, output_fp, inputs, task):
     r"""Evaluates a set of inputs generated in the original subspace and records the outcome
 
     Args:
         manager (class): object containing settings for simulation
-            simulation_path: path to the folder containing the simulation
-        output_fn (path): full path to file outputs should be saved to
+        output_fp (path): full path to file outputs should be saved to
         inputs (n-array): the new values to be run
         task (int): counter indicating simulation instance being performed
 
@@ -150,7 +193,7 @@ def eval_sample_task(manager, output_fn, inputs, task):
             [inputs],
             ["status", "run_time"],
             [["Errored", rtime]],
-            output_fn,
+            output_fp,
             identifier_key="orig_input"
         )
     else:
@@ -158,7 +201,7 @@ def eval_sample_task(manager, output_fn, inputs, task):
             [inputs],
             ["status", "objective", "target_err", "run_time"],
             [["Completed", obj, y_err, rtime]],
-            output_fn,
+            output_fp,
             identifier_key="orig_input"
         )
 
@@ -185,7 +228,7 @@ def eval_DR_task(manager, DR_model, DR_input, task):
             [DR_input],
             ["status", "orig_input", "run_time"],
             [["Errored", xhat, rtime]],
-            manager.res_filename,
+            manager._res_filepath,
             identifier_key="DR_input"
         )
     else:
@@ -193,6 +236,6 @@ def eval_DR_task(manager, DR_model, DR_input, task):
             [DR_input],
             ["status", "orig_input", "objective", "target_err", "run_time"],
             [["Completed", xhat, obj, y_err, rtime]],
-            manager.res_filename,
+            manager._res_filepath,
             identifier_key="DR_input"
         )

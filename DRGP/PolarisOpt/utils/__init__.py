@@ -6,5 +6,6 @@ from . import (
     sampler,
     util,
     fit,
-    transforms
+    transforms,
+    objective_funcs
 )

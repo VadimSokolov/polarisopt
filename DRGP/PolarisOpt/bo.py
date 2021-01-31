@@ -51,7 +51,7 @@ def main_loop(manager, DR_model = None, M_model = None):
         gp = initialize_GP(eval_samples[:,1:], eval_samples[:,:1], M_model)
         best_x, unsam_pool = get_recommendation(gp, manager.acq_type, unsam_pool) #DR subspace
 #        gp = gp.fantasize(best_x) #GP space
-        archiver.create_record(best_x[:1,:], manager.res_filename, manager.var, identifier_key = "DR_input")
+        archiver.create_record(best_x[:1,:], manager._res_filepath, manager.var, identifier_key = "DR_input")
         inputs = torch.as_tensor(best_x, device = gp.device) #in DR range
         posterior = gp.forward(inputs) #results in GP range
         fake_y = gp.likelihood(posterior).loc.detach()[:, None] #in GP range

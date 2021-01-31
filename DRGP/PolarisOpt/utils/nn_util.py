@@ -30,7 +30,8 @@ class Calibrate_NN(ABC):
     Args:
         BO_var: a nested list of each variable that is to be optimized in the syntax [variable_name, min_value, max_value, variable_type]
                 possible values for variables currently accepted are based on specific class
-         fixed_var: a nested list of each variable that should be given a specific value not equal to the defaults above
+        fixed_var: a nested list of each variable that should be given a specific value not equal to the defaults above
+        res_filename: the name of the file to save to
         """
         super().__init__()
         self.BO_var = BO_var
@@ -39,6 +40,7 @@ class Calibrate_NN(ABC):
         self.seed = 0   
         self.set_attribute(fixed_var)
         self.res_filename = res_filename
+        self._res_filepath = None
     
     def set_attribute(self, sets):
             for key, value in sets:
@@ -61,16 +63,17 @@ class Calibrate_NN(ABC):
 
     def set_base(self, manager):
         pinfo = copy.deepcopy(manager)
-        pinfo.set_attribute('res_filename', self.res_filename)
+        pinfo.update_parameter('res_filename', self.res_filename)
+        self._res_filepath=pinfo._res_filepath
         l = [i[0] for i in self.BO_var]
         _, b = np.unique(l, return_index = True)
         min_range = [self.BO_var[i][1] if i in b else 0 for i in range(0, len(self.BO_var))]
 
         max_range = [i[2] for i in self.BO_var]
-        pinfo.set_attribute('orig_range', [np.c_[min_range, max_range], [i[3] for i in self.BO_var]])
+        pinfo.update_parameter('orig_range', [np.c_[min_range, max_range], [i[3] for i in self.BO_var]])
 
         #step 1: create an initial sample for BO if no training
-        if not os.path.exists(self.res_filename):
+        if not os.path.exists(self._res_filepath):
             variables = np.vstack(
                 (
                     min_range, 
@@ -80,7 +83,7 @@ class Calibrate_NN(ABC):
                 )
             temp = ''.join(["P " + ' '.join(map(str, v)) + "\n" for v in variables])
 
-            with open(self.res_filename, 'a+') as outfile:
+            with open(self._res_filepath, 'a+') as outfile:
                 outfile.write(temp)
         return pinfo
 
@@ -91,7 +94,7 @@ class Calibrate_NN(ABC):
         pass
 
     def best_solution(self, wiggle_room = .05, y_range = None):
-        NN_runs, _ = archiver.import_dataset(self.res_filename, x_key = "orig_input", y_key = "objective")
+        NN_runs, _ = archiver.import_dataset(self._res_filepath, x_key = "orig_input", y_key = "objective")
         if y_range is None:
             return print(*[
                 [i[0], *self._translate_vars(i[1:])] for i in NN_runs[
@@ -178,14 +181,14 @@ class Calibrate_DRNN(Calibrate_NN):
 
     def run(self, manager, num_grid_points = 2000, num_trials = 30, num_rec_points = 3, acq_type = 'EI', quiet = True):
         pinfo = self.set_base(manager)
-        pinfo.set_attribute('num_grid_points', num_grid_points)
-        pinfo.set_attribute('num_rec_points', num_rec_points)
-        pinfo.set_attribute('acq_type', acq_type)
+        pinfo.update_parameter('num_grid_points', num_grid_points)
+        pinfo.update_parameter('num_rec_points', num_rec_points)
+        pinfo.update_parameter('acq_type', acq_type)
 
         #step 2: use BO on NN_calb.txt over NN variables
         for l in range(0, num_trials+1):
             #After a Bayes set is recorded, we need to evaluate the pending ones denoted with 'P'
-            _, pend_samples = archiver.import_dataset(self.res_filename)
+            _, pend_samples = archiver.import_dataset(self._res_filepath)
             util.thread_it(self.eval_loss, [(manager, row, quiet) for row in pend_samples])
             if l<num_trials:
             #If less then the number of trials we run, run another Bayes set
@@ -196,7 +199,7 @@ class Calibrate_DRNN(Calibrate_NN):
     def eval_loss(self, manager, variables, quiet = True):
         layers, lr, dim_DR, epochs, seed = self._translate_vars(variables)
         count = np.sum([min(0, len(i)-1) for i in layers])
-        _, _, _, NN_v, _ = archiver.load_DR_settings(manager.settings_filename)
+        _, _, _, NN_v, _ = archiver.load_DR_settings(manager._settings_filepath)
             #[epochs, learning_rate, lambda, penalty, XDR_layer, DRX_layer, DRY_layer]
         NN_var = [
             manager.dim_in, 
@@ -224,7 +227,7 @@ class Calibrate_DRNN(Calibrate_NN):
         y = loss.item() + (max(1, loss.item*.1)*count)
         if not quiet:
             print(y)
-        archiver.update_record([variables], ["objective"], [[y]], self.res_filename)
+        archiver.update_record([variables], ["objective"], [[y]], self._res_filepath)
 
 
 class Calibrate_Mean_NN(Calibrate_NN):
@@ -279,13 +282,13 @@ class Calibrate_Mean_NN(Calibrate_NN):
 
     def run(self, manager, DR_model, num_grid_points = 2000, num_trials = 30, num_rec_points = 3, acq_type = 'EI', quiet = True):
         pinfo = self.set_base(manager)
-        pinfo.set_attribute('num_grid_points', num_grid_points)
-        pinfo.set_attribute('num_rec_points', num_rec_points)
-        pinfo.set_attribute('acq_type', acq_type)
+        pinfo.update_parameter('num_grid_points', num_grid_points)
+        pinfo.update_parameter('num_rec_points', num_rec_points)
+        pinfo.update_parameter('acq_type', acq_type)
         #step 2: use BO on NN_calb.txt over NN variables
         for l in range(0, num_trials+1):
             #After a Bayes set is recorded, we need to evaluate the pending ones denoted with 'P'
-            _, pend_samples = archiver.import_dataset(self.res_filename)
+            _, pend_samples = archiver.import_dataset(self._res_filepath)
             util.thread_it(self.eval_loss, [(manager, DR_model, row, quiet) for row in pend_samples])
             if l<num_trials:
             #If less then the number of trials we run, run another Bayes set
@@ -314,7 +317,7 @@ class Calibrate_Mean_NN(Calibrate_NN):
         y = loss.item() + (max(1, loss.item*.1)*count)
         if not quiet:
             print(y)
-        archiver.update_record([variables], ["objective"], [[y]], self.res_filename)
+        archiver.update_record([variables], ["objective"], [[y]], self._res_filepath)
 
 
 
@@ -327,7 +330,7 @@ class Calibrate_Mean_NN(Calibrate_NN):
 
 
 # def find_dimDR(manager, DR_range):
-#     _, _, seed, NN_v, _ = archiver.load_DR_settings(manager.settings_filename)
+#     _, _, seed, NN_v, _ = archiver.load_DR_settings(manager._settings_filename)
 #             #[epochs, learning_rate, lambda, penalty, XDR_layer, DRX_layer, DRY_layer]
 #     NN_var = [
 #         manager.dim_in, 

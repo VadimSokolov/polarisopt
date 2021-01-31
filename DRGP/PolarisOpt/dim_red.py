@@ -36,20 +36,17 @@ def create_DR(manager, training_file = '', quiet = False):
         dimension reduction model (class)
     """
     if training_file == '':
-        training_file=manager.training_filename
+        training_file=manager._training_filepath
         
     ############################################
     #Step 1: Establish needed info             #
     ############################################
-    method, dim_DR, seed_value, NN_var, _ = archiver.load_DR_settings(manager.settings_filename)
+    method, dim_DR, seed_value, NN_var, _ = archiver.load_DR_settings(manager._settings_filepath)
     torch.random.manual_seed(seed_value)
     #we automatically save the generated model in the same location as the results file given
     if not os.path.exists(training_file):
         ValueError('%s does not exist' % training_file)
-    m_folder = os.path.join(os.path.dirname(manager.res_filename), 'Models')   #automatically saved in the results file folder
-    if not os.path.exists(m_folder):
-        os.mkdir(m_folder)
-    model_fn = os.path.join(m_folder, manager.res_model_filename)
+    model_fp = manager.res_model_filepath
 
     ############################################
     #Step 1: Create instance of technique model#
@@ -90,10 +87,10 @@ def create_DR(manager, training_file = '', quiet = False):
     ##################################################
     #Step 4: save results in results file used by GPs#
     ##################################################
-    shutil.copyfile(training_file, manager.res_filename)
-    archiver.update_record(train_X, ["DR_input","objective"], list(zip(train_DR, train_Y_obj)), manager.res_filename)
-    print(model_fn, flush=True)
-    _ = archiver.save_model(DR_model, model_fn)
+    shutil.copyfile(training_file, manager._res_filepath)
+    archiver.update_record(train_X, ["DR_input","objective"], list(zip(train_DR, train_Y_obj)), manager._res_filepath)
+    print(model_fp, flush=True)
+    _ = archiver.save_model(DR_model, model_fp)
     return DR_model
 
 
@@ -107,7 +104,7 @@ def tune_DR(manager, quiet=False):
     Returns:
         dimension reduction model (class)
     """
-    return create_DR(manager, training_file = manager.res_filename, quiet = quiet)
+    return create_DR(manager, training_file = manager._res_filepath, quiet = quiet)
 
 ##########################################################################################################################################
 ##########################################################################################################################################

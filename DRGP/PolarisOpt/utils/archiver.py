@@ -11,41 +11,41 @@ import dill
 import json
 from . import util
 
-def save_model(model, model_fn):
+def save_model(model, model_fp):
     r"""saves a model using dill
 
     Args:
         model: (model) the model to be saved. Example models include: DR_model, Mean_NN, GaussianProcess
-        model_fn: (path) path to the location where the model should be saved
+        model_fp: (path) path to the location where the model should be saved
         
     Returns:
         prints a success indicator of model being saved and to where
     """
-    with open(model_fn, "wb+") as f:
+    with open(model_fp, "wb+") as f:
             dill.dump(model, f)
-    return print('saved %s to %s' % (model, model_fn))
+    return print('saved %s to %s' % (model, model_fp))
 
 
-def load_model(model_fn):
+def load_model(model_fp):
     r"""loads a model using dill
     Args:
-        model_fn: (path) path to the location where the model is saved
+        model_fp: (path) path to the location where the model is saved
         
     Returns:
         model: (model) the loaded model. Example models include: DR_model, Mean_NN, GaussianProcess
     """
-    if not os.path.exists(model_fn):
-        raise ValueError("No saved model exists for %s" % model_fn)
-    with open(model_fn, "rb") as f:
+    if not os.path.exists(model_fp):
+        raise ValueError("No saved model exists for %s" % model_fp)
+    with open(model_fp, "rb") as f:
         model = dill.load(f)
     return model
 
 
-def read_config(config_filename):
+def read_config(config_filepath):
     r"""Reads a json configuration file for the  calibration variables
 
     Args:
-        config_filename (path): the path location for the 'config.json' file. See example_config.json for help
+        config_filepath (path): the path location for the configuration file. See example_config.json for help
         
     Returns:
         variable names (nested list): an ordered list containing the names of every variable being explored, 
@@ -58,7 +58,7 @@ def read_config(config_filename):
     Example:
         >>> vnames, dim_in, x_range = read_config(data_dir)
     """
-    variables = json.loads(open(config_filename).read())   ##reads config file
+    variables = json.loads(open(config_filepath).read())   ##reads config file
 #    totaldim = np.sum([vkey["size"] for key in variables for vkey in variables[key]])
     vnames = [[key, [vkey["name"] for vkey in variables[key] for n in range(0, int(vkey["size"]))]] for key in variables]
     Lower = [float(vkey["min"]) for key in variables for vkey in variables[key] for n in range(0, int(vkey["size"]))]
@@ -83,21 +83,21 @@ def update_json(vnames, new_values, dest_dir):
     elif len(new_values.shape) == 2:
         new_values = new_values[0,:]
     for vkey in vnames:
-        t_fn = os.path.join(dest_dir, vkey[0])
-        dictionary = json.loads(open(t_fn).read())
+        t_fp = os.path.join(dest_dir, vkey[0])
+        dictionary = json.loads(open(t_fp).read())
         for dkey in dictionary:
             for ind in vkey[1]:
                if ind in dictionary[dkey]:
                     dictionary[dkey][ind], new_values = new_values[0], np.delete(new_values,0)
-        with open(t_fn, 'w') as fp:
+        with open(t_fp, 'w') as fp:
             json.dump(dictionary, fp, indent = 4)
 
 
-def load_DR_settings(DR_settings_filename):
+def load_DR_settings(DR_settings_filepath):
     r"""loads the parameters necessary for the applied Dimension Reduction technique
 
     Args:
-        DR_settings_filename: (path) path to the json file containing the Dimension Reduction controls
+        DR_settings_filepath: (path) path to the json file containing the Dimension Reduction controls
         
     Returns:
         method: the dimension reduction technique being applied
@@ -106,7 +106,7 @@ def load_DR_settings(DR_settings_filename):
         NN_var: the necessary variables for a dimension-reduction neural network
         NN_mean_var: the necessary variables for a neural network mean for the Bayes Opt GP
     """
-    dictionary = json.loads(open(DR_settings_filename).read())
+    dictionary = json.loads(open(DR_settings_filepath).read())
     method = dictionary['General DR controls']['method']
     dim_DR = dictionary['General DR controls']['dim_DR']
     seed_value = dictionary['General DR controls']['seed_value']
@@ -117,11 +117,11 @@ def load_DR_settings(DR_settings_filename):
     return method, dim_DR, seed_value, NN_var, NN_mean_var
 
 
-def load_update_settings(settings_filename):
+def load_update_settings(settings_filepath):
     r"""loads the parameters necessary for the Bayes Opt to know if updating the subspace is needed
 
     Args:
-        settings_filename: (path) path to the json file containing the Dimension Reduction settings
+        settings_filepath: (path) path to the json file containing the Dimension Reduction settings
         
     Returns:
         DR_updates: (list) contains a boolean True if the Dimension Reduction subspace should be retrained, followed 
@@ -130,7 +130,7 @@ def load_update_settings(settings_filename):
                            by the interval for making the updates
 
     """
-    dictionary = json.loads(open(settings_filename).read())
+    dictionary = json.loads(open(settings_filepath).read())
     DR_updates = [
         dictionary['General DR controls']['method_update'], 
         dictionary['General DR controls']['method_update_interval']]
@@ -140,11 +140,11 @@ def load_update_settings(settings_filename):
     return DR_updates, mean_updates
 
 
-def import_dataset(data_fn, x_key = "orig_input", y_key = "target_err"):
+def import_dataset(data_fp, x_key = "orig_input", y_key = "target_err"):
     r"""A helper function to parse a file of datapoints in a json file
     
     Args:
-        data_fn (filepath): the file containing the samples
+        data_fp (filepath): the file containing the samples
         x_key (text): whether to return the inputs in the original domain ("orig_input") or the DR domain ("DR_input")
         y_key (text): whether to return the error by input ("target_err") or BO objective function ("objective")
     
@@ -153,7 +153,7 @@ def import_dataset(data_fn, x_key = "orig_input", y_key = "target_err"):
         pend_samples (nd-array): an array with each row documenting an unevaluated sample
     """
     try:
-        dictionary = json.loads(open(data_fn).read())
+        dictionary = json.loads(open(data_fp).read())
     except OSError:
         return np.array([]), np.array([])
 
@@ -194,9 +194,9 @@ def new_record(inputs, var_names = None, identifier_key = "orig_input"):
         })
     return new   
 
-def create_record(inputs, data_fn, var_names = None, identifier_key = "orig_input"):
+def create_record(inputs, data_fp, var_names = None, identifier_key = "orig_input"):
     try:
-        dictionary = json.loads(open(data_fn).read())
+        dictionary = json.loads(open(data_fp).read())
     except OSError:
         dictionary = []
 
@@ -204,13 +204,13 @@ def create_record(inputs, data_fn, var_names = None, identifier_key = "orig_inpu
         new = new_record(item, var_names, identifier_key)
         dictionary.append(new)
 
-    with open(data_fn, 'w') as fp:
+    with open(data_fp, 'w') as fp:
         json.dump(dictionary, fp, indent = 4)
 
 
-def update_record(inputs, keys, values, data_fn, identifier_key = "orig_input"):
+def update_record(inputs, keys, values, data_fp, identifier_key = "orig_input"):
     try:
-        dictionary = json.loads(open(data_fn).read())
+        dictionary = json.loads(open(data_fp).read())
     except OSError:
         dictionary = []
         
@@ -228,7 +228,15 @@ def update_record(inputs, keys, values, data_fn, identifier_key = "orig_input"):
                 new[k] = util.convert_2str(vv)
             dictionary.append(new)
         if flag > 1:
-            print("INFO: you have a repeated sample in %s" % data_fn)
+            print("INFO: you have a repeated sample in %s" % data_fp)
 
-    with open(data_fn, 'w') as fp:
+    with open(data_fp, 'w') as fp:
         json.dump(dictionary, fp, indent = 4)
+
+def pull_basenames(sc_fp):
+        dictionary = json.loads(open(sc_fp).read())
+        output_base = dictionary['Output controls']['output_dir_name']
+        database_base = dictionary["General simulation controls"]['database_name']
+        if platform.system().lower() == 'linux':
+            output_base = 'linux_{}'.format(output_base)
+        return output_base, database_name

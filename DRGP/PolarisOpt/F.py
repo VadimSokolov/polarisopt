@@ -14,40 +14,42 @@ from PolarisOpt import bo
 from PolarisOpt import dim_red
 
 
-def build_sampleset(manager, res_filename, max_parallel = 2, num_samples = 0, use_emews=False):
+def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, use_emews=False):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
     Args:
         manager (SetupManager class): central parameter keeper
-        res_filename (path): the file to place evaluated or pending points into. Of the format [Y,X]
+        res_fn (text): the file name to place evaluated or pending points into. Will be placed
+        in the 'data' folder and in the format of [Y,X]
         max_parellel (int): the largest number of parallel evaluations allowed while evaluating all pending samples
-                in the res_filename file
+                in the res_fn file
         num_samples (int): the number of samples taken from a Lating Hypercube constructed across the statespace
                 If num_samples = 0, no additional samples will be created
         
     Returns:
       a file containing the evaluated samples in the format necessary for training [Y, X]
     """
+    res_fn, res_fp = manager._check_file(res_fn)
 
     #################################
     #STEP 1: Create LHS if desired  #
     #################################
     if num_samples>0:
         pend_samples = sampler.LHS_pool(manager.orig_range[0], num_samples, manager.orig_range[1])
-        archiver.create_record(pend_samples, res_filename, var_names = manager.var, identifier_key = "orig_input")
+        archiver.create_record(pend_samples, res_fp, var_names = manager.var, identifier_key = "orig_input")
     else:
-        _, pend_samples = archiver.import_dataset(res_filename, x_key = "orig_input", y_key = "target_err")
+        _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
 
     if use_emews:
         import emews
-        args = [(manager, res_filename, pend_samples[row], row) for row in range(len(pend_samples))]
+        args = [(manager, res_fp, pend_samples[row], row) for row in range(len(pend_samples))]
         tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
         pool = emews.Pool(tmp_dir, rank_type="workers")
         pool.map(eval_sim.eval_sample_task, args)
     else:
         while len(pend_samples)>0:
             tasks = min(len(pend_samples), max_parallel)
-            util.thread_it(eval_sim.eval_sample_task, [(manager, res_filename, pend_samples[row], row) for row in range(tasks)])
-            _, pend_samples = archiver.import_dataset(res_filename, x_key = "orig_input", y_key = "target_err")
+            util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
+            _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
 
 
 
@@ -68,15 +70,12 @@ def build_calibration(manager, quiet = True):
     DR_model = dim_red.create_DR(manager, quiet = quiet)
 
     if manager.add_nn_GP_mean:
-        _, _, _, _, NN_mean_var = archiver.load_DR_settings(manager.settings_filename)
+        _, _, _, _, NN_mean_var = archiver.load_DR_settings(manager._settings_filepath)
         M_model = cgp.Mean_NN([manager.dim_in, manager.dim_out, *NN_mean_var], DR_model)
         M_model.calculate(manager, quiet = quiet)
-        #auto saves to same folder as DR_model and res_filenames
-        m_folder = os.path.join(os.path.dirname(manager.res_filename), 'Models')
-        if not os.path.exists(m_folder):
-            os.mkdir(m_folder)
-        model_fn = os.path.join(m_folder, 'mean_model.pickle')
-        archiver.save_model(M_model, model_fn)
+        #auto saves to data folder
+        model_fp = os.path.join(manager.model_dir, 'mean_model.pickle')
+        archiver.save_model(M_model, model_fp)
     else:
         M_model = None
     return DR_model, M_model        
@@ -97,7 +96,7 @@ def calibrate_simulation(manager, DR_model, M_model = None, quiet=True, use_emew
       a .json file containing the Bayes Opt results 
     """
 
-    DR_updates, mean_updates = archiver.load_update_settings(manager.settings_filename)
+    DR_updates, mean_updates = archiver.load_update_settings(manager._settings_filepath)
         
     # going to have to run 1 more than number of requested loops to record the final loop's returned data points
     for l in range(0, manager.num_BO_loops+1):
@@ -122,9 +121,8 @@ def calibrate_simulation(manager, DR_model, M_model = None, quiet=True, use_emew
             if (l+1) % mean_updates[1] == 0:
                 #need to re-arrange the results file as a new 'training file'
                 M_model.tune(manager, quiet = quiet)
-                m_folder = os.path.join(os.path.dirname(manager.res_filename), 'Models')
-                model_fn = os.path.join(m_folder, 'mean_model.pickle')
-                archiver.save_model(M_model, model_fn)
+                model_fp = os.path.join(manager.model_dir, 'mean_model.pickle')
+                archiver.save_model(M_model, model_fp)
                 time.sleep(10)
 
         if l<manager.num_BO_loops:
