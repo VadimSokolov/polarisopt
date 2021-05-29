@@ -161,10 +161,14 @@ def import_dataset(data_fp, x_key = "orig_input", y_key = "target_err"):
         (item[y_key] +' ' + item[x_key]).split()
         for item in dictionary if item["status"]=="Completed"
         ]).astype(float)        
-    pend_samples = np.asarray([
-        item[x_key].split()
-        for item in dictionary if item["status"]!="Completed"
-        ]).astype(float)        
+    pends=[item[x_key] for item in dictionary if item["status"]!="Completed"]
+    if 'P' in pends:
+        raise print("Some pending samples are untranslated in subspace %s and have been excluded" % x_key)
+    else:
+        pend_samples = np.asarray([
+            item.split()
+            for item in pends if item!='P'
+            ]).astype(float)
     return eval_samples, pend_samples
 
 def new_record(inputs, var_names = None, identifier_key = "orig_input"):

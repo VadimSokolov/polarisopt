@@ -44,17 +44,16 @@ class SetupManager:
 
     @settings_filename.setter
     def settings_filename(self, file_fn):
-        self._settings_filename, self._settings_filepath = self._check_file(file_fn)
-        print('load %s' % self._settings_filepath)
+        self._settings_filename, self._settings_filepath = self._check_file(file_fn,['data'])
         self._load_jsonfile(self._settings_filepath)
-        print('load paths')
-        self._set_paths()   
+        self._set_paths()
+        print('validating SQL query on %s'%self._target_output_filepath)
         self.dim_out = len(eval_sim.query_db(self._target_output_filepath, self.output_SQL_query))
 
     def _set_paths(self):
-        self.training_filename,self._training_filepath = self._check_file(self.training_filename)
-        self.res_filename,self._res_filepath = self._check_file(self.res_filename)
-        self._target_output_filepath = os.path.join(self.working_dir,'simulator','Target',self.target_output_filename)
+        self.training_filename,self._training_filepath = self._check_file(self.training_filename,['data'])
+        self.res_filename,self._res_filepath = self._check_file(self.res_filename,['data'])
+        self.target_output_filename, self._target_output_filepath = self._check_file(self.target_output_filename,['simulator','Target'])
         if not os.path.exists(self._target_output_filepath):
             raise ValueError('Target Output path %s is invalid' % self._target_output_filepath)
         self.model_dir = os.path.join(self.working_dir, 'data', 'Models')   #automatically saved in the results file folder
@@ -67,23 +66,21 @@ class SetupManager:
 
     @config_filename.setter
     def config_filename(self, file_fn):
-        self._config_filename, self._config_filepath = self._check_file(file_fn)
+        self._config_filename, self._config_filepath = self._check_file(file_fn,['data'])
         self.vnames, self.dim_in, self.orig_range = archiver.read_config(self._config_filepath) 
         self.var = [i for v in self.vnames for i in v[1]]
 
-    def _check_file(self,file_fn):
+    def _check_file(self,file_fn,exp_root=[]):
         if os.path.dirname(file_fn)=='':
-            file_path = os.path.join(self.working_dir, 'data', file_fn)
+            file_path = os.path.join(self.working_dir, *exp_root, file_fn)
         else:
             file_path = file_fn
             file_fn = os.path.basename(file_fn)
-        if not file_path.endswith('.json'):
-            raise ValueError('File %s must be a json file' % file_path)
-        else:
-            return file_fn, file_path
+        return file_fn, file_path
 
     def _load_jsonfile(self, json_fp):
-        print('loading file %s' % json_fp)
+        if not json_fp.endswith('.json'):
+            raise ValueError('File %s must be a json file' % json_fp)
         if not os.path.exists(json_fp):
             raise ValueError('File path %s is invalid' % json_fp)
         dictionary = json.loads(open(json_fp).read())
@@ -93,11 +90,7 @@ class SetupManager:
                 self.__dict__[key] = value 
 
     def update_parameter(self, name, value):
-        if name == "settings_filename":
-            self._settings_filename, self._settings_filepath = self._check_file(value)
-        elif name == "config_filename":
-            self._config_filename, self._config_filepath = self._check_file(value)
-        elif hasattr(self, name):
+        if hasattr(self, name):
             self.__dict__[name] = value
             if "filename" in name:
                 self._set_paths()
@@ -106,8 +99,8 @@ class SetupManager:
 
     @property
     def res_model_filepath(self):
-        n = os.path.split(self.res_filename.split(os.extsep)[0])[0]
-        return os.path.join(self.model_dir,n+'_model.pickle')
+        n = os.path.split(self.res_filename.split(os.extsep)[0])[1]
+        return os.path.join(self.model_dir,n + '_model.pickle')
 
     def load_training(self):
         if self._training_filepath is None:
@@ -131,15 +124,19 @@ class SetupManager:
         if not os.path.exists(self._res_filepath):
             raise ValueError('No original-subspace results file exists')
         train, _ = archiver.import_dataset(self._res_filepath, x_key = "orig_input", y_key = "objective")
-        if train.shape[1] != (self.dim_in + self.dim_out):
-            raise ValueError('Expected %s columns but got %s' % ((self.dim_in + self.dim_out), train.shape[1]))
-        return train[:, self.dim_out:], train[:, :self.dim_out]
+        if train.shape[1] != (self.dim_in + 1):
+            raise ValueError('Expected %s columns but got %s' % ((self.dim_in + 1), train.shape[1]))
+        return train[:,1:], train[:,:1]
 
-
-
-
-
-
+    def load_samples(self, filepath, x_key = "orig_input", y_key = "target_err"):
+        if not os.path.exists(filepath):
+            raise ValueError('%s is not a valid filepath' % filepath)
+        archiver._check_keys(x_key,y_key) 
+        eval_samples, uneval_samples = archiver.import_dataset(filepath, x_key, y_key)
+        if y_key == "target_err":
+            return eval_samples[:, self.dim_out:], eval_samples[:, :self.dim_out], uneval_samples
+        else:
+            return eval_samples[:,1:],eval_samples[:,:1], uneval_samples     
 
 
 
