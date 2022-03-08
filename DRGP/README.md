@@ -34,3 +34,7 @@ This program assumes the following structure:
 * threading module for parallelization
 * numpy, scipy, and matplotlib python packages
 
+
+## Paper
+[Dropbox](https://www.dropbox.com/s/50c4stluokhyycr/polaris-drbo.pdf?dl=1)
+The papeer was submitted to Arxiv on March 8, 2022. Will update when published
