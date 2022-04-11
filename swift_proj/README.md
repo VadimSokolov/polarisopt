@@ -17,6 +17,8 @@ pip3 install torch --user
 pip3 install gpytorch --user
 # install botorch v.0.1.4
 pip3 install botorch==0.1.4 --user
+pip3 install dill --user
+pip3 install pyDOE --user
 ```
 
 
