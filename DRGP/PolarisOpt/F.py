@@ -2,9 +2,9 @@
     This file contains the main function calls
 """
 
-import os, sys
-import numpy as np
+import os
 import time
+import json
 from PolarisOpt import custom_gp as cgp
 from PolarisOpt.utils import sampler
 from PolarisOpt.utils import archiver
@@ -99,18 +99,29 @@ def calibrate_simulation(manager, DR_model, M_model = None, quiet=True, use_emew
     DR_updates, mean_updates = archiver.load_update_settings(manager._settings_filepath)
         
     # going to have to run 1 more than number of requested loops to record the final loop's returned data points
-    for l in range(0, manager.num_BO_loops+1):
+    for l in range(0, manager.num_BO_loops + 1):
         #After a Bayes set is recorded, we need to evaluate the pending ones denoted with 'P'
         eval_samples, pend_samples = manager.load_results()
-        if abs(min(eval_samples[:,0])) > manager.epsilon_stop:
+        if abs(min(eval_samples[:, 0])) > manager.epsilon_stop:
             if use_emews:
-                import emews
-                args = [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))]
-                tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
-                pool = emews.Pool(tmp_dir, rank_type="workers")
-                pool.map(eval_sim.eval_DR_task, args)
+                import proxies
+                import eq
+                proxy_js = proxies.dump_proxies(manager=manager, dr_model=DR_model,
+                                                pend_samples=pend_samples)
+                exp_id = os.getenv("EXP_ID")
+                payload = {'proxies': proxy_js, 'parameters': [row for row in range(len(pend_samples))]}
+                _, eq_task_id = eq.submit_task(exp_id, eq_type=0, payload=payload)
+                # timeout should be set to max duration of polaris run in seconds
+                status, _ = eq.query_result(eq_task_id, timeout=120.0)
+                if status != eq.ResultStatus.SUCCESS:
+                    eq.stop_worker_pool(eq_type=0)
+                    raise ValueError("Error while attempting to calibrate simulation")
+                # args = [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))]
+                # tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
+                # pool = emews.Pool(tmp_dir, rank_type="workers")
+                # pool.map(eval_sim.eval_DR_task, args)
             else:
-               util.thread_it(eval_sim.eval_DR_task, [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))])
+                util.thread_it(eval_sim.eval_DR_task, [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))])
 
         if DR_updates[0]:
             #TODO: this currently wipes out any pending recommended samples when updating

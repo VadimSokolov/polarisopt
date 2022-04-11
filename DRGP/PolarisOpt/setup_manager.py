@@ -59,7 +59,7 @@ class SetupManager:
         self.model_dir = os.path.join(self.working_dir, 'data', 'Models')   #automatically saved in the results file folder
         if not os.path.exists(self.model_dir):
             os.mkdir(self.model_dir)
-    
+
     @property
     def config_filename(self):
         return self._config_filename

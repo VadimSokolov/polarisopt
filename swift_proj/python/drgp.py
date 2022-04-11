@@ -2,13 +2,14 @@ import sys
 import os
 import json
 import shutil
+import argparse
 
 from PolarisOpt.setup_manager import SetupManager
 from PolarisOpt import F
 from PolarisOpt.utils.archiver import load_model
 from PolarisOpt.F import calibrate_simulation
 
-from emews import eqpy
+# from emews import eqpy
 
 
 def create_manager(params):
@@ -66,28 +67,43 @@ def run_calibration(params):
     calibrate_simulation(manager, dr_model, m_model, quiet=params['quiet'], use_emews=True)
 
 
-def run():
-    os.chdir(os.environ['TURBINE_OUTPUT'])
-    eqpy.OUT_put("Params")
-    algo_params_file = eqpy.IN_get()
-    with open(algo_params_file) as f_in:
+def create_args_parser():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('experiment_id', help="experiment id")
+    parser.add_argument('experiment_dir', help="experiment directory")
+    parser.add_argument("config_file", help="configuration file (json format)")
+    return parser
+
+# def run():
+#     """"""
+#     os.chdir(os.environ['TURBINE_OUTPUT'])
+#     eqpy.OUT_put("Params")
+#     algo_params_file = eqpy.IN_get()
+#     with open(algo_params_file) as f_in:
+#         params = json.load(f_in)
+#     print(params, flush=True)
+
+#     run_type = params['run_type']
+#     if run_type == 'sampleset':
+#         run_sampleset(params)
+#     elif run_type == 'calibration':
+#         run_calibration(params)
+
+#     eqpy.OUT_put("DONE")
+#     eqpy.OUT_put("See DRGP Output for Results")
+
+
+if __name__ == "__main__":
+    parser = create_args_parser()
+    args = parser.parse_args()
+    os.environ['EXP_ID'] = args.experiment_id
+    with open(args.config_file) as f_in:
         params = json.load(f_in)
     print(params, flush=True)
-
+    os.environ['TURBINE_OUTPUT'] = args.experiment_dir
+    os.chdir(args.experiment_dir)
     run_type = params['run_type']
     if run_type == 'sampleset':
         run_sampleset(params)
     elif run_type == 'calibration':
         run_calibration(params)
-
-    eqpy.OUT_put("DONE")
-    eqpy.OUT_put("See DRGP Output for Results")
-
-
-# if __name__ == "__main__":
-#     # export EMEWS_PROJECT_ROOT=$HOME/Documents/repos/polaris-hpc/swift_proj
-#     # export PYTHONPATH=$HOME/Documents/repos/polaris-hpc/DRGP:$HOME//Documents/repos/polaris-hpc/swift_proj/ext/eqpy
-#     with open(sys.argv[1]) as f_in:
-#         params = json.load(f_in)
-#     print(params, flush=True)
-#     run_calibration(params)
