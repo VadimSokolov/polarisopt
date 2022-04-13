@@ -45,6 +45,7 @@ def run_task(manager, inputs, task):
     Returns:
         the single-output objective function and uncollapsed distance from target based on the outputs
     """
+    print("Running task: {} - {}".format(task, inputs), flush=True)
     start = time.perf_counter()
     task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(task))
     src_dir = manager.simulation_path
@@ -184,8 +185,6 @@ def eval_sample_task(manager, output_fp, inputs, task):
     Returns:
         a results file containing the target error and objective values for the run
     """
-    print("running sample %d \n" % task)
-
     obj, y_err, rtime = run_task(manager, inputs, task)
     # print(f'{obj}, {y_err}, {rtime}', flush=True)
     if obj == "P":

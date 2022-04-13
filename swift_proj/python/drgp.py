@@ -8,8 +8,8 @@ from PolarisOpt.setup_manager import SetupManager
 from PolarisOpt import F
 from PolarisOpt.utils.archiver import load_model
 from PolarisOpt.F import calibrate_simulation
-
-# from emews import eqpy
+import proxies
+import eq
 
 
 def create_manager(params):
@@ -99,9 +99,12 @@ if __name__ == "__main__":
     os.environ['EXP_ID'] = args.experiment_id
     with open(args.config_file) as f_in:
         params = json.load(f_in)
-    print(params, flush=True)
     os.environ['TURBINE_OUTPUT'] = args.experiment_dir
     os.chdir(args.experiment_dir)
+    # TODO create proxystore in experiment dir??
+    proxies.init(args.experiment_id)
+    # TODO init the database
+    eq.init()
     run_type = params['run_type']
     if run_type == 'sampleset':
         run_sampleset(params)

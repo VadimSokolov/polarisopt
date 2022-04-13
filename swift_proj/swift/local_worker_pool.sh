@@ -24,20 +24,18 @@ CFG_FILE=$2
 source $CFG_FILE
 
 echo "--------------------------"
-echo "WALLTIME:              $CFG_WALLTIME"
 echo "PROCS:                 $CFG_PROCS"
 echo "PPN:                   $CFG_PPN"
 echo "DB_HOST:               $CFG_DB_HOST"
 echo "DB_USER:               $CFG_DB_USER"
-echo "TASK_TYPE:             $CFG_TASK_TYPE"
 echo "--------------------------"
 
 export PROCS=$CFG_PROCS
-export QUEUE=$CFG_QUEUE
-export WALLTIME=$CFG_WALLTIME
+# export QUEUE=$CFG_QUEUE
+# export WALLTIME=$CFG_WALLTIME
 export PPN=$CFG_PPN
 export TURBINE_JOBNAME="${EXPID}_job"
-export PROJECT=$CFG_PROJECT
+# export PROJECT=$CFG_PROJECT
 
 export DB_HOST=$CFG_DB_HOST
 export DB_USER=$CFG_DB_USER
@@ -71,6 +69,9 @@ cp $CFG_FILE $TURBINE_OUTPUT/cfg.cfg
 
 CMD_LINE_ARGS="$*"
 
+# To avoid: EXCEPTION: /home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1: cannot allocate memory in static TLS block
+export LD_PRELOAD=/home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1
+
 # Add any script variables that you want to log as
 # part of the experiment meta data to the USER_VARS array,
 # for example, USER_VARS=("VAR_1" "VAR_2")
@@ -96,5 +97,6 @@ swift-t -n $PROCS $MACHINE -p \
     -e DB_USER \
     -e DB_PORT \
     -e PYTHONPATH \
+    -e LD_PRELOAD \
     $EMEWS_PROJECT_ROOT/swift/worker_pool.swift $CMD_LINE_ARGS
 

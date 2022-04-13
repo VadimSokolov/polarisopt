@@ -9,8 +9,8 @@ store = None
 
 def init(name, store_dir='/tmp/proxystore-dump'):
     global store
-    if store is not None:
-        proxystore.store.init_store('file', name=name, store_dir=store_dir)
+    if store is None:
+        store = proxystore.store.init_store('file', name=name, store_dir=store_dir)
 
 
 def dump_proxies(**kwargs):
@@ -35,7 +35,6 @@ def app(func):
         proxies = load_proxies(proxy_dict)
         params = json.loads(args[1])
         f_args = {**proxies, **params}
-        print(f_args, flush=True)
         return func(**f_args)
 
     return f

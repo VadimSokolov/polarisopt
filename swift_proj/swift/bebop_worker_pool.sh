@@ -123,6 +123,9 @@ MKL_LIB=$MKL/mkl/lib/intel64
 MKL_OMP_LIB=$MKL/lib/intel64
 LDP=$MKL_LIB/libmkl_def.so:$MKL_LIB/libmkl_avx2.so:$MKL_LIB/libmkl_core.so:$MKL_LIB/libmkl_intel_lp64.so:$MKL_LIB/libmkl_intel_thread.so:$MKL_OMP_LIB/libiomp5.so
 
+# To avoid: EXCEPTION: /home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1: cannot allocate memory in static TLS block
+# LDP+=:/home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1
+
 log_script
 
 # echo's anything following this standard out

@@ -70,6 +70,7 @@ def create_DR(manager, training_file = '', quiet = False):
     ############################################
 
     train, _ = archiver.import_dataset(training_file, x_key = "orig_input", y_key = "target_err")
+    print(train.shape)
     if train.shape[1] != (manager.dim_in + manager.dim_out):
         raise ValueError('Expected %s columns but got %s' % ((manager.dim_in + manager.dim_out), train.shape[1]))
     train_X, train_Y_err = train[:, manager.dim_out:], train[:, :manager.dim_out]
