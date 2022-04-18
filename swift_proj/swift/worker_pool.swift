@@ -12,6 +12,9 @@ import sys;
 import EQ;
 import emews;
 
+string eval_sh = "%s/scripts/eval.sh" % getenv("EMEWS_PROJECT_ROOT");
+string tmp_dir = "%s/tmp" % getenv("TURBINE_OUTPUT");
+
 string task_code = """
 import eval_wrapper
 
@@ -26,6 +29,20 @@ payload = json.loads(r'%s')
 # print(payload, flush=True)
 result = '{}|{}|{}'.format(json.dumps(payload['func']), json.dumps(payload['proxies']), json.dumps(payload['parameters']))
 """;
+
+app (file out, file err) app_run_eval(string func, string proxies, string params) {
+  "bash" eval_sh func proxies params @stdout=out @stderr=err;
+}
+
+(string result)run_eval(string func, string proxies, string params, string std_out_dir, int idx) {
+  string out_fname = "%s/out_%d.txt" % (std_out_dir, idx);
+  string err_fname = "%s/err_%d.txt" % (std_out_dir, idx);
+  // printf(out_fname);
+  file out <out_fname>;
+  file err <err_fname>;
+  (out, err) = app_run_eval(func, proxies, params) =>
+  result = "OK";
+}
 
 (void v)
 loop()
@@ -57,8 +74,9 @@ loop()
       string results[];
       foreach p,i in params
       {
-        string code = task_code % (payload_parts[0], payload_parts[1], p);
-        results[i] = python_persist(code, "r");
+        // string code = task_code % (payload_parts[0], payload_parts[1], p);
+        // results[i] = python_persist(code, "r");
+        results[i] = run_eval(payload_parts[0], payload_parts[1], p, tmp_dir, i);
       }
       // printf("RESULT: %s", result);
       json_result = "{\"runs\": %d}" % size(results);

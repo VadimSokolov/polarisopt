@@ -30,6 +30,8 @@ echo "DB_HOST:               $CFG_DB_HOST"
 echo "DB_USER:               $CFG_DB_USER"
 echo "--------------------------"
 
+export SITE_FILE=$CFG_SITE_FILE
+
 export PROCS=$CFG_PROCS
 # export QUEUE=$CFG_QUEUE
 # export WALLTIME=$CFG_WALLTIME
@@ -64,7 +66,7 @@ if [ -n "$MACHINE" ]; then
   MACHINE="-m $MACHINE"
 fi
 
-mkdir -p $TURBINE_OUTPUT
+mkdir -p $TURBINE_OUTPUT/tmp
 cp $CFG_FILE $TURBINE_OUTPUT/cfg.cfg
 
 CMD_LINE_ARGS="$*"
@@ -98,5 +100,6 @@ swift-t -n $PROCS $MACHINE -p \
     -e DB_PORT \
     -e PYTHONPATH \
     -e LD_PRELOAD \
+    -e SITE_FILE \
     $EMEWS_PROJECT_ROOT/swift/worker_pool.swift $CMD_LINE_ARGS
 

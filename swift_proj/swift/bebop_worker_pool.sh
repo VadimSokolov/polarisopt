@@ -43,6 +43,8 @@ export DB_HOST=$CFG_DB_HOST
 export DB_USER=$CFG_DB_USER
 export DB_PORT=$CFG_DB_PORT
 
+export SITE_FILE=$CFG_SITE_FILE
+
 # if R cannot be found, then these will need to be
 # uncommented and set correctly.
 # export R_HOME=/path/to/R
@@ -79,13 +81,7 @@ export PROCS_PER_RUN=32
 export ADLB_PAR_MOD=$PROCS_PER_RUN
 export ADLB_SERVERS=1
 
-MODEL_DIR=$EMEWS_PROJECT_ROOT/$CFG_MODEL_DIR
-MPROPS=$EMEWS_PROJECT_ROOT/../model_config/$CFG_MODEL_PROPS
-MODEL_PROPS=$TURBINE_OUTPUT/model.props
-
-touch $MODEL_DIR/make.lock
-
-mkdir -p $TURBINE_OUTPUT
+mkdir -p $TURBINE_OUTPUT/tmp
 cp $MPROPS $MODEL_PROPS
 
 cp $CFG_FILE $TURBINE_OUTPUT/cfg.sh
@@ -146,6 +142,7 @@ swift-t -n $PROCS $MACHINE -p \
     -e DB_USER \
     -e DB_PORT \
     -e PYTHONPATH \
+    -e SITE_FILE \
     $EMEWS_PROJECT_ROOT/swift/worker_pool.swift $CMD_LINE_ARGS
 
 chmod g+rw $TURBINE_OUTPUT/*.tic

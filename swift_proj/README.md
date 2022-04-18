@@ -1,5 +1,16 @@
 # EMEWS Calibration Workflow
 
+Running:
+
+1. Start the DB
+2. ./local/bebop_worker_pool.sh exp_id ../data/cfgs/local/bebop_worker_pool.cfg
+3. local me: ./run_drgp.sh exp_id ../data/cfgs/drgp.cfg
+
+
+
+
+## OLD EQ/PY - PYMAP WORKFLOW INSTRUCTIONS
+
 The EMEWS calibration workflow runs the PolarisOpt calibration using EMEWS to dispatch
 the polaris runs. The python code (i.e., `eval_sim.eval_DR_task` and `eval_sim.eval_sample_task`)
 that launches each polaris run is run in its own Python interpreter. 
