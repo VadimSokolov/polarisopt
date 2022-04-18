@@ -234,6 +234,7 @@ def update_record(inputs, keys, values, data_fp, identifier_key = "orig_input"):
         if flag > 1:
             print("INFO: you have a repeated sample in %s" % data_fp)
 
+    print("Writing record to {}".format(data_fp), flush=True)
     with open(data_fp, 'w') as fp:
         json.dump(dictionary, fp, indent = 4)
 

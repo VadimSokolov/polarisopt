@@ -51,7 +51,11 @@ def create_manager(params):
 def run_sampleset(params):
     num_samples = int(params['num_samples'])
     manager = create_manager(params)
-    F.build_sampleset(manager, manager.training_filename, num_samples=num_samples, use_emews=True)
+    try:
+        F.build_sampleset(manager, manager.training_filename, num_samples=num_samples, use_emews=True)
+    finally:
+        eq.stop_worker_pool(eq_type=0)
+    print("Sample Set Complete", flush=True)
 
 
 def run_calibration(params):
@@ -64,7 +68,10 @@ def run_calibration(params):
     else:
         m_model_file = os.path.join(data_dir, params['m_model_file'])
         m_model = load_model(m_model_file)
-    calibrate_simulation(manager, dr_model, m_model, quiet=params['quiet'], use_emews=True)
+    try:
+        calibrate_simulation(manager, dr_model, m_model, quiet=params['quiet'], use_emews=True)
+    finally:
+        eq.stop_worker_pool(eq_type=0)
 
 
 def create_args_parser():
@@ -102,7 +109,7 @@ if __name__ == "__main__":
     os.environ['TURBINE_OUTPUT'] = args.experiment_dir
     os.chdir(args.experiment_dir)
     # TODO create proxystore in experiment dir??
-    proxies.init(args.experiment_id)
+    proxies.init(args.experiment_id, store_dir='{}/tmp/proxystore-dump'.format(args.experiment_dir))
     # TODO init the database
     eq.init()
     run_type = params['run_type']

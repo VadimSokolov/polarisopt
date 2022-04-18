@@ -28,6 +28,6 @@ cp $EMEWS_PROJECT_ROOT/data/$ALGO_PARAMS $TURBINE_OUTPUT/algo_params.json
 # TODO replace this with copying Polaris files???
 mkdir -p $TURBINE_OUTPUT/simulator/Target
 mkdir -p $TURBINE_OUTPUT/data/Models
-touch $TURBINE_OUTPUT/simulator/Target/bloomington-Result.sqlite
+# touch $TURBINE_OUTPUT/simulator/Target/bloomington-Result.sqlite
 
 python $EMEWS_PROJECT_ROOT/python/drgp.py $EXPID $TURBINE_OUTPUT $TURBINE_OUTPUT/algo_params.json 

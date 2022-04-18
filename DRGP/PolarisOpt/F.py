@@ -54,7 +54,8 @@ def build_sampleset(manager, res_fn, max_parallel=2, num_samples=0, use_emews=Fa
             eq.stop_worker_pool(eq_type=0)
             raise ValueError("Error submitting task while attempting to calibrate simulation")
         # timeout should be set to max duration of polaris run in seconds
-        status, result = eq.query_result(eq_task_id, timeout=10.0)
+        timeout = float(os.getenv("ME_TIMEOUT"))
+        status, result = eq.query_result(eq_task_id, timeout=timeout)
         if status != eq.ResultStatus.SUCCESS:
             eq.stop_worker_pool(eq_type=0)
             raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))
@@ -133,7 +134,8 @@ def calibrate_simulation(manager, DR_model, M_model=None, quiet=True, use_emews=
                     eq.stop_worker_pool(eq_type=0)
                     raise ValueError("Error submitting task while attempting to calibrate simulation")
                 # timeout should be set to max duration of polaris run in seconds
-                status, result = eq.query_result(eq_task_id, timeout=10.0)
+                timeout = float(os.getenv("ME_TIMEOUT"))
+                status, result = eq.query_result(eq_task_id, timeout=timeout)
                 if status != eq.ResultStatus.SUCCESS:
                     eq.stop_worker_pool(eq_type=0)
                     raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))

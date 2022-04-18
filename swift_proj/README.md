@@ -1,10 +1,22 @@
 # EMEWS Calibration Workflow
 
-Running:
+Running Locally:
 
 1. Start the DB
-2. ./local/bebop_worker_pool.sh exp_id ../data/cfgs/local/bebop_worker_pool.cfg
-3. local me: ./run_drgp.sh exp_id ../data/cfgs/drgp.cfg
+2. Edit data/cfgs/local_worker_pool.cfg to update the site file, if necessary
+3. ./local_worker_pool.sh exp_id ../data/cfgs/local_worker_pool.cfg
+4. ./run_drgp.sh exp_id ../data/cfgs/drgp.cfg
+
+Running on Bebop
+
+1. Start the DB
+    * source db/env-bebop.sh
+    * db/db-start.sh (note the DB_HOST)
+2. source `envs/bebop_env.sh`
+3. Edit data/cfgs/bebop_worker_pool.cfg to update the CFG_DB_HOST if necessary.
+4. Edit data/cfgs/bebop_drgp.cfg to update the CFG_DB_HOST, and CFG_DRGP_TIMEOUT if necessary
+5. swift/bebop_worker_pool.sh exp_id data/cfgs/bebop_worker_pool.cfg, and note job id.
+6. scripts/bebop_submit_drgp.sh exp_id data/cfgs/bebop_drgp.cfg pool_job_id. exp_ids should be the same for both.
 
 
 

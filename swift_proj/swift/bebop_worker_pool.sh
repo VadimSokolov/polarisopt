@@ -29,7 +29,6 @@ echo "PROCS:                 $CFG_PROCS"
 echo "PPN:                   $CFG_PPN"
 echo "DB_HOST:               $CFG_DB_HOST"
 echo "DB_USER:               $CFG_DB_USER"
-echo "TASK_TYPE:             $CFG_TASK_TYPE"
 echo "--------------------------"
 
 export PROCS=$CFG_PROCS
@@ -55,8 +54,9 @@ export SITE_FILE=$CFG_SITE_FILE
 # PYTHONPATH+="$EMEWS_PROJECT_ROOT/python"
 # export PYTHONPATH
 # echo "PYTHONPATH: $PYTHONPATH"
-EQ_SQL=$EMEWS_PROJECT_ROOT/ext/EQ-SQL
-PYTHONPATH=$EQ_SQL
+EQ_SQL=$( readlink --canonicalize $EMEWS_PROJECT_ROOT/ext/EQ-SQL )
+POLARIS_OPT=$( readlink --canonicalize $EMEWS_PROJECT_ROOT/../DRGP )
+export PYTHONPATH=$EQ_SQL:$POLARIS_OPT:$EMEWS_PROJECT_ROOT/python
 echo "PYTHONPATH: $PYTHONPATH"
 
 # export SITE=bebop
@@ -77,32 +77,12 @@ MACHINE="slurm"
 if [ -n "$MACHINE" ]; then
   MACHINE="-m $MACHINE"
 fi
-export PROCS_PER_RUN=32
-export ADLB_PAR_MOD=$PROCS_PER_RUN
-export ADLB_SERVERS=1
 
 mkdir -p $TURBINE_OUTPUT/tmp
-cp $MPROPS $MODEL_PROPS
-
 cp $CFG_FILE $TURBINE_OUTPUT/cfg.sh
 
-CHICAGO_DEATHS_FILE=$EMEWS_PROJECT_ROOT/data/$CFG_DEATHS_DATA
-CD_FILE=$TURBINE_OUTPUT/chicago_deaths.txt
-cp $CHICAGO_DEATHS_FILE $CD_FILE
 
-CHICAGO_HOSP_FILE=$EMEWS_PROJECT_ROOT/data/$CFG_HOSPITAL_DATA
-CH_FILE=$TURBINE_OUTPUT/chicago_hosp.txt
-cp $CHICAGO_HOSP_FILE $CH_FILE
-
-R_OBJ_FILE=$EMEWS_PROJECT_ROOT/R/reff_objective.R
-RO_FILE=$TURBINE_OUTPUT/robj.R
-cp $R_OBJ_FILE $RO_FILE
-
-# calculated via d10
-STOP_AT=-1
-
-CMD_LINE_ARGS="$* -stop_at=$STOP_AT -model_props=$MODEL_PROPS "
-CMD_LINE_ARGS+="-chicago_deaths_file=$CD_FILE -chicago_hosp_file=$CH_FILE -robj_file=$RO_FILE "
+CMD_LINE_ARGS="$*"
 
 
 # Add any script variables that you want to log as
@@ -129,19 +109,18 @@ log_script
 
 swift-t -n $PROCS $MACHINE -p \
     -r $EQ_SQL -I $EQ_SQL \
-    -r $MODEL_DIR -I $MODEL_DIR \
     -I $EMEWS_EXT \
     -e EMEWS_PROJECT_ROOT \
     -e TURBINE_OUTPUT \
     -e TURBINE_LOG \
     -e TURBINE_DEBUG \
     -e ADLB_DEBUG \
-    -e LD_LIBRARY_PATH=$MKL_LIB:$PG_LIB:$LD_LIBRARY_PATH \
-    -e LD_PRELOAD=$LDP \
     -e DB_HOST \
     -e DB_USER \
     -e DB_PORT \
     -e PYTHONPATH \
+    -e LD_LIBRARY_PATH=$MKL_LIB:$PG_LIB:$LD_LIBRARY_PATH \
+    -e LD_PRELOAD=$LDP \
     -e SITE_FILE \
     $EMEWS_PROJECT_ROOT/swift/worker_pool.swift $CMD_LINE_ARGS
 
