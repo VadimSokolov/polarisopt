@@ -5,6 +5,8 @@
 import os
 import time
 import json
+from concurrent import futures
+from itertools import repeat
 from PolarisOpt import custom_gp as cgp
 from PolarisOpt.utils import sampler
 from PolarisOpt.utils import archiver
@@ -64,10 +66,15 @@ def build_sampleset(manager, res_fn, max_parallel=2, num_samples=0, use_emews=Fa
         # pool = emews.Pool(tmp_dir, rank_type="workers")
         # pool.map(eval_sim.eval_sample_task, args)
     else:
-        while len(pend_samples) > 0:
-            tasks = min(len(pend_samples), max_parallel)
-            util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
-            _, pend_samples = archiver.import_dataset(res_fp, x_key="orig_input", y_key="target_err")
+        with futures.ThreadPoolExecutor(max_parallel) as executor:
+            result = executor.map(eval_sim.eval_sample_task, repeat(manager), repeat(res_fp), pend_samples, 
+                                 (x for x in range(len(pend_samples))), repeat(False))
+            for obj, y_err, rtime, task_id in result:
+                eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
+        # while len(pend_samples) > 0:
+        #     tasks = min(len(pend_samples), max_parallel)
+        #     util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
+        #     _, pend_samples = archiver.import_dataset(res_fp, x_key="orig_input", y_key="target_err")
 
 
 def build_calibration(manager, quiet=True):
@@ -98,7 +105,7 @@ def build_calibration(manager, quiet=True):
     return DR_model, M_model
 
 
-def calibrate_simulation(manager, DR_model, M_model=None, quiet=True, use_emews=False):
+def calibrate_simulation(manager, DR_model, M_model=None, max_parallel=2, quiet=True, use_emews=False):
     """Function which runs all necessary steps to create models and run Bayesian Opt per settings.json file
     Args:
         manager (SetupManager class): central parameter keeper
@@ -144,7 +151,13 @@ def calibrate_simulation(manager, DR_model, M_model=None, quiet=True, use_emews=
                 # pool = emews.Pool(tmp_dir, rank_type="workers")
                 # pool.map(eval_sim.eval_DR_task, args)
             else:
-                util.thread_it(eval_sim.eval_DR_task, [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))])
+                with futures.ThreadPoolExecutor(max_parallel) as executor:
+                    result = executor.map(eval_sim.eval_DR_task, repeat(manager), repeat(DR_model), pend_samples, 
+                                        (x for x in range(len(pend_samples))), repeat(False))
+                    for obj, y_err, rtime, xhat, task_id in result:
+                        eval_sim.update_DR_record(obj, y_err, rtime, pend_samples[task_id], xhat, manager)
+                # util.thread_it(eval_sim.eval_DR_task, [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))])
+
 
         if DR_updates[0]:
             # TODO: this currently wipes out any pending recommended samples when updating

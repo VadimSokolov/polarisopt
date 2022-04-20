@@ -173,7 +173,7 @@ def pull_result(task_dir, manager):
         return run_objective(ref_output[:, 1]-new_output[:, 1], manager.objective_type)
 
 
-def eval_sample_task(manager, output_fp, inputs, task):
+def eval_sample_task(manager, output_fp, inputs, task, write_record=True):
     r"""Evaluates a set of inputs generated in the original subspace and records the outcome
 
     Args:
@@ -186,7 +186,12 @@ def eval_sample_task(manager, output_fp, inputs, task):
         a results file containing the target error and objective values for the run
     """
     obj, y_err, rtime = run_task(manager, inputs, task)
-    # print(f'{obj}, {y_err}, {rtime}', flush=True)
+    # print(f'{type(obj)}, {type(y_err)}, {type(rtime)}', flush=True)
+    if write_record:
+        update_sample_record(obj, y_err, rtime, output_fp, inputs)
+    return (obj, y_err, rtime, task)
+
+def update_sample_record(obj, y_err, rtime, output_fp, inputs):
     if obj == "P":
         archiver.update_record(
             [inputs],
@@ -205,7 +210,7 @@ def eval_sample_task(manager, output_fp, inputs, task):
         )
 
 
-def eval_DR_task(manager, DR_model, DR_input, task):
+def eval_DR_task(manager, DR_model, DR_input, task, write_record=True):
     r"""Evaluates a set of inputs and records the outcome
 
     Args:
@@ -222,6 +227,12 @@ def eval_DR_task(manager, DR_model, DR_input, task):
 
     xhat = DR_model.decode_X(DR_input)
     obj, y_err, rtime = run_task(manager, xhat, task)
+    if write_record:
+        update_DR_record(obj, y_err, rtime, DR_input, xhat, manager)
+    return (obj, y_err, rtime, xhat, task)
+
+
+def update_DR_record(obj, y_err, rtime, DR_input, xhat, manager):
     if obj == "P":
         archiver.update_record(
             [DR_input],

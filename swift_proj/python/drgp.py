@@ -52,7 +52,7 @@ def run_sampleset(params):
     num_samples = int(params['num_samples'])
     manager = create_manager(params)
     try:
-        F.build_sampleset(manager, manager.training_filename, num_samples=num_samples, use_emews=True)
+        F.build_sampleset(manager, manager.training_filename, num_samples=num_samples, use_emews=False)
     finally:
         eq.stop_worker_pool(eq_type=0)
     print("Sample Set Complete", flush=True)
@@ -69,7 +69,7 @@ def run_calibration(params):
         m_model_file = os.path.join(data_dir, params['m_model_file'])
         m_model = load_model(m_model_file)
     try:
-        calibrate_simulation(manager, dr_model, m_model, quiet=params['quiet'], use_emews=True)
+        calibrate_simulation(manager, dr_model, m_model, quiet=params['quiet'], use_emews=False)
     finally:
         eq.stop_worker_pool(eq_type=0)
 
