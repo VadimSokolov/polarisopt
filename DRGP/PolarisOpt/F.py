@@ -155,6 +155,12 @@ def calibrate_simulation(manager, DR_model, M_model=None, max_parallel=2, quiet=
                 if status != eq.ResultStatus.SUCCESS:
                     eq.stop_worker_pool(eq_type=0)
                     raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))
+                
+                result_dict = json.loads(result)
+                proxy_result = proxies.load_proxies(result_dict['proxies'])
+                result_list = proxy_result['results']
+                for obj, y_err, rtime, xhat, task_id in result_list:
+                    eval_sim.update_DR_record(obj, y_err, rtime, pend_samples[task_id], xhat, manager)
                 # args = [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))]
                 # tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
                 # pool = emews.Pool(tmp_dir, rank_type="workers")
