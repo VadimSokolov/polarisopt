@@ -59,7 +59,9 @@ def build_sampleset(manager, res_fn, max_parallel=2, num_samples=0, use_emews=Fa
         timeout = float(os.getenv("ME_TIMEOUT"))
         status, result = eq.query_result(eq_task_id, timeout=timeout)
         if status != eq.ResultStatus.SUCCESS:
-            eq.stop_worker_pool(eq_type=0)
+            # don't call this as it typically leaves a stop flag in the DB
+            # for the next run
+            # eq.stop_worker_pool(eq_type=0)
             raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))
         
         result_dict = json.loads(result)
@@ -153,7 +155,9 @@ def calibrate_simulation(manager, DR_model, M_model=None, max_parallel=2, quiet=
                 timeout = float(os.getenv("ME_TIMEOUT"))
                 status, result = eq.query_result(eq_task_id, timeout=timeout)
                 if status != eq.ResultStatus.SUCCESS:
-                    eq.stop_worker_pool(eq_type=0)
+                    # don't call this as it typically leaves a stop flag in the DB
+                    # for the next run
+                    # eq.stop_worker_pool(eq_type=0)
                     raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))
                 
                 result_dict = json.loads(result)
