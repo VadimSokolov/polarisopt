@@ -13,7 +13,7 @@
 
     "File controls" :
     {
-        "training_filename" : "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/swift_proj/experiments/t9/timedep_training_data.json",
+        "training_filename" : "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/swift_proj/scratch/data/timedep_training_data.json",
         "res_filename" : "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/swift_proj/scratch/data/timedep_results.json"
     },
 
