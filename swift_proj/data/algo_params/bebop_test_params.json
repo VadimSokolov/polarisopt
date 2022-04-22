@@ -1,7 +1,7 @@
 {
   "COMMENT" : "PATHS ARE RELATIVE TO swift_proj/data DIRECTORY",
 
-  "run_type" : "sampleset",
+  "run_type" : "calibration",
   "settings_file" : "../../DRGP/data/settings_bebop_emews.json",
   "config_file" : "../../DRGP/data/config_timedep.json",
   "num_samples" : 32,

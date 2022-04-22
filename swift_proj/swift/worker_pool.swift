@@ -1,4 +1,3 @@
-
 /**
    EMEWS loop.swift
 */
@@ -18,8 +17,7 @@ string tmp_dir = "%s/tmp" % getenv("TURBINE_OUTPUT");
 string task_code = """
 import eval_wrapper
 
-eval_wrapper.eval(r'%s', r'%s', r'%s')
-r = 'OK'
+r = eval_wrapper.eval(r'%s', r'%s', r'%s')
 """;
 
 string parse_params_code = """
@@ -30,13 +28,35 @@ payload = json.loads(r'%s')
 result = '{}|{}|{}'.format(json.dumps(payload['func']), json.dumps(payload['proxies']), json.dumps(payload['parameters']))
 """;
 
+string proxy_result_code = """
+import proxies
+import glob
+import os
+import json
+import dill
+
+dummy_var = %i
+tmp_dir = '%s'
+full_result = []
+result_files = glob.glob(os.path.join(tmp_dir, 'eval_result*.dill'))
+for f in result_files:
+    with open(f, 'rb') as f_in:
+        result = dill.load(f_in)
+        full_result.append(result)
+        os.remove(f)
+# proxy the full result
+proxies.init('results', os.path.join(tmp_dir, 'proxystore-dump'))
+proxy_map = proxies.dump_proxies(results=full_result)
+proxy_str = json.dumps({'proxies': proxy_map})
+""";
+
 app (file out, file err) app_run_eval(string func, string proxies, string params) {
   "bash" eval_sh func proxies params @stdout=out @stderr=err;
 }
 
-(string result)run_eval(string func, string proxies, string params, string std_out_dir, int idx) {
-  string out_fname = "%s/out_%d.txt" % (std_out_dir, idx);
-  string err_fname = "%s/err_%d.txt" % (std_out_dir, idx);
+(string result)run_eval(string func, string proxies, string params, string tmp_dir, int idx) {
+  string out_fname = "%s/out_%d.txt" % (tmp_dir, idx);
+  string err_fname = "%s/err_%d.txt" % (tmp_dir, idx);
   // printf(out_fname);
   file out <out_fname>;
   file err <err_fname>;
@@ -78,9 +98,12 @@ loop()
         // results[i] = python_persist(code, "r");
         results[i] = run_eval(payload_parts[0], payload_parts[1], p, tmp_dir, i);
       }
+      string result_code = proxy_result_code % (size(results), tmp_dir);
+      json_result = python_persist(result_code, "proxy_str"); 
       // printf("RESULT: %s", result);
-      json_result = "{\"runs\": %d}" % size(results);
-      // printf("JSON RESULT: %s", json_result);
+      // string results_code = 
+      // json_result = "{\"runs\": %d}" % size(results);
+      // // printf("JSON RESULT: %s", json_result);
       eq_task_reporter(eq_task_id, 0, json_result) => c = true;
     }
   }

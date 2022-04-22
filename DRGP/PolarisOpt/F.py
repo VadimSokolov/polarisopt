@@ -47,10 +47,10 @@ def build_sampleset(manager, res_fn, max_parallel=2, num_samples=0, use_emews=Fa
         import eval_wrapper
 
         func = proxies.dump_proxies(f=eval_wrapper.eval_sample_task)['f']
-        proxy_js = proxies.dump_proxies(manager=manager, output_fp=res_fp,
+        proxy_map = proxies.dump_proxies(manager=manager, output_fp=res_fp,
                                         pend_samples=pend_samples)
         exp_id = os.getenv("EXP_ID")
-        payload = {'func': func, 'proxies': proxy_js, 'parameters': [{'row': r} for r in range(len(pend_samples))]}
+        payload = {'func': func, 'proxies': proxy_map, 'parameters': [{'row': r} for r in range(len(pend_samples))]}
         status, eq_task_id = eq.submit_task(exp_id, eq_type=0, payload=json.dumps(payload))
         if status != eq.ResultStatus.SUCCESS:
             eq.stop_worker_pool(eq_type=0)
@@ -61,10 +61,19 @@ def build_sampleset(manager, res_fn, max_parallel=2, num_samples=0, use_emews=Fa
         if status != eq.ResultStatus.SUCCESS:
             eq.stop_worker_pool(eq_type=0)
             raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))
+        
+        result_dict = json.loads(result)
+        proxy_result = proxies.load_proxies(result_dict['proxies'])
+        result_list = proxy_result['results']
+        for obj, y_err, rtime, task_id in result_list:
+            eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
+            
         # args = [(manager, res_fp, pend_samples[row], row) for row in range(len(pend_samples))]
         # tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
         # pool = emews.Pool(tmp_dir, rank_type="workers")
         # pool.map(eval_sim.eval_sample_task, args)
+        
+
     else:
         with futures.ThreadPoolExecutor(max_parallel) as executor:
             result = executor.map(eval_sim.eval_sample_task, repeat(manager), repeat(res_fp), pend_samples, 
