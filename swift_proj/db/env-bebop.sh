@@ -5,7 +5,7 @@ export DB_HOST=${DB_HOST:-$(hostname --long)} # thetalogin4
 export DB_PORT=${DB_PORT:-11219}
 # The user name to use for the DB
 export DB_USER=${DB_USER:-}
-export DB_DATA=/lcrc/project/EMEWS/bebop/db
+export DB_DATA=/lcrc/project/POLARIS/emews-db
 export DB_MODE=ON
 
 export PATH=/lcrc/project/EMEWS/bebop/sfw/gcc-7.1.0/postgres-14.2/bin:$PATH
