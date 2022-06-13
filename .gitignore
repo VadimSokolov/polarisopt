@@ -58,3 +58,6 @@ test_proj/experiments
 swift_proj/data/external_data/*
 !swift_proj/data/external_data/.keep
 swift_proj/swift/turbine_output
+
+convergence/slurm-*
+data/
