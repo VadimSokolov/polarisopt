@@ -60,4 +60,5 @@ swift_proj/data/external_data/*
 swift_proj/swift/turbine_output
 
 convergence/slurm-*
+!swift_proj/data/
 data/

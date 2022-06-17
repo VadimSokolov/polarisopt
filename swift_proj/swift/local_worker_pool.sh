@@ -72,7 +72,7 @@ cp $CFG_FILE $TURBINE_OUTPUT/cfg.cfg
 CMD_LINE_ARGS="$*"
 
 # To avoid: EXCEPTION: /home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1: cannot allocate memory in static TLS block
-export LD_PRELOAD=/home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1
+# export LD_PRELOAD=/home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1
 
 # Add any script variables that you want to log as
 # part of the experiment meta data to the USER_VARS array,

@@ -25,18 +25,22 @@ source $CFG_FILE
 
 echo "--------------------------"
 echo "WALLTIME:              $CFG_WALLTIME"
-echo "PROCS:                 $CFG_PROCS"
-echo "PPN:                   $CFG_PPN"
+echo "WORKER POOL PROCS:     $CFG_WORKER_POOL_NODES"
+echo "WORKER POOL PPN:       $CFG_WORKER_POOL_PPN"
+echo "DRGP POOL PROCS:       $CFG_DRGP_NODES"
+echo "DRGP POOL PPN:         $CFG_DRGP_PPN"
+echo "ALGO PARAM FILE:       $CFG_ALGO_PARAMS_FILE"
 echo "DB_HOST:               $CFG_DB_HOST"
 echo "DB_USER:               $CFG_DB_USER"
 echo "--------------------------"
 
-export PROCS=$CFG_PROCS
 export QUEUE=$CFG_QUEUE
 export WALLTIME=$CFG_WALLTIME
-export PPN=$CFG_PPN
 export TURBINE_JOBNAME="${EXPID}_job"
 export PROJECT=$CFG_PROJECT
+
+export WORKER_POOL_NODES=$CFG_WORKER_POOL_NODES
+export WORKER_POOL_PPN=$CFG_WORKER_POOL_PPN
 
 export DB_HOST=$CFG_DB_HOST
 export DB_USER=$CFG_DB_USER
@@ -69,10 +73,32 @@ echo "PYTHONPATH: $PYTHONPATH"
 # EQR=/lcrc/project/EMEWS/bebop/repos/spack/opt/spack/linux-centos7-broadwell/gcc-7.1.0/eqr-1.0-5hb4aszbbtezlifks6fz4g24zldnkdbx
 EMEWS_EXT=$EMEWS_PROJECT_ROOT/ext/emews
 
+# ME VARS ETC
+export ME_NODES=$CFG_DRGP_NODES
+export ME_PPN=$CFG_DRGP_PPN
+export ME_TIMEOUT=$CFG_DRGP_TIMEOUT
+export ME_COMMAND=$CFG_DRGP_CMD
+
+mkdir -p $TURBINE_OUTPUT/simulator/Target
+mkdir -p $TURBINE_OUTPUT/data/Models
+
+ALGO_PARAMS=$CFG_ALGO_PARAMS_FILE
+cp $EMEWS_PROJECT_ROOT/data/$ALGO_PARAMS $TURBINE_OUTPUT/algo_params.json
+
+ME_EXPORTS="PYTHONPATH=$EMEWS_PROJECT_ROOT/python:$EMEWS_PROJECT_ROOT/../DRGP:$EMEWS_PROJECT_ROOT/ext/EQ-SQL\n"
+ME_EXPORTS+="PYTHONHOME=/lcrc/project/EMEWS/bebop/sfw/anaconda3/2020.11"
+export ME_EXPORTS
+
 
 # set machine to your schedule type (e.g. pbs, slurm, cobalt etc.),
 # or empty for an immediate non-queued unscheduled run
 MACHINE="slurm-multijob"
+TOTAL_PROCS=$(( WORKER_POOL_NODES * WORKER_POOL_PPN + ME_NODES * ME_PPN ))
+
+# Set these to worker pool values because the worker pool
+# runs under turbine and it needs these.
+export PPN=$WORKER_POOL_PPN
+export PROCS=$(( WORKER_POOL_NODES * WORKER_POOL_PPN ))
 
 if [ -n "$MACHINE" ]; then
   MACHINE="-m $MACHINE"
@@ -88,7 +114,7 @@ CMD_LINE_ARGS="$*"
 # Add any script variables that you want to log as
 # part of the experiment meta data to the USER_VARS array,
 # for example, USER_VARS=("VAR_1" "VAR_2")
-USER_VARS=( "MODEL_DIR" "MODEL_PROPS" )
+USER_VARS=( )
 # log variables and script to to TURBINE_OUTPUT directory
 
 export TURBINE_LAUNCHER=srun
@@ -107,6 +133,7 @@ log_script
 # echo's anything following this standard out
 # set -x
 
+# PROCS is worker pool procs
 swift-t -n $PROCS $MACHINE -p \
     -r $EQ_SQL -I $EQ_SQL \
     -I $EMEWS_EXT \
@@ -122,6 +149,7 @@ swift-t -n $PROCS $MACHINE -p \
     -e LD_LIBRARY_PATH=$MKL_LIB:$PG_LIB:$LD_LIBRARY_PATH \
     -e LD_PRELOAD=$LDP \
     -e SITE_FILE \
+    -e ME_TIMEOUT \
     -t Y \
     $EMEWS_PROJECT_ROOT/swift/worker_pool.swift $CMD_LINE_ARGS
 
