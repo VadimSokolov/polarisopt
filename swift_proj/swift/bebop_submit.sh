@@ -150,7 +150,6 @@ swift-t -n $PROCS $MACHINE -p \
     -e LD_PRELOAD=$LDP \
     -e SITE_FILE \
     -e ME_TIMEOUT \
-    -t Y \
     $EMEWS_PROJECT_ROOT/swift/worker_pool.swift $CMD_LINE_ARGS
 
 chmod g+rw $TURBINE_OUTPUT/*.tic

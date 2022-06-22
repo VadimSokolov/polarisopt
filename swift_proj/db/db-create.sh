@@ -10,7 +10,7 @@ source $THIS/db-settings.sh -v $*
 
 (
   set -x
-  createdb --host=$DB_HOST --port=$DB_PORT $DB_NAME
+  createdb -O polaris_user --host=$DB_HOST --port=$DB_PORT $DB_NAME
 )
 
 echo "db-create.sh: OK"

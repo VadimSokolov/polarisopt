@@ -1,123 +1,192 @@
 # EMEWS Calibration Workflow
 
-Running Locally:
+The DRGP workflow consists of the DRGP algorithm, a pool
+of workers that will execute Polaris, and a database used
+to communicate between the two. The DRGP algorithm 
+produces input paramters and submits them to the database,
+and waits results. The worker pool queries the database
+for the input parameters and performs Polaris runs using
+those parameters. It then submits the results back to the
+database.
 
-1. Start the DB
-2. Edit data/cfgs/local_worker_pool.cfg to update the site file, if necessary
-3. ./local_worker_pool.sh exp_id ../data/cfgs/local_worker_pool.cfg
-4. ./run_drgp.sh exp_id ../data/cfgs/drgp.cfg
+The workflow requires some one time setup before it can be
+executed.
 
-Running on Bebop
+## One Time Database Setup ##
 
-1. Start the DB
-    * source db/env-bebop.sh
-    * db/db-start.sh (note the DB_HOST)
-2. source `envs/bebop_env.sh`
-3. Edit data/cfgs/bebop_worker_pool.cfg to update the CFG_DB_HOST if necessary.
-4. Edit data/cfgs/bebop_drgp.cfg to update the CFG_DB_HOST, and CFG_DRGP_TIMEOUT if necessary
-5. swift/bebop_worker_pool.sh exp_id data/cfgs/bebop_worker_pool.cfg, and note job id.
-6. scripts/bebop_submit_drgp.sh exp_id data/cfgs/bebop_drgp.cfg pool_job_id. exp_ids should be the same for both.
-
+Each person that runs the workflow needs create their own
+database directory. Use the EQ/SQL database utilities to do this:
 
 
+1. Clone EQ/SQL to get the database utilities.
 
-## OLD EQ/PY - PYMAP WORKFLOW INSTRUCTIONS
-
-The EMEWS calibration workflow runs the PolarisOpt calibration using EMEWS to dispatch
-the polaris runs. The python code (i.e., `eval_sim.eval_DR_task` and `eval_sim.eval_sample_task`)
-that launches each polaris run is run in its own Python interpreter. 
-
-## Dependencies
-
-The calibration workflow requires additional python packages to be installed.
-
-```
-# load the correct Python
-module load anaconda3/2020.07
-# install pytorch
-pip3 install torch --user
-# install gpytorch
-pip3 install gpytorch --user
-# install botorch v.0.1.4
-pip3 install botorch==0.1.4 --user
-pip3 install dill --user
-pip3 install pyDOE --user
+```bash
+$ git clone git@github.com:emews/EQ-SQL.git
 ```
 
+Database utilities are in `EQ-SQL/db`
 
+2. Create the data directory. 
 
-## Running the Workflow on Bebop
-
-```
-# cd to swift_proj
-cd swift_proj
-# setup the environment for Bebop
-source envs/bebop_env.sh
-# cd to swift
-cd swift
-# submit the workflow to the slurm scheduler
-./bebop_run_drgp.sh <experiment_id> <cfg_file>
-```
-
-The arguments to the `bebop_run_drgp.sh` submit script are:
-
-* experiment_id - an experiment identifier id
-* cfg_file - a workflow configuration file
-
-For example,
-
-```
-bebop_run_drgp.sh my_calibration_1 cfgs/my_bebop_calibration.cfg
+```bash
+$ cd EQ-SQL/db
+$ source env-bebop.sh
+# The database will be created in the DB_DATA directory
+$ export DB_DATA=/lcrc/project/POLARIS/${USER}/emews-db
+$ initdb -D $DB_DATA -g
+$ cp sample_postgresql.conf $DB_DATA/postgresql.conf
+$ cp sample_pg_hba.conf $DB_DATA/pg_hba.conf
 ```
 
-The working directory for the calibration will be `swift_proj/experiments/<experiment_id>`
-(the experiment directory) where experiment_id is the *<experiment_id>* command line argument. 
+Start the server, create a database within the data directory,
+and create the required emews sql tables.
 
-Within that directory, the workflow creates the following files:
+```bash
+$ cd EQ-SQL/db
+$ source env-bebop.sh
+# Using '/lcrc/project/EMEWS/db/plima' as an example data directory
+$ export DB_DATA=/lcrc/project/POLARIS/${USER}/emews-db
+$ export DB_NAME=EQ_SQL
+# Start the db server
+$ ./db-start.sh
+$ createdb --host=$DB_HOST --port=$DB_PORT $DB_NAME
+# Confirm the database was created
+$ ./db-ping.sh
+# Create the emews sql tables
+$ ./db-mk-tables.sh
+# Stop the db server
+$ ./db-stop.sh
+```
 
-* output.txt - anything written to standard out is written to this file
-* experiments/SimN - the working directory for an individual polaris run (*Sim0*, *Sim1*, etc.)
-* pymap/out_N.txt - the output from the polaris run *SimN* and the python code that launched it
-* pymap/err_N.txt - the error output the polaris run *SimN* and the python code that launched it
+## Starting the Databse ##
 
-In addition the workflow algorithm json file (see below) and the calibration settings and config json files
-are copied to the experiment directory. These copied files are used during the calibration
-and the calibration results will be written to them, _NOT_ to the original files.
+Before any workflow that uses the DB is run, the server must be 
+started. The scripts in the polaris-hpc/swift_proj/db are used to start and stop
+the database.
 
-## Configuration
+```bash
+# this should be the data directory created in the one time setup
+$ export DB_DATA=/lcrc/project/POLARIS/${USER}/emews-db
+$ cd polaris-hpc/swift_proj/db
+$ source env-bebop.sh
+$ ./db-start.sh
+```
 
-There are two configuration files:
+When you start the database, the `DB_HOST`, `DB_PORT` and other important environment variables
+will be displayd as output. These values will also be saved to a
+`db_env_vars_N.txt` file where N is a timestamp in case they are needed later. 
+You will need to be logged into DB_HOST to stop the database.
 
-* job configuration file (e.g., `cfgs/bebop.cfg`) that is passed to the job submission script
-* workflow algorithm configuration (e.g., `swift_proj/data/algo_params/test_params.json`) that
-is passed to the workflow algorithm (`swift_proj/python/drgp.py`).
+## Stop the Database ##
 
-### Job Configuration
+Currently to stop the database, you *MUST* be logged onto the same login node where the database was
+started. So, if in the `db-start.sh` output, you see:
 
-The job configuration file is a bash script that is sourced by the submission script (i.e., 
-`bebop_run_drgp.sh`) to set the configuration (walltime, etc.) for the job, as well as
-the location of the workflow algorithm configuration file. See `swift_proj/swift/cfgs/bebop_template.cfg` for an example. That file can be copied and edited for a particular workflow run.
+`DB_HOST=beboplogin4.lcrc.anl.gov`
 
-The job configuration file should have the following entries:
+then you must login to `beboplogin4` to stop the database, and do the following:
 
-* CFG_WALLTIME - jobs walltime
-* CFG_PROCS - the requested number of processes (tasks). *Note* that EMEWS requires 2 processes for itself,
-so the number of available workers with CFG_PROCS - 2.
-* CFG_PPN - the number of processes per node. On Bebop, the number of threads passed to polaris is
-36 / CFG_PPN.
-* CFG_QUEUE - the queue to use (e.g., bdwall on bebop).
-* CFG_PROJECT - the project to use for the job
-* CFG_ALGO_PARAMS - the path the workflow algorithm configuration file
-* CFG_SITE_FILE - the site configuration file. On Bebop, this should be `swift_proj/swift/cfgs/bebop_site.sh`
+```bash
+$ cd polaris-hpc/swift_proj/db
+$ export DB_DATA=/lcrc/project/POLARIS/${USER}/emews-db
+$ source env-bebop.sh
+$ ./db-stop.sh
+```
 
-For the parameters that specify file paths, `$EMEWS_PROJECT_ROOT` can be used to refer to the `swift_proj` directory in a machine and filesystem independent way.
+Note: If you haven't closed the terminal in which you started the db, then you can just do
+`./db-stop.sh`
 
-### Workflow Algorithm Configuration
+## Running the Workflow ##
 
-The workflow algorithm file configures the workflow itself. This file is specified in the job configuration.
-See `swift_proj/data/algo_params/test_params.json` for an example. The coniguration parameters are:
+The database server must be started (see above) before running the workflow. 
+To run the workflow:
 
-* run_type - specifies the type of workflow run to execute. Valid values are "calibration" and "sampleset". The first of these will perform a calibration workflow, calling `PolarisOpt.F.calibrate_simulation`. The second will produce a sampleset, callling `PolarisOpt.F.build_sampleset`.
+```bash
+$ cd polaris-hpc/swift_proj
+# Setup the environment
+$ source envs/bebop_env.sh
+$ cd swift
+# X should be an experiment id (e.g, exp_1)
+$ ./bebop_submit.sh X ../data/cfgs/bebop_submit.cfg
+```
+
+`bebop_submit.sh` submits a single job to the Bebop's slurm scheduler that consists of
+launching two executbles. The first
+of these starts the DRGP code that produces Polaris input parameters and the second starts
+a pool of workers that consumes these parameters and performs the Polaris runs. `bebop_submit.sh`
+takes two arguments and experiment id and a configuration file, and creates an
+*experiment* directory, `swift_proj/experiments/X` where X is the experiment id,
+that contains the workflow output for that job. A `turbine-output` symlink to that experiment
+directory is also created in `swift_proj/swift`. Within the experiment directory, the output
+is spread among following files. Note that these will not exist untl the job actually begins
+running on the compute nodes:
+
+* me_output.txt - contains the output of the DRGP algorithm 
+* output.txt - contains the worker pool output
+* tmp/err_N|out_N.txt - contains the error and standard output from the indivudal
+Polaris model runs. N is a numeric id for a particular run (e.g. err_0.txt and out_0.txt).
+
+The configuration file `polaris-hpc/swift_proj/data/cfgs/bebop_submit.cfg` is used to
+configure these two jobs. The configuration file is sourced by `bebop_submit.sh`
+and the environment variables defined in the config file are then used to configure
+a model run. 
+
+An example configuration file:
+
+```bash
+# The expected run duration of the job: corresponds to sbatch's 
+# time argument
+CFG_WALLTIME=12:00:00
+# Bebop queue to submit the job to
+CFG_QUEUE=bdwall
+# The account to charge the job to
+CFG_PROJECT=POLARIS
+
+# Site specific variables etc. used by the worker pool
+# when starting a Polaris Run
+CFG_SITE_FILE=$EMEWS_PROJECT_ROOT/data/sites/bebop_site.sh
+
+# WORKER POOL CONFIG
+# The number of nodes in the worker pool
+CFG_WORKER_POOL_NODES=2
+# The number of processes per node for the worker pool
+# The bebop_site.sh files sets POLARIS_NUM_THREADS to 
+# 36 / CFG_WORKER_POOL_PPN
+CFG_WORKER_POOL_PPN=36
+
+# DRGP ALGORITHM CONFIG
+# There's real reason to change these
+# The number of nodes for DRGP
+CFG_DRGP_NODES=1
+# The number of processes per node for the DRGP algorithm
+CFG_DRGP_PPN=1
+# json files used to initialize the DRGP algorithm
+# Path is relative to swift_proj/data
+CFG_ALGO_PARAMS_FILE=algo_params/bebop_test_params.json
+# How long, in seconds, each round of polaris runs should take.
+# DRGP will wait this long for results from polaris runs before
+# throwing an error
+CFG_DRGP_TIMEOUT=3600
+# The command used to run the DRGP algorithm.
+CFG_DRGP_CMD="python3 $EMEWS_PROJECT_ROOT/python/drgp.py $EXPID $TURBINE_OUTPUT $TURBINE_OUTPUT/algo_params.json"
+
+# DATABASE CONFIG
+# CFG_DB_HOST and CFG_DB_PORT should be set the current host
+# and port as reported when the database was started.
+CFG_DB_HOST=beboplogin4.lcrc.anl.gov
+CFG_DB_PORT=11219
+CFG_DB_NAME=EQ_SQL
+CFG_DB_USER=${DB_USER:-$USER}
+```
+
+### DRGP Algorithm Configuration
+
+The DRGP algorithm file configures the workflow itself. This file is specified in the job configuration.
+See `swift_proj/data/algo_params/bebo_test_params.json` for an example. The coniguration parameters are:
+
+* run_type - specifies the type of workflow run to execute. Valid values are "calibration" and "sampleset".
+  The first of these will perform a calibration workflow, calling `PolarisOpt.F.calibrate_simulation`.
+  The second will produce a sampleset, callling `PolarisOpt.F.build_sampleset`.
 * settings_file - the path to the settings file (the file defining the scenario control parameters).
 * config_file - the path to the config file (the file defining the POLARIS calibration variables).
 * num_samples - if the *run_type* is 'sampleset', the number of samples to generate. Otherwise, this
@@ -131,22 +200,34 @@ _Note_ that any paths specified within the file are relative to `swift_proj/data
 
 ## Workflow Details
 
-When the workflow is launched with the submission script (`bebop_run_drgp.sh`),
-and running on the compute nodes, `swift_proj/swift/drgp.swift` is executed.
-This eventually calls
-`swift_proj/python/drgp.py`. `drgp.py` unpacks the workflow algorithm parameters and performs the 
-run defined by the configuration. `drgp.py` also copies the settings file and the config
+When the workflow is launched with the submission script (`bebop_submit.sh`),
+the DRGP algorithm begins with `swift_proj/python/drgp.py`. `drgp.py` unpacks the 
+workflow algorithm parameters and produces the input parameters as defined by the
+configuration. `drgp.py` also copies the settings file and the config
 file into the experiment directory and initialize the `SetupManager` with
 the paths of the copied files. The originals are not updated during the course
 of the workflow.
 
-When model evaluations are requested via `build_sampleset` or `calibrate_simulation`,
-the model evaluation arguments are pickled as a list, and each Swift-t worker process runs
-the appropriate number of model evaluations using those arguments. For example, if there are 2 workers
-and the calibration requires 10 model evalutations, each worker will run 5 model evaluations.
-The first worker will use evaluation arguments 1 - 5, and the second worker arguments 6 - 10. 
-The workers will run in parallel but the model evaluations on each worker will execute 
-sequentially. The python code that launches each model evaluation (i.e., `eval_sim.eval_DR_task` and `eval_sim.eval_sample_task`) runs its own python interpreter where that interpreter,
-PYTHONPATH and number of polaris threads are specified in the site file (`swift_proj/swift/cfgs/bebop_site.sh`).
+When polaris model evaluations are requested via `build_sampleset` or `calibrate_simulation`,
+those evaluations are run in the worker pool submitted by `bebop_submit.sh` and implemented
+in `swift_proj/swift/worker_pool.swift`. The workers will run in parallel. The python code that
+launches each model evaluation (i.e., `eval_sim.eval_DR_task` and `eval_sim.eval_sample_task`) runs
+its own python interpreter where that interpreter, PYTHONPATH and number of polaris threads are
+specified in the site file (`swift_proj/data/sites/bebop_site.sh`).
 
+## DRGP Python Dependencies
 
+The calibration workflow requires additional python packages to be installed.
+
+```
+# load the correct Python
+module load anaconda3/2020.11
+# install pytorch
+pip3 install torch --user
+# install gpytorch
+pip3 install gpytorch --user
+# install botorch v.0.1.4
+pip3 install botorch==0.1.4 --user
+pip3 install dill --user
+pip3 install pyDOE --user
+```

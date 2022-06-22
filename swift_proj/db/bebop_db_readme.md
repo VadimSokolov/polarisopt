@@ -1,7 +1,6 @@
 # Bebop DB Notes
 
 Postgres Executable is installed in `/lcrc/project/EMEWS/bebop/sfw/gcc-7.1.0/postgres-14.2/bin`
-DB itself is installed in `/lcrc/project/POLARIS/emews-db`
 
 ## Server Configuration
 
