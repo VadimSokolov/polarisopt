@@ -1,0 +1,74 @@
+{
+    "BloomingtonDestinationChoiceModel.json": [
+        {
+            "name": "BTT_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BINCD_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BRACED_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRes_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRec_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArRet_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArEnt_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArIns_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArMix_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        },
+        {
+            "name": "BArSch_PICK",
+            "type": "float",
+            "min": "-10",
+            "max": "10",
+            "size": 1
+        }
+    ]
+}

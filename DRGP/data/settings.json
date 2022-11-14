@@ -4,7 +4,7 @@
         "polaris_executable" : "/lcrc/project/POLARIS/bebop/polaris/model/Integrated_Model",
         "simulation_path" : "/gpfs/fs1/home/lschultz/DR_GP/simulator/POLARIS/Bloomington",
         "convergence_path": "/gpfs/fs1/home/lschultz/DR_GP/simulator/convergence",
-        "convergence": true,
+        "convergence": false,
         "simulation_scenario_name" : "scenario_abm.json",
         "target_output_filename" : "bloomington-Result.sqlite",
         "output_SQL_query": "SELECT start_time,SUM(outbound_turn_travel_time - inbound_turn_travel_time) FROM 'TurnMOE' GROUP BY start_time"

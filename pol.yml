@@ -1,0 +1,13 @@
+name: pol
+channels:
+  - defaults
+dependencies:
+  - numpy
+  - conda
+  - salib
+  - torchaudio
+  - cpuonly
+  - pytorch
+  - torchvision
+  - botorch
+prefix: /home/vsokolov/.conda/envs/pol
