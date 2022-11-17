@@ -19,7 +19,7 @@ from torch.optim.optimizer import Optimizer
 
 from botorch.exceptions.warnings import OptimizationWarning
 from botorch.optim.numpy_converter import TorchAttr, module_to_array, set_params_with_array
-from  botorch.optim.utils import ConvergenceCriterion, _filter_kwargs, _get_extra_mll_args
+# from  botorch.optim.utils import ConvergenceCriterion, _filter_kwargs, _get_extra_mll_args
 
 
 ParameterBounds = Dict[str, Tuple[Optional[float], Optional[float]]]
@@ -114,9 +114,7 @@ def fit_gpytorch_torch(
     loss_trajectory: List[float] = []
     i = 0
     converged = False
-    convergence_criterion = ConvergenceCriterion(
-        **_filter_kwargs(ConvergenceCriterion, **optim_options)
-    )
+    # convergence_criterion = ConvergenceCriterion(**_filter_kwargs(ConvergenceCriterion, **optim_options))
     train_inputs, train_targets = mll.model.train_inputs, mll.model.train_targets
     while not converged:
         optimizer.zero_grad()
@@ -141,7 +139,8 @@ def fit_gpytorch_torch(
                 if pname in bounds_:
                     param.data = param.data.clamp(*bounds_[pname])
         i += 1
-        converged = convergence_criterion.evaluate(fvals=loss.detach())
+        # converged = convergence_criterion.evaluate(fvals=loss.detach())
+        converged = True
     info_dict = {
         "fopt": loss_trajectory[-1],
         "wall_time": time.time() - t1,

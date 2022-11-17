@@ -26,10 +26,9 @@ problem = {
     'bounds': manager.orig_range[0]
 }
 
-
 X = morris_s.sample(problem,N=2,num_levels=4)
 archiver.create_record(X, manager._training_filepath, var_names = manager.var, identifier_key = "orig_input")
-build_sampleset(manager, manager._training_filepath, max_parallel=32,num_samples=0)
+build_sampleset(manager, manager._training_filepath, max_parallel=2,num_samples=0,use_emews=True)
 
 X,Err = manager.load_training()
 Obj, _ = objective_funcs.run_objective(Err, o_type=manager.objective_type)
