@@ -61,7 +61,6 @@ swift_proj/swift/turbine_output
 
 convergence/slurm-*
 !swift_proj/data
-./data/
 DRGP/simulator/
 DRGP/experiments/
 DRGP/data/timedep_training_data.json

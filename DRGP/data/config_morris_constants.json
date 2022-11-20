@@ -1,0 +1,32 @@
+{
+    "CampoDestinationChoiceModel.json": [
+        {
+            "name": "C_DISTANCE_MAJ_SHOP",
+            "type": "float",
+            "min": "0",
+            "max": "4",
+            "size": 1
+        },
+        {
+            "name": "C_DISTANCE_WORK",
+            "type": "float",
+            "min": "0",
+            "max": "4",
+            "size": 1
+        },
+        {
+            "name": "C_DISTANCE_PICK",
+            "type": "float",
+            "min": "-40",
+            "max": "-20",
+            "size": 1
+        },
+        {
+            "name": "C_DISTANCE_EAT_OUT",
+            "type": "float",
+            "min": "0",
+            "max": "4",
+            "size": 1
+        }
+    ]
+}
