@@ -16,7 +16,7 @@ from PolarisOpt.utils import objective_funcs
 #######################################
 
 settings_filename = 'settings.json'
-config_filename = 'config_morris.json'
+config_filename = 'config_morris_constants.json'
 manager=SetupManager(settings_filename, config_filename)
 
 
