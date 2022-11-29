@@ -1,4 +1,4 @@
-import proxies
+from eqsql import proxies
 import json
 import sys
 import os

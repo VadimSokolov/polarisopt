@@ -4,7 +4,10 @@
 
 import os, sys
 import numpy as np
+from concurrent import futures
+from itertools import repeat
 import time
+import json
 from PolarisOpt import custom_gp as cgp
 from PolarisOpt.utils import sampler
 from PolarisOpt.utils import archiver
@@ -14,7 +17,7 @@ from PolarisOpt import bo
 from PolarisOpt import dim_red
 
 
-def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, use_emews=False):
+def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, eq_sql=None):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
     Args:
         manager (SetupManager class): central parameter keeper
@@ -39,17 +42,44 @@ def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, use_emew
     else:
         _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
 
-    if use_emews:
-        import emews
-        args = [(manager, res_fp, pend_samples[row], row) for row in range(len(pend_samples))]
-        tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
-        pool = emews.Pool(tmp_dir, rank_type="workers")
-        pool.map(eval_sim.eval_sample_task, args)
+    if eq_sql is not None:
+        from eqsql import proxies
+        from eqsql import eq
+        import eval_wrapper
+
+        func = proxies.dump_proxies(f=eval_wrapper.eval_sample_task)['f']
+        proxy_map = proxies.dump_proxies(manager=manager, output_fp=res_fp,
+                                        pend_samples=pend_samples)
+        exp_id = os.getenv("EXP_ID")
+        payload = {'func': func, 'proxies': proxy_map, 'parameters': [{'row': r} for r in range(len(pend_samples))]}
+        status, ft = eq_sql.submit_task(exp_id, eq_type=0, payload=json.dumps(payload))
+        if status != eq.ResultStatus.SUCCESS:
+            eq_sql.stop_worker_pool(eq_type=0)
+            raise ValueError("Error submitting task while attempting to calibrate simulation")
+        # timeout should be set to max duration of polaris run in seconds
+        timeout = float(os.getenv("ME_TIMEOUT"))
+        status, result = ft.result(timeout=timeout)
+        if status != eq.ResultStatus.SUCCESS:
+            # don't call this as it typically leaves a stop flag in the DB
+            # for the next run
+            # eq.stop_worker_pool(eq_type=0)
+            raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))
+        
+        result_dict = json.loads(result)
+        proxy_result = proxies.load_proxies(result_dict['proxies'])
+        result_list = proxy_result['results']
+        for obj, y_err, rtime, task_id in result_list:
+            eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
     else:
-        while len(pend_samples)>0:
-            tasks = min(len(pend_samples), max_parallel)
-            util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
-            _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
+        with futures.ThreadPoolExecutor(max_parallel) as executor:
+            result = executor.map(eval_sim.eval_sample_task, repeat(manager), repeat(res_fp), pend_samples, 
+                                 (x for x in range(len(pend_samples))), repeat(False))
+            for obj, y_err, rtime, task_id in result:
+                eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
+        # while len(pend_samples)>0:
+        #     tasks = min(len(pend_samples), max_parallel)
+        #     util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
+        #     _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
 
 
 
@@ -82,7 +112,7 @@ def build_calibration(manager, quiet = True):
 
 
 
-def calibrate_simulation(manager, DR_model, M_model = None, quiet=True, use_emews=False):
+def calibrate_simulation(manager, DR_model, M_model = None, max_parallel=2, quiet=True, eq_sql=None):
     r"""Function which runs all necessary steps to create models and run Bayesian Opt per settings.json file
     Args:
         manager (SetupManager class): central parameter keeper
@@ -103,14 +133,44 @@ def calibrate_simulation(manager, DR_model, M_model = None, quiet=True, use_emew
         #After a Bayes set is recorded, we need to evaluate the pending ones denoted with 'P'
         eval_samples, pend_samples = manager.load_results()
         if abs(min(eval_samples[:,0])) > manager.epsilon_stop:
-            if use_emews:
-                import emews
-                args = [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))]
-                tmp_dir = os.path.join(os.environ.get("TURBINE_OUTPUT"), 'tmp')
-                pool = emews.Pool(tmp_dir, rank_type="workers")
-                pool.map(eval_sim.eval_DR_task, args)
+            if eq_sql is not None:
+                print("EQSQL", flush=True)
+                from eqsql import proxies
+                from eqsql import eq
+                import eval_wrapper
+
+                func = proxies.dump_proxies(f=eval_wrapper.eval_dr_task)['f']
+                # print(manager, DR_model, pend_samples)
+                proxy_js = proxies.dump_proxies(manager=manager, dr_model=DR_model,
+                                                pend_samples=pend_samples)
+                exp_id = os.getenv("EXP_ID")
+                payload = {'func': func, 'proxies': proxy_js, 'parameters': [{'row': r} for r in range(len(pend_samples))]}
+                status, ft = eq_sql.submit_task(exp_id, eq_type=0, payload=json.dumps(payload))
+                if status != eq.ResultStatus.SUCCESS:
+                    eq_sql.stop_worker_pool(eq_type=0)
+                    raise ValueError("Error submitting task while attempting to calibrate simulation")
+                # timeout should be set to max duration of polaris run in seconds
+                timeout = float(os.getenv("ME_TIMEOUT"))
+                status, result = ft.result(timeout=timeout)
+                if status != eq.ResultStatus.SUCCESS:
+                    # don't call this as it typically leaves a stop flag in the DB
+                    # for the next run
+                    # eq.stop_worker_pool(eq_type=0)
+                    raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))
+                
+                result_dict = json.loads(result)
+                proxy_result = proxies.load_proxies(result_dict['proxies'])
+                result_list = proxy_result['results']
+                # print(f'RESULT: {result_list}', flush=True)
+                for obj, y_err, rtime, xhat, task_id in result_list:
+                    eval_sim.update_DR_record(obj, y_err, rtime, pend_samples[task_id], xhat, manager)
             else:
-               util.thread_it(eval_sim.eval_DR_task, [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))])
+                with futures.ThreadPoolExecutor(max_parallel) as executor:
+                    result = executor.map(eval_sim.eval_DR_task, repeat(manager), repeat(DR_model), pend_samples, 
+                                        (x for x in range(len(pend_samples))), repeat(False))
+                    for obj, y_err, rtime, xhat, task_id in result:
+                        eval_sim.update_DR_record(obj, y_err, rtime, pend_samples[task_id], xhat, manager)
+               # util.thread_it(eval_sim.eval_DR_task, [(manager, DR_model, pend_samples[row], row) for row in range(len(pend_samples))])
 
         if DR_updates[0]:
             #TODO: this currently wipes out any pending recommended samples when updating

@@ -8,8 +8,7 @@ from PolarisOpt.setup_manager import SetupManager
 from PolarisOpt import F
 from PolarisOpt.utils.archiver import load_model
 from PolarisOpt.F import calibrate_simulation
-import proxies
-import eq
+from eqsql import proxies, eq
 
 
 def create_manager(params):
@@ -48,17 +47,17 @@ def create_manager(params):
     return manager
 
 
-def run_sampleset(params):
+def run_sampleset(params, eq_sql):
     num_samples = int(params['num_samples'])
     manager = create_manager(params)
     try:
-        F.build_sampleset(manager, manager.training_filename, num_samples=num_samples, use_emews=True)
+        F.build_sampleset(manager, manager.training_filename, num_samples=num_samples, eq_sql=eq_sql)
     finally:
-        eq.stop_worker_pool(eq_type=0)
+        eq_sql.stop_worker_pool(eq_type=0)
     print("Sample Set Complete", flush=True)
 
 
-def run_calibration(params):
+def run_calibration(params, eq_sql):
     manager = create_manager(params)
     data_dir = os.path.join(params['emews_root'], 'data')
     dr_model_file = os.path.join(data_dir, params['dr_model_file'])
@@ -69,9 +68,9 @@ def run_calibration(params):
         m_model_file = os.path.join(data_dir, params['m_model_file'])
         m_model = load_model(m_model_file)
     try:
-        calibrate_simulation(manager, dr_model, m_model, quiet=params['quiet'], use_emews=True)
+        calibrate_simulation(manager, dr_model, m_model, quiet=params['quiet'], eq_sql=eq_sql)
     finally:
-        eq.stop_worker_pool(eq_type=0)
+        eq_sql.stop_worker_pool(eq_type=0)
 
 
 def create_args_parser():
@@ -108,12 +107,13 @@ if __name__ == "__main__":
         params = json.load(f_in)
     os.environ['TURBINE_OUTPUT'] = args.experiment_dir
     os.chdir(args.experiment_dir)
-    # TODO create proxystore in experiment dir??
+    # create proxystore in experiment dir
     proxies.init(args.experiment_id, store_dir='{}/tmp/proxystore-dump'.format(args.experiment_dir))
-    # TODO init the database
-    eq.init()
+    # init the database
+    eq_sql = eq.init()
     run_type = params['run_type']
     if run_type == 'sampleset':
-        run_sampleset(params)
+        run_sampleset(params, eq_sql)
     elif run_type == 'calibration':
-        run_calibration(params)
+        run_calibration(params, eq_sql)
+    eq_sql.close()

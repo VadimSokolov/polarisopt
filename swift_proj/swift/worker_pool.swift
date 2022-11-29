@@ -29,7 +29,7 @@ result = '{}|{}|{}'.format(json.dumps(payload['func']), json.dumps(payload['prox
 """;
 
 string proxy_result_code = """
-import proxies
+from eqsql import proxies
 import glob
 import os
 import json
@@ -57,7 +57,6 @@ app (file out, file err) app_run_eval(string func, string proxies, string params
 (string result)run_eval(string func, string proxies, string params, string tmp_dir, int idx) {
   string out_fname = "%s/out_%d.txt" % (tmp_dir, idx);
   string err_fname = "%s/err_%d.txt" % (tmp_dir, idx);
-  // printf(out_fname);
   file out <out_fname>;
   file err <err_fname>;
   (out, err) = app_run_eval(func, proxies, params) =>
@@ -71,7 +70,8 @@ loop()
        b;
        b=c)
   {
-    message msg = eq_task_querier(0);
+    message msg = eq_task_query(0);
+    // printf(msg.payload);
     boolean c;
     if (msg.msg_type == "status") {
       if (msg.payload == "EQ_STOP") {
@@ -89,6 +89,7 @@ loop()
       int eq_task_id = msg.eq_task_id;
       // payload consists of proxies and parameters
       string params_code = parse_params_code % msg.payload;
+      // printf(python_persist(params_code, "result"));
       string payload_parts[] = split(python_persist(params_code, "result"), "|");
       string params[] = parse_json_list(payload_parts[2]);
       string results[];
@@ -104,7 +105,7 @@ loop()
       // string results_code = 
       // json_result = "{\"runs\": %d}" % size(results);
       // // printf("JSON RESULT: %s", json_result);
-      eq_task_reporter(eq_task_id, 0, json_result) => c = true;
+      eq_task_report(eq_task_id, 0, json_result) => c = true;
     }
   }
 

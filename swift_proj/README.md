@@ -15,22 +15,16 @@ executed.
 ## One Time Database Setup ##
 
 Each person that runs the workflow needs create their own
-database directory. Use the EQ/SQL database utilities to do this:
+database directory. Use the EQ/SQL database utilities to do this.
+Those are currently installed in:
 
+`/lcrc/project/POLARIS/bebop/sfw/EQ-SQL/db`
 
-1. Clone EQ/SQL to get the database utilities.
-
-```bash
-$ git clone git@github.com:emews/EQ-SQL.git
-```
-
-Database utilities are in `EQ-SQL/db`
-
-2. Create the data directory. 
+1. Create the data directory. 
 
 ```bash
-$ cd EQ-SQL/db
-$ source env-bebop.sh
+$ cd /lcrc/project/POLARIS/bebop/sfw/EQ-SQL/db
+$ source env-polaris-bebop.sh
 # The database will be created in the DB_DATA directory
 $ export DB_DATA=/lcrc/project/POLARIS/${USER}/emews-db
 $ initdb -D $DB_DATA -g
@@ -38,12 +32,12 @@ $ cp sample_postgresql.conf $DB_DATA/postgresql.conf
 $ cp sample_pg_hba.conf $DB_DATA/pg_hba.conf
 ```
 
-Start the server, create a database within the data directory,
+2. Start the server, create a database within the data directory,
 and create the required emews sql tables.
 
 ```bash
 $ cd EQ-SQL/db
-$ source env-bebop.sh
+$ source env-polaris-bebop.sh
 # Using '/lcrc/project/EMEWS/db/plima' as an example data directory
 $ export DB_DATA=/lcrc/project/POLARIS/${USER}/emews-db
 $ export DB_NAME=EQ_SQL
@@ -68,7 +62,7 @@ the database.
 # this should be the data directory created in the one time setup
 $ export DB_DATA=/lcrc/project/POLARIS/${USER}/emews-db
 $ cd polaris-hpc/swift_proj/db
-$ source env-bebop.sh
+$ source env-polaris-bebop.sh
 $ ./db-start.sh
 ```
 
@@ -89,7 +83,7 @@ then you must login to `beboplogin4` to stop the database, and do the following:
 ```bash
 $ cd polaris-hpc/swift_proj/db
 $ export DB_DATA=/lcrc/project/POLARIS/${USER}/emews-db
-$ source env-bebop.sh
+$ source env-polaris-bebop.sh
 $ ./db-stop.sh
 ```
 

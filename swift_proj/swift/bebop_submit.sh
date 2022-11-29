@@ -58,10 +58,14 @@ export SITE_FILE=$CFG_SITE_FILE
 # PYTHONPATH+="$EMEWS_PROJECT_ROOT/python"
 # export PYTHONPATH
 # echo "PYTHONPATH: $PYTHONPATH"
-EQ_SQL=$( readlink --canonicalize $EMEWS_PROJECT_ROOT/ext/EQ-SQL )
-POLARIS_OPT=$( readlink --canonicalize $EMEWS_PROJECT_ROOT/../DRGP )
-export PYTHONPATH=$EQ_SQL:$POLARIS_OPT:$EMEWS_PROJECT_ROOT/python
+EQ_SQL_ROOT=/lcrc/project/POLARIS/bebop/sfw/EQ-SQL
+export EQ_SQL=$EQ_SQL_ROOT/swift-t/ext
+export EQ_SQL_PY=$EQ_SQL_ROOT/python
+export POLARIS_OPT=$( readlink --canonicalize $EMEWS_PROJECT_ROOT/../DRGP )
+export PYTHONPATH=$EQ_SQL:$EQ_SQL_PY:$POLARIS_OPT:$EMEWS_PROJECT_ROOT/python
 echo "PYTHONPATH: $PYTHONPATH"
+
+$EMEWS_PROJECT_ROOT/swift/check-queues.sh
 
 # export SITE=bebop
 
@@ -85,8 +89,8 @@ mkdir -p $TURBINE_OUTPUT/data/Models
 ALGO_PARAMS=$CFG_ALGO_PARAMS_FILE
 cp $EMEWS_PROJECT_ROOT/data/$ALGO_PARAMS $TURBINE_OUTPUT/algo_params.json
 
-ME_EXPORTS="PYTHONPATH=$EMEWS_PROJECT_ROOT/python:$EMEWS_PROJECT_ROOT/../DRGP:$EMEWS_PROJECT_ROOT/ext/EQ-SQL\n"
-ME_EXPORTS+="PYTHONHOME=/lcrc/project/EMEWS/bebop/sfw/anaconda3/2020.11"
+ME_EXPORTS="PYTHONPATH=$EMEWS_PROJECT_ROOT/python:$EMEWS_PROJECT_ROOT/../DRGP:$EQ_SQL_PY\n"
+ME_EXPORTS+="PYTHONHOME=/soft/anaconda3/2020.11"
 export ME_EXPORTS
 
 
@@ -120,10 +124,10 @@ USER_VARS=( )
 export TURBINE_LAUNCHER=srun
 
 PG_LIB=/lcrc/project/EMEWS/bebop/sfw/gcc-7.1.0/postgres-14.2/lib
-MKL=/lcrc/project/EMEWS/bebop/repos/spack/opt/spack/linux-centos7-broadwell/gcc-7.1.0/intel-mkl-2020.1.217-dqzfemzfucvgn2wdx7efg4swwp6zs7ww
-MKL_LIB=$MKL/mkl/lib/intel64
-MKL_OMP_LIB=$MKL/lib/intel64
-LDP=$MKL_LIB/libmkl_def.so:$MKL_LIB/libmkl_avx2.so:$MKL_LIB/libmkl_core.so:$MKL_LIB/libmkl_intel_lp64.so:$MKL_LIB/libmkl_intel_thread.so:$MKL_OMP_LIB/libiomp5.so
+# MKL=/lcrc/project/EMEWS/bebop/repos/spack/opt/spack/linux-centos7-broadwell/gcc-7.1.0/intel-mkl-2020.1.217-dqzfemzfucvgn2wdx7efg4swwp6zs7ww
+# MKL_LIB=$MKL/mkl/lib/intel64
+# MKL_OMP_LIB=$MKL/lib/intel64
+# LDP=$MKL_LIB/libmkl_def.so:$MKL_LIB/libmkl_avx2.so:$MKL_LIB/libmkl_core.so:$MKL_LIB/libmkl_intel_lp64.so:$MKL_LIB/libmkl_intel_thread.so:$MKL_OMP_LIB/libiomp5.so
 
 # To avoid: EXCEPTION: /home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1: cannot allocate memory in static TLS block
 # LDP+=:/home/nick/.venv/py3.8/lib/python3.8/site-packages/torch/lib/libgomp-d22c30c5.so.1
@@ -146,8 +150,7 @@ swift-t -n $PROCS $MACHINE -p \
     -e DB_USER \
     -e DB_PORT \
     -e PYTHONPATH \
-    -e LD_LIBRARY_PATH=$MKL_LIB:$PG_LIB:$LD_LIBRARY_PATH \
-    -e LD_PRELOAD=$LDP \
+    -e LD_LIBRARY_PATH=$PG_LIB:$LD_LIBRARY_PATH \
     -e SITE_FILE \
     -e ME_TIMEOUT \
     $EMEWS_PROJECT_ROOT/swift/worker_pool.swift $CMD_LINE_ARGS
