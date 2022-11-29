@@ -65,6 +65,8 @@ export POLARIS_OPT=$( readlink --canonicalize $EMEWS_PROJECT_ROOT/../DRGP )
 export PYTHONPATH=$EQ_SQL:$EQ_SQL_PY:$POLARIS_OPT:$EMEWS_PROJECT_ROOT/python
 echo "PYTHONPATH: $PYTHONPATH"
 
+$EMEWS_PROJECT_ROOT/swift/check-queues.sh
+
 # export SITE=bebop
 
 # Resident task workers and ranks
