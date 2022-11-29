@@ -59,7 +59,7 @@ export SITE_FILE=$CFG_SITE_FILE
 # export PYTHONPATH
 # echo "PYTHONPATH: $PYTHONPATH"
 EQ_SQL_ROOT=/lcrc/project/POLARIS/bebop/sfw/EQ-SQL
-EQ_SQL=$EQ_SQL_ROOT/swift-t/ext
+export EQ_SQL=$EQ_SQL_ROOT/swift-t/ext
 export EQ_SQL_PY=$EQ_SQL_ROOT/python
 export POLARIS_OPT=$( readlink --canonicalize $EMEWS_PROJECT_ROOT/../DRGP )
 export PYTHONPATH=$EQ_SQL:$EQ_SQL_PY:$POLARIS_OPT:$EMEWS_PROJECT_ROOT/python

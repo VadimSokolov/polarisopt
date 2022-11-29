@@ -8,8 +8,7 @@ from PolarisOpt.setup_manager import SetupManager
 from PolarisOpt import F
 from PolarisOpt.utils.archiver import load_model
 from PolarisOpt.F import calibrate_simulation
-import proxies
-import eq
+from eqsql import proxies, eq
 
 
 def create_manager(params):

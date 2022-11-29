@@ -43,8 +43,8 @@ def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, eq_sql=N
         _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
 
     if eq_sql is not None:
-        import proxies
-        import eq
+        from eqsql import proxies
+        from eqsql import eq
         import eval_wrapper
 
         func = proxies.dump_proxies(f=eval_wrapper.eval_sample_task)['f']
@@ -54,7 +54,7 @@ def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, eq_sql=N
         payload = {'func': func, 'proxies': proxy_map, 'parameters': [{'row': r} for r in range(len(pend_samples))]}
         status, ft = eq_sql.submit_task(exp_id, eq_type=0, payload=json.dumps(payload))
         if status != eq.ResultStatus.SUCCESS:
-            eq.stop_worker_pool(eq_type=0)
+            eq_sql.stop_worker_pool(eq_type=0)
             raise ValueError("Error submitting task while attempting to calibrate simulation")
         # timeout should be set to max duration of polaris run in seconds
         timeout = float(os.getenv("ME_TIMEOUT"))
@@ -134,8 +134,9 @@ def calibrate_simulation(manager, DR_model, M_model = None, max_parallel=2, quie
         eval_samples, pend_samples = manager.load_results()
         if abs(min(eval_samples[:,0])) > manager.epsilon_stop:
             if eq_sql is not None:
-                import proxies
-                import eq
+                print("EQSQL", flush=True)
+                from eqsql import proxies
+                from eqsql import eq
                 import eval_wrapper
 
                 func = proxies.dump_proxies(f=eval_wrapper.eval_dr_task)['f']
@@ -146,7 +147,7 @@ def calibrate_simulation(manager, DR_model, M_model = None, max_parallel=2, quie
                 payload = {'func': func, 'proxies': proxy_js, 'parameters': [{'row': r} for r in range(len(pend_samples))]}
                 status, ft = eq_sql.submit_task(exp_id, eq_type=0, payload=json.dumps(payload))
                 if status != eq.ResultStatus.SUCCESS:
-                    eq.stop_worker_pool(eq_type=0)
+                    eq_sql.stop_worker_pool(eq_type=0)
                     raise ValueError("Error submitting task while attempting to calibrate simulation")
                 # timeout should be set to max duration of polaris run in seconds
                 timeout = float(os.getenv("ME_TIMEOUT"))
@@ -160,6 +161,7 @@ def calibrate_simulation(manager, DR_model, M_model = None, max_parallel=2, quie
                 result_dict = json.loads(result)
                 proxy_result = proxies.load_proxies(result_dict['proxies'])
                 result_list = proxy_result['results']
+                # print(f'RESULT: {result_list}', flush=True)
                 for obj, y_err, rtime, xhat, task_id in result_list:
                     eval_sim.update_DR_record(obj, y_err, rtime, pend_samples[task_id], xhat, manager)
             else:
