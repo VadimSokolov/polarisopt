@@ -6,7 +6,7 @@
   "config_file" : "../../DRGP/data/config_timedep.json",
   "num_samples" : 32,
 
-  "dr_model_file" : "../scratch/data/Models/timedep_results_model.pickle",
+  "dr_model_file" : "test_input/Models/timedep_results_model.pickle",
   "m_model_file" : "",
   "quiet" : "False"
 }

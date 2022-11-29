@@ -13,8 +13,8 @@
 
     "File controls" :
     {
-        "training_filename" : "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/swift_proj/data/test_input/timedep_training_data.json",
-        "res_filename" : "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/swift_proj/data/test_input/timedep_results.json"
+        "training_filename" : "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/swift_proj/experiments/t2/timedep_training_data.json",
+        "res_filename" : "timedep_results.json"
     },
 
     "General BO controls" :
