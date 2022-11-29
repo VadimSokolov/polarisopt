@@ -15,4 +15,5 @@ module load anaconda3/2021.05
 source activate pol
 
 cd /home/vsokolov/polaris-hpc/DRGP
+# rm /gpfs/fs1/home/vsokolov/polaris-hpc/DRGP/data/timedep_training_data.json
 python morris_SA.py  
