@@ -138,7 +138,6 @@ def calibrate_simulation(manager, DR_model, M_model = None, max_parallel=2, quie
                 from eqsql import proxies
                 from eqsql import eq
                 import eval_wrapper
-
                 func = proxies.dump_proxies(f=eval_wrapper.eval_dr_task)['f']
                 # print(manager, DR_model, pend_samples)
                 proxy_js = proxies.dump_proxies(manager=manager, dr_model=DR_model,

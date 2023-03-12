@@ -64,3 +64,5 @@ convergence/slurm-*
 DRGP/simulator/
 DRGP/experiments/
 DRGP/data/timedep_training_data.json
+swift_proj/bloomington-nick-email.txt
+swift_proj/swift/db_env_vars_*.txt
