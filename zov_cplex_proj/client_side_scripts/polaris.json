@@ -1,6 +1,0 @@
-{
-	"port" : 10000,
-	"input_directory" : "/home/rweimer/polaris/cplex/input_divided",
-	"results_directory" : "/home/rweimer/polaris/cplex/results",
-	"results_shared_directory" : "/home/rweimer/polaris/cplex/final_results"
-}
