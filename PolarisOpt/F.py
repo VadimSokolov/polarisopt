@@ -70,9 +70,6 @@ def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, eq_sql=N
         result_list = proxy_result['results']
         for obj, y_err, rtime, task_id in result_list:
             eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
-    elif slurm is not None:
-        
-
     else:
         with futures.ThreadPoolExecutor(max_parallel) as executor:
             result = executor.map(eval_sim.eval_sample_task, repeat(manager), repeat(res_fp), pend_samples, 

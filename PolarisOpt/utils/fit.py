@@ -19,7 +19,8 @@ from torch.optim.optimizer import Optimizer
 
 from botorch.exceptions.warnings import OptimizationWarning
 from botorch.optim.numpy_converter import TorchAttr, module_to_array, set_params_with_array
-from  botorch.optim.utils import ConvergenceCriterion, _filter_kwargs, _get_extra_mll_args
+from  botorch.optim.utils import _filter_kwargs, _get_extra_mll_args
+# from  botorch.optim.utils import ConvergenceCriterion, _filter_kwargs, _get_extra_mll_args
 
 
 ParameterBounds = Dict[str, Tuple[Optional[float], Optional[float]]]

@@ -15,10 +15,11 @@ from PolarisOpt.utils import objective_funcs
 #######################################
 #######################################
 
-settings_filename = 'settings.json'
+settings_filename = 'settings_slurm.json'
 config_filename = 'config_morris_constants.json'
 manager=SetupManager(settings_filename, config_filename)
 
+import pdb; pdb.set_trace()
 
 problem = {
     'num_vars': manager.dim_in,

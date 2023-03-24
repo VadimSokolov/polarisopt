@@ -10,7 +10,7 @@ import json
 from PolarisOpt.utils.objective_funcs import run_objective
 import time
 from pathlib import Path
-import slurm_wrappers
+import PolarisOpt.slurm_wrappers
 
 
 def convert_time(seconds):
