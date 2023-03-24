@@ -37,6 +37,8 @@ class SetupManager:
         self.dim_out = None
         self.settings_filename = settings_filename
         self.config_filename = config_filename
+        self.dictionary = None
+        self.run_id = 0
 
     @property
     def settings_filename(self):
@@ -83,10 +85,10 @@ class SetupManager:
             raise ValueError('File %s must be a json file' % json_fp)
         if not os.path.exists(json_fp):
             raise ValueError('File path %s is invalid' % json_fp)
-        dictionary = json.loads(open(json_fp).read())
-        p = [vkey for vkey in dictionary]
+        self.dictionary = json.loads(open(json_fp).read())
+        p = [vkey for vkey in self.dictionary]
         for vkey in p[:3]:
-            for key, value in dictionary[vkey].items(): 
+            for key, value in self.dictionary[vkey].items(): 
                 self.__dict__[key] = value 
 
     def update_parameter(self, name, value):

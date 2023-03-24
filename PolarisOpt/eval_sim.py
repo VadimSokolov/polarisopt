@@ -10,6 +10,7 @@ import json
 from PolarisOpt.utils.objective_funcs import run_objective
 import time
 from pathlib import Path
+import slurm_wrappers
 
 
 def convert_time(seconds):
@@ -73,7 +74,10 @@ def run_task(manager, inputs, task):
     else:
        cv_fp=None
     print('Polaris Convergence: {}'.format(cv_fp), flush=True)
-    run_sim(task_dir, exe_fp, sc_fp, manager.working_dir, cv_fp)
+    if manager.dictionary["slurm"]["useslurm"]:
+        slurm_wrappers.eval_sim(task_dir, exe_fp, sc_fp, manager.working_dir, cv_fp)
+    else:
+        run_sim(task_dir, exe_fp, sc_fp, manager.working_dir, cv_fp)
     print(os.getcwd())
     obj, y_err = pull_result(task_dir, manager)
     end = time.perf_counter()
