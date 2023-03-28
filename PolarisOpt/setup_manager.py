@@ -57,7 +57,8 @@ class SetupManager:
         self.res_filename,self._res_filepath = self._check_file(self.res_filename,['data'])
         self.target_output_filename, self._target_output_filepath = self._check_file(self.target_output_filename,['simulator','Target'])
         if not os.path.exists(self._target_output_filepath):
-            raise ValueError('Target Output path %s is invalid' % self._target_output_filepath)
+            # raise ValueError('Target Output path %s is invalid' % self._target_output_filepath)
+            print('Target Output path %s is invalid' % self._target_output_filepath)
         self.model_dir = os.path.join(self.working_dir, 'data', 'Models')   #automatically saved in the results file folder
         if not os.path.exists(self.model_dir):
             os.mkdir(self.model_dir)
@@ -86,8 +87,8 @@ class SetupManager:
         if not os.path.exists(json_fp):
             raise ValueError('File path %s is invalid' % json_fp)
         self.dictionary = json.loads(open(json_fp).read())
-        p = [vkey for vkey in self.dictionary]
-        for vkey in p[:3]:
+        # p = [vkey for vkey in self.dictionary]
+        for vkey in ['General simulation controls', 'File controls', 'General BO controls']:
             for key, value in self.dictionary[vkey].items(): 
                 self.__dict__[key] = value 
 

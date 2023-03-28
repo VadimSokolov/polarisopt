@@ -1,0 +1,92 @@
+[
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "0.0 0.0 -20.0 1.3333333333333335",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "0.0 0.0 -20.0 4.0",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "0.0 0.0 -33.33333333333333 4.0",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "0.0 2.6666666666666665 -33.33333333333333 4.0",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "2.6666666666666665 2.6666666666666665 -33.33333333333333 4.0",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "2.6666666666666665 4.0 -33.33333333333333 0.0",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "2.6666666666666665 1.3333333333333335 -33.33333333333333 0.0",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "0.0 1.3333333333333335 -33.33333333333333 0.0",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "0.0 1.3333333333333335 -20.0 0.0",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    },
+    {
+        "status": "Pending",
+        "variables": "C_DISTANCE_MAJ_SHOP C_DISTANCE_WORK C_DISTANCE_PICK C_DISTANCE_EAT_OUT",
+        "orig_input": "0.0 1.3333333333333335 -20.0 2.6666666666666665",
+        "DR_input": "P",
+        "target_err": "P",
+        "objective": "P",
+        "run_time": "P"
+    }
+]

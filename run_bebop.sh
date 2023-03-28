@@ -13,7 +13,8 @@
 module restore polaris
 module load anaconda3/2021.05 
 source activate pol
+export PYTHONPATH="$PYTHONPATH:/home/vsokolov/polaris-hpc"
 
-cd /home/vsokolov/polaris-hpc/DRGP
+# cd /home/vsokolov/polaris-hpc
 # rm /gpfs/fs1/home/vsokolov/polaris-hpc/DRGP/data/timedep_training_data.json
-python morris_SA.py  
+python bin/morris_SA.py  
