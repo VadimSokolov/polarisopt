@@ -10,7 +10,7 @@ import json
 from PolarisOpt.utils.objective_funcs import run_objective
 import time
 from pathlib import Path
-import PolarisOpt.slurm_wrappers
+from PolarisOpt.slurm_wrappers import run_sim_slurm
 
 
 def convert_time(seconds):
@@ -59,91 +59,91 @@ def run_task(manager, inputs, task):
     archiver.update_json(manager.vnames, inputs, task_dir)
 
     if hasattr(manager, 'polaris_executable'):
-        exe_fp = manager.polaris_executable
+        polarisbin = manager.polaris_executable
     else:
         if platform.system().lower() == 'windows':
-            exe_fp = os.path.join(manager.polaris_executable, 'Integrated_model.exe')
+            polarisbin = os.path.join(manager.polaris_executable, 'Integrated_model.exe')
         else:
-            exe_fp = os.path.join(manager.polaris_executable, 'Integrated_Model')
+            polarisbin = os.path.join(manager.polaris_executable, 'Integrated_Model')
     
-    print('Polaris Executable: {}'.format(exe_fp), flush=True)
+    # print('Polaris Executable: {}'.format(polarisbin), flush=True)
 
-    sc_fp = os.path.join(task_dir, manager.simulation_scenario_name)
+    scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
     if manager.convergence:
-       cv_fp=manager.convergence_path
+       convrgencepath=manager.convergence_path
     else:
-       cv_fp=None
-    print('Polaris Convergence: {}'.format(cv_fp), flush=True)
+       convrgencepath=None
+    # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
-        slurm_wrappers.eval_sim(task_dir, exe_fp, sc_fp, manager.working_dir, cv_fp)
+        run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager)
     else:
-        run_sim(task_dir, exe_fp, sc_fp, manager.working_dir, cv_fp)
+        run_sim(task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
     print(os.getcwd())
     obj, y_err = pull_result(task_dir, manager)
     end = time.perf_counter()
     return obj, y_err, convert_time(end-start)
 
 
-def run_sim(task_dir, exe_fp, sc_fp, working_dir, cv_fp=None):
+def run_sim(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None):
     r"""runs the POLARIS executable with the associated scenario file
     Args:
         task_dir: (path) path to the folder containing the scenario and variable-related files
-        exe_fp: (path) full path to the Polaris Integrated_model.exe
-        sc_fp: (path) scenario filename within task_dir for the .json needed to run an instance of the executable
-        cv_fp: (path) convergence directory path if convergence should be run
+        polarisbin: (path) full path to the Polaris Integrated_model.exe
+        scenariopath: (path) scenario filename within task_dir for the .json needed to run an instance of the executable
+        convrgencepath: (path) convergence directory path if convergence should be run
     """
     os.chdir(task_dir)
     # Run the Polaris exe file via pipe
     num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
 #    if platform.system().lower() == 'windows':
-#        p1 = Popen([exe_fp, sc_fp, num_threads], shell=True)
+#        p1 = Popen([polarisbin, scenariopath, num_threads], shell=True)
 #    else:
 #        num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
 
     # create an init scenario file for local task_dir from scenario.json file
-    if cv_fp is not None:
-        control_fp=create_conv_files(sc_fp, exe_fp, cv_fp, num_threads)
-        p1= Popen(['python', os.path.join(cv_fp,'run_convergence.py'),control_fp,task_dir],shell=False)
+    if convrgencepath is not None:
+        control_fp=create_conv_files(scenariopath, polarisbin, convrgencepath, num_threads)
+        p1= Popen(['python', os.path.join(convrgencepath,'run_convergence.py'),control_fp,task_dir],shell=False)
     else:
-        p1 = Popen([exe_fp, sc_fp, num_threads], shell=False)
+        p1 = Popen([polarisbin, scenariopath, num_threads], shell=False)
     p1.wait()
     os.chdir(working_dir)
     return print("task completed")
 
 
-def create_conv_files(sc_fp,exe_fp, cv_fp, num_threads):
+def create_conv_files(scenariopath,polarisbin, convrgencepath, num_threads):
     #create an init version of scenario
-    p,f= sc_fp.split(os.extsep) 
-    sc_fp_init = p + "_init."+f
-    output_base, database_base = pull_basenames(sc_fp)
-    output_control_fp = os.path.join(os.path.dirname(sc_fp),database_base + "_control.json")
-    dictionary = json.loads(open(sc_fp).read())
+    p,f= scenariopath.split(os.extsep) 
+    scenariopath_init = p + "_init."+f
+    output_base, database_base = pull_basenames(scenariopath)
+    output_control_fp = os.path.join(os.path.dirname(scenariopath),database_base + "_control.json")
+    dictionary = json.loads(open(scenariopath).read())
     #check with randy
     dictionary["Routing and skimming controls"]["time_dependent_routing"]=False
     dictionary["Population synthesizer controls"]["read_population_from_database"]=False
     dictionary["Population synthesizer controls"]["percent_to_synthesize"]=0.01
     dictionary["Population synthesizer controls"]["demand_reduction_factor"]=0
-    with open(sc_fp_init, 'w+') as fp:
+    with open(scenariopath_init, 'w+') as fp:
         json.dump(dictionary, fp, indent = 4)
 
     #TO DO: right now num_abm_runs set to 3 by default
     dictionary = {}
-    dictionary["scenario_main_init"] = sc_fp_init
-    dictionary["scenario_main"] = sc_fp
+    dictionary["scenario_main_init"] = scenariopath_init
+    dictionary["scenario_main"] = scenariopath
     dictionary["num_abm_runs"] = 3
     dictionary["output_directories"] = output_base
     dictionary["num_threads"] = num_threads
     dictionary["database_base_name"] = database_base
-    dictionary["model"] = exe_fp
-    dictionary["scripts_dir"] = cv_fp
+    dictionary["model"] = polarisbin
+    dictionary["scripts_dir"] = convrgencepath
     #dictionary["standard_dir"]= 
     dictionary["results_dir"]= "convergence_results"
     with open(output_control_fp, 'w+') as fp:
         json.dump(dictionary, fp, indent = 4)
     return output_control_fp
 
-def pull_basenames(sc_fp):
-        dictionary = json.loads(open(sc_fp).read())
+def pull_basenames(scenariopath):
+        dictionary = json.loads(open(scenariopath).read())
         output_base = dictionary['Output controls']['output_dir_name']
         database_base = dictionary["General simulation controls"]['database_name']
         #if platform.system().lower() == 'linux':

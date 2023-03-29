@@ -201,9 +201,10 @@ class Calibrate_DRNN(Calibrate_NN):
         count = np.sum([min(0, len(i)-1) for i in layers])
         _, _, _, NN_v, _ = archiver.load_DR_settings(manager._settings_filepath)
             #[epochs, learning_rate, lambda, penalty, XDR_layer, DRX_layer, DRY_layer]
+        dim_out = manager.get_dim_out()
         NN_var = [
             manager.dim_in, 
-            manager.dim_out, 
+            dim_out, 
             epochs, 
             lr, 
             *NN_v[2:4], 

@@ -239,8 +239,8 @@ def update_record(inputs, keys, values, data_fp, identifier_key = "orig_input"):
     with open(data_fp, 'w') as fp:
         json.dump(dictionary, fp, indent = 4)
 
-def pull_basenames(sc_fp):
-        dictionary = json.loads(open(sc_fp).read())
+def pull_basenames(scenariopath):
+        dictionary = json.loads(open(scenariopath).read())
         output_base = dictionary['Output controls']['output_dir_name']
         database_base = dictionary["General simulation controls"]['database_name']
         if platform.system().lower() == 'linux':

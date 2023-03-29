@@ -37,8 +37,9 @@ class SetupManager:
         self.dim_out = None
         self.settings_filename = settings_filename
         self.config_filename = config_filename
-        self.dictionary = None
         self.run_id = 0
+        if not os.path.exists(self.working_dir):
+            os.mkdir(self.working_dir)
 
     @property
     def settings_filename(self):
@@ -49,9 +50,13 @@ class SetupManager:
         self._settings_filename, self._settings_filepath = self._check_file(file_fn,['data'])
         self._load_jsonfile(self._settings_filepath)
         self._set_paths()
-        print('validating SQL query on %s'%self._target_output_filepath)
-        self.dim_out = len(eval_sim.query_db(self._target_output_filepath, self.output_SQL_query))
+        # print('validating SQL query on %s'%self._target_output_filepath)
+        # self.dim_out = len(eval_sim.query_db(self._target_output_filepath, self.output_SQL_query))
 
+    def get_dim_out(self):
+        n =  len(eval_sim.query_db(self._target_output_filepath, self.output_SQL_query))
+        self.dim_out = n
+        return n
     def _set_paths(self):
         self.training_filename,self._training_filepath = self._check_file(self.training_filename,['data'])
         self.res_filename,self._res_filepath = self._check_file(self.res_filename,['data'])
@@ -61,7 +66,7 @@ class SetupManager:
             print('Target Output path %s is invalid' % self._target_output_filepath)
         self.model_dir = os.path.join(self.working_dir, 'data', 'Models')   #automatically saved in the results file folder
         if not os.path.exists(self.model_dir):
-            os.mkdir(self.model_dir)
+            os.makedirs(self.model_dir)
 
     @property
     def config_filename(self):
@@ -82,6 +87,7 @@ class SetupManager:
         return file_fn, file_path
 
     def _load_jsonfile(self, json_fp):
+        # import pdb; pdb.set_trace()
         if not json_fp.endswith('.json'):
             raise ValueError('File %s must be a json file' % json_fp)
         if not os.path.exists(json_fp):

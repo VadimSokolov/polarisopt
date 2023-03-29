@@ -15,8 +15,8 @@ from PolarisOpt.utils import objective_funcs
 #######################################
 #######################################
 
-settings_filename = 'settings_slurm.json'
-config_filename = 'config_morris_constants.json'
+settings_filename = '/lcrc/project/POLARIS/bebop/polaris_OPT/Austin_Oct28/austin/morris/data/settings_slurm.json'
+config_filename = '/lcrc/project/POLARIS/bebop/polaris_OPT/Austin_Oct28/austin/morris/data/config_morris_constants.json'
 manager=SetupManager(settings_filename, config_filename)
 
 
@@ -28,7 +28,7 @@ problem = {
 
 X = morris_s.sample(problem,N=2,num_levels=4)
 archiver.create_record(X, manager._training_filepath, var_names = manager.var, identifier_key = "orig_input")
-build_sampleset(manager, manager._training_filepath, max_parallel=4,num_samples=0,use_emews=False)
+build_sampleset(manager, manager._training_filepath, max_parallel=4,num_samples=0)
 
 X,Err = manager.load_training()
 Obj, _ = objective_funcs.run_objective(Err, o_type=manager.objective_type)

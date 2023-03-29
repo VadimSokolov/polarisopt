@@ -10,7 +10,8 @@
     "File controls" :
     {
         "training_filename" : "timedep_training_data.json",
-        "res_filename" : "timedep_results.json"
+        "res_filename" : "timedep_results.json",
+        "working_dir" : "/lcrc/project/POLARIS/bebop/polaris_OPT/Austin_Oct28/austin/morris"
     },
     "slurm":{
         "useslurm": true,

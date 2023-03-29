@@ -1,4 +1,3 @@
-
 #!/bin/bash
 #SBATCH --account=POLARIS
 #SBATCH --partition=bdwall
