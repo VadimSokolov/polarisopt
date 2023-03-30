@@ -14,5 +14,7 @@
 #SBATCH --job-name=$JOBNAME
 
 
-module load anaconda3/latest
+module restore polaris
+module load anaconda3/2020.11 
+source activate pol
 $SCRIPT

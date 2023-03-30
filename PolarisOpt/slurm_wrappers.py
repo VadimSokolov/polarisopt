@@ -4,7 +4,8 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     d = manager.dictionary["slurm"]
     with open(f'./data/{d["scripttemplate"]}','r') as fh:   
         s = fh.read()
-    s = s.replace("$JOBNAME", d["name"])
+    manager.run_id+=1
+    s = s.replace("$JOBNAME", f"{d["name"]}-{manager.run_id}")
     s = s.replace("$NCPUS", d["ncpus"])
     s = s.replace("$MEM", d["mem"])
     s = s.replace("$OUTPUTFOLDER", task_dir)
@@ -16,7 +17,6 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     else:
         cmd += " ".join([polarisbin, scenariopath, num_threads])
     s = s.replace("$SCRIPT", cmd)
-    manager.run_id+=1
     slurmfn = f'{task_dir}/{d["name"]}-{manager.run_id}.slurm'
     with open(slurmfn,'w') as fh:
         fh.write(s)
