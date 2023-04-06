@@ -5,7 +5,8 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     with open(f'./data/{d["scripttemplate"]}','r') as fh:   
         s = fh.read()
     manager.run_id+=1
-    s = s.replace("$JOBNAME", f"{d["name"]}-{manager.run_id}")
+    jobname = d["name"]
+    s = s.replace("$JOBNAME", f"{jobname}-{manager.run_id}")
     s = s.replace("$NCPUS", d["ncpus"])
     s = s.replace("$MEM", d["mem"])
     s = s.replace("$OUTPUTFOLDER", task_dir)
