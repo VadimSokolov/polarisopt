@@ -5,7 +5,8 @@
         "simulation_path" : "/home/vsokolov/polaris/polaris_OPT/Austin_Oct28/austin/built/",
         "convergence_path": "/gpfs/fs1/home/lschultz/DR_GP/simulator/convergence",
         "convergence": false,
-        "simulation_scenario_name" : "scenario_abm.json"
+        "simulation_scenario_name" : "scenario_abm.json",
+        "calibration" : false
     },
     "File controls" :
     {

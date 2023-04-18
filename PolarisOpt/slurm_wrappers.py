@@ -1,5 +1,7 @@
 import subprocess
- 
+import os
+from PolarisOpt.eval_sim import create_conv_files
+
 def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     d = manager.dictionary["slurm"]
     with open(f'./data/{d["scripttemplate"]}','r') as fh:   
