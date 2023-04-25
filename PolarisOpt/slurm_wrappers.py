@@ -1,6 +1,6 @@
 import subprocess
 import os
-from PolarisOpt.eval_sim import create_conv_files
+# from PolarisOpt.eval_sim import create_conv_files
 
 def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     d = manager.dictionary["slurm"]
@@ -14,11 +14,12 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     s = s.replace("$OUTPUTFOLDER", task_dir)
     num_threads = d["ncpus"]
     cmd = f"cd {task_dir}\n"
-    if convrgencepath is not None:
-        control_fp=create_conv_files(scenariopath, polarisbin, convrgencepath, num_threads)
-        cmd += " ".join(['python', os.path.join(convrgencepath,'run_convergence.py'),control_fp,task_dir])
-    else:
-        cmd += " ".join([polarisbin, scenariopath, num_threads])
+    # if convrgencepath is not None:
+    #     control_fp=create_conv_files(scenariopath, polarisbin, convrgencepath, num_threads)
+    #     cmd += " ".join(['python', os.path.join(convrgencepath,'run_convergence.py'),control_fp,task_dir])
+    # else:
+    #     cmd += " ".join([polarisbin, scenariopath, num_threads])
+    cmd += " ".join([polarisbin, scenariopath, num_threads])
     s = s.replace("$SCRIPT", cmd)
     slurmfn = f'{task_dir}/{d["name"]}-{manager.run_id}.slurm'
     with open(slurmfn,'w') as fh:

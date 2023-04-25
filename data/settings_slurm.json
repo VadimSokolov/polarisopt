@@ -1,18 +1,20 @@
 {
 	"General simulation controls" :
 	{
-        "polaris_executable" : "/home/vsokolov/polaris/polaris_OPT/Austin_Oct28/austin/built/bin/Integrated_Model",
-        "simulation_path" : "/home/vsokolov/polaris/polaris_OPT/Austin_Oct28/austin/built/",
+        "polaris_executable" : "/home/vsokolov/pbin/Integrated_Model",
+        "simulation_path" : "/home/vsokolov/polaris/polaris-opt/models/20230419/copy/Bloomington",
         "convergence_path": "/gpfs/fs1/home/lschultz/DR_GP/simulator/convergence",
         "convergence": false,
-        "simulation_scenario_name" : "scenario_abm.json",
+        "simulation_scenario_name" : "scenario_abm.modified.json",
         "calibration" : false
     },
     "File controls" :
     {
         "training_filename" : "timedep_training_data.json",
         "res_filename" : "timedep_results.json",
-        "working_dir" : "/lcrc/project/POLARIS/bebop/polaris_OPT/Austin_Oct28/austin/morris"
+        "working_dir" : "/home/vsokolov/polaris/polaris-opt/models/20230419/copy/Bloomington/morris",
+        "target_output_filepath" : "/home/vsokolov/polaris/polaris-opt/models/20230419/copy/Bloomington/Bloomington_iteration_1/Bloomington-Result.h5",
+        "result_filename" : "Bloomington-Result.h5"
     },
     "slurm":{
         "useslurm": true,
@@ -23,8 +25,6 @@
     },
     "General BO controls" :
 	{
-        "target_output_filename" : "/home/vsokolov/polaris/polaris_OPT/Austin_Oct28/austin/built/austin/austin-Result.sqlite",
-        "output_SQL_query": "SELECT start_time,SUM(outbound_turn_travel_time - inbound_turn_travel_time) FROM 'TurnMOE' GROUP BY start_time",
         "xxxnum_BO_loops" : 20,
         "num_BO_loops" : 3,
         "num_rec_points" : 2,

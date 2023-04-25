@@ -5,8 +5,8 @@ A settings ```json``` file is used to define the static parameters necessary to 
 
 * ```simulation_path``` (path): full path pointing to the folder of the simulator's executable and accompanying files. Filenames defined in the ```config.json``` file are assumed to be located using this path
 * ```simulation_scenario_name``` (filename): the name of the ```scenario.json``` file required to run the POLARIS executable
-* ```target_output_filename``` (filename):  the name of the file located in the ```simulator\Target``` folder which contains the simulation outputs calibration seeks to match
-* ```output_SQL_query```(text): the SQL query that should be run on the ```target_output_filename``` and the evaluated simulation outputs for use in the objective function. Assumed to have 2 columns with the 2nd column recording the difference between the target and evaluated outputs
+* ```target_output_filepath``` (filename):  the name of the file located in the ```simulator\Target``` folder which contains the simulation outputs calibration seeks to match
+* ```output_SQL_query```(text): the SQL query that should be run on the ```target_output_filepath``` and the evaluated simulation outputs for use in the objective function. Assumed to have 2 columns with the 2nd column recording the difference between the target and evaluated outputs
 
 ### File controls
 * ```training_filename``` (filename): a ```.json``` file name which contains an initial sample set of evaluated points in the following format:

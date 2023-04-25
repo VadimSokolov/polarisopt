@@ -10,7 +10,7 @@
 #SBATCH --output=/home/vsokolov/slurm/%x-%j.out  # Output file`
 #SBATCH --error=/home/vsokolov/slurm/%x-%j.err   # Error file
 
-# module restore polaris
+module restore polaris
 module load anaconda3/2021.05 
 source activate pol
 export PYTHONPATH="$PYTHONPATH:/home/vsokolov/polaris-hpc"

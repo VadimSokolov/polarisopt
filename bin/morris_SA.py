@@ -15,9 +15,9 @@ from PolarisOpt.utils import objective_funcs
 #######################################
 #######################################
 
-settings_filename = '/lcrc/project/POLARIS/bebop/polaris_OPT/Austin_Oct28/austin/morris/data/settings_slurm.json'
-config_filename = '/lcrc/project/POLARIS/bebop/polaris_OPT/Austin_Oct28/austin/morris/data/config_morris_constants.json'
-manager=SetupManager(settings_filename, config_filename)
+settings_filepath = '/lcrc/project/POLARIS/bebop/polaris_OPT/Austin_Oct28/austin/morris/data/settings_slurm.json'
+config_filepath = '/lcrc/project/POLARIS/bebop/polaris_OPT/Austin_Oct28/austin/morris/data/config_morris_constants.json'
+manager=SetupManager(settings_filepath, config_filepath)
 
 
 problem = {
