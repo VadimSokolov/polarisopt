@@ -51,17 +51,19 @@ class SetupManager:
         self.dim_out = n
         return n
     
-    def _check_file(self,file_path):
-        if os.path.dirname(file_fn)=='':
+    def _check_file(self,file_path,create=False):
+        if os.path.dirname(file_path)=='':
             file_path = os.path.join(self.working_dir, file_path)
+        if not os.path.exists(file_path) and create:
+            open(file_path,'w')    
         if not os.path.exists(file_path):
             raise ValueError('Path %s is invalid' % file_path)
         return file_path
 
 
     def _set_paths(self):
-        self.training_filename = self._check_file(self.training_filename)
-        self.res_filename      = self._check_file(self.res_filename)
+        self.training_filename = self._check_file(self.training_filename,True)
+        self.res_filename      = self._check_file(self.res_filename,True)
         self.target_output_filepath = self._check_file(self.target_output_filepath)
         self.model_dir = os.path.join(self.working_dir, 'Models')   #automatically saved in the results file folder
         if not os.path.exists(self.model_dir):

@@ -31,7 +31,7 @@ def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, eq_sql=N
     Returns:
       a file containing the evaluated samples in the format necessary for training [Y, X]
     """
-    res_fn, res_fp = manager._check_file(res_fn)
+    res_fp = manager._check_file(res_fn)
 
     #################################
     #STEP 1: Create LHS if desired  #

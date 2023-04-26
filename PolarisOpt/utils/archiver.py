@@ -204,6 +204,8 @@ def create_record(inputs, data_fp, var_names = None, identifier_key = "orig_inpu
         dictionary = json.loads(open(data_fp).read())
     except OSError:
         dictionary = []
+    except json.decoder.JSONDecodeError:
+        dictionary = []
 
     for item in inputs:
         new = new_record(item, var_names, identifier_key)

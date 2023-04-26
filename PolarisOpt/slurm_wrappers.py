@@ -4,7 +4,7 @@ import os
 
 def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     d = manager.dictionary["slurm"]
-    with open(f'./data/{d["scripttemplate"]}','r') as fh:   
+    with open(os.path.join(manager.working_dir,d["scripttemplate"]),'r') as fh:   
         s = fh.read()
     manager.run_id+=1
     jobname = d["name"]
