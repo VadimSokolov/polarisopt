@@ -86,7 +86,6 @@ class SetupManager:
         self.var = [i for v in self.vnames for i in v[1]]
 
     def _load_jsonfile(self, json_fp):
-        # import pdb; pdb.set_trace()
         if not json_fp.endswith('.json'):
             raise ValueError('File %s must be a json file' % json_fp)
         if not os.path.exists(json_fp):

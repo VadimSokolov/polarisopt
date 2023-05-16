@@ -25,4 +25,12 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     with open(slurmfn,'w') as fh:
         fh.write(s)
     result = subprocess.run(f"sbatch {slurmfn}", shell=True, capture_output=True, text=True)
-    return print(f"\nSlurm task with {slurmfn} completed. \n Result: {result}\n")
+    if result.returncode!=0:
+        print(f"\nSlurm task with {slurmfn} failed.\nResult: {result}\n")
+        print(result.stderr)
+        return False
+    task_output = manager.gi(task_dir,scenariopath)
+    if not os.path.exists(os.path.join(task_output,'finished')):
+        print(f"Finished file was not created in {task_output}")
+        return False 
+    return f"\nSlurm task with {slurmfn} completed.\nResult: {result}\n"

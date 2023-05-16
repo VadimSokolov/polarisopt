@@ -55,8 +55,6 @@ def run_task(manager, inputs, task):
         shutil.rmtree(task_dir)
     
     copy_simulation(src_dir, task_dir)
-    # shutil.copytree(src_dir, task_dir)
-    import pdb; pdb.set_trace()
     archiver.update_json(manager.vnames, inputs, task_dir)
 
     if hasattr(manager, 'polaris_executable'):
@@ -70,18 +68,22 @@ def run_task(manager, inputs, task):
     # print('Polaris Executable: {}'.format(polarisbin), flush=True)
 
     scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
-    manager.task_output = manager.get_task_output(task_dir,scenariopath)
+    task_output = manager.get_task_output(task_dir,scenariopath)
     if manager.convergence:
        convrgencepath=manager.convergence_path
     else:
        convrgencepath=None
     # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
-        run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager)
+        res = run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager)
+        if res is False:
+            return False
+        else:
+            print(res)
     else:
         run_sim(task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
     print(os.getcwd())
-    obj, y_err = pull_result(task_dir, manager)
+    obj, y_err = pull_result(os.path.join(task_output,manager.result_filename), manager.target_output_filepath)
     end = time.perf_counter()
     return obj, y_err, convert_time(end-start)
 
@@ -151,7 +153,7 @@ def pull_basenames(scenariopath):
         #    output_base = 'linux_{}'.format(output_base)
         return output_base, database_base
         
-def pull_result(task_dir, manager):
+def pull_result(task_db, target_db):
     r"""Performs a SQL query to retrieve the results and calculates the objective value
     Args:
         task_dir (path): folder path containing the sample-instance files
@@ -160,8 +162,9 @@ def pull_result(task_dir, manager):
         the uncollapsed distance from the target outputs and objective
         value
     """
-    task_db = os.path.join(manager.task_output,manager.result_filename)
-    target_db = manager.target_output_filepath
+    # task_output = manager.get_task_output(task_dir,scenariopath)
+    # task_db = os.path.join(task_output,manager.result_filename)
+    # target_db = manager.target_output_filepath
     with h5py.File(task_db, 'r') as f:
         new_output = f['link_moe']['link_travel_time'][:]*f['link_moe']['link_in_volume'][:]
         new_output =  np.mean(new_output, axis=1)
