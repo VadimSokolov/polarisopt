@@ -56,7 +56,7 @@ def run_task(manager, inputs, task):
     
     copy_simulation(src_dir, task_dir)
     # shutil.copytree(src_dir, task_dir)
-
+    import pdb; pdb.set_trace()
     archiver.update_json(manager.vnames, inputs, task_dir)
 
     if hasattr(manager, 'polaris_executable'):

@@ -25,4 +25,4 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     with open(slurmfn,'w') as fh:
         fh.write(s)
     result = subprocess.run(f"sbatch {slurmfn}", shell=True, capture_output=True, text=True)
-    return print(f"Slurm task with {slurmfn} completed. Result: {result}")
+    return print(f"\nSlurm task with {slurmfn} completed. \n Result: {result}\n")

@@ -89,6 +89,9 @@ def update_json(vnames, new_values, dest_dir):
             for ind in vkey[1]:
                if ind in dictionary[dkey]:
                     dictionary[dkey][ind], new_values = new_values[0], np.delete(new_values,0)
+               else:
+                   print(f'variable {ind} not found in {dkey}')
+            
         with open(t_fp, 'w') as fp:
             json.dump(dictionary, fp, indent = 4)
 
