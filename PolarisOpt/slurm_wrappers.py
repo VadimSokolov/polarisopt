@@ -29,7 +29,7 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
         print(f"\nSlurm task with {slurmfn} failed.\nResult: {result}\n")
         print(result.stderr)
         return False
-    task_output = manager.gi(task_dir,scenariopath)
+    task_output = manager.get_task_output(task_dir,scenariopath)
     if not os.path.exists(os.path.join(task_output,'finished')):
         print(f"Finished file was not created in {task_output}")
         return False 

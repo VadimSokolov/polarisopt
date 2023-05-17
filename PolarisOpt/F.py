@@ -73,8 +73,7 @@ def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, eq_sql=N
     else:
         # eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False) 
         with futures.ThreadPoolExecutor(max_parallel) as executor:
-            result = executor.map(eval_sim.eval_sample_task, repeat(manager), repeat(res_fp), pend_samples, 
-                                 (x for x in range(len(pend_samples))), repeat(False))
+            result = executor.map(eval_sim.eval_sample_task, repeat(manager), repeat(res_fp), pend_samples, range(len(pend_samples)), repeat(False))
             for obj, y_err, rtime, task_id in result:
                 eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
         # while len(pend_samples)>0:
