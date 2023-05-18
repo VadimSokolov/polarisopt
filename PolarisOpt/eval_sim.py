@@ -83,7 +83,7 @@ def run_task(manager, inputs, task):
     else:
         run_sim(task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
     print(os.getcwd())
-    obj, y_err = pull_result(os.path.join(task_output,manager.result_filename), manager.target_output_filepath)
+    obj, y_err = pull_result(task_output,manager)
     end = time.perf_counter()
     return obj, y_err, convert_time(end-start)
 
@@ -153,7 +153,7 @@ def pull_basenames(scenariopath):
         #    output_base = 'linux_{}'.format(output_base)
         return output_base, database_base
         
-def pull_result(task_db, target_db):
+def pull_result(task_output,manager):
     r"""Performs a SQL query to retrieve the results and calculates the objective value
     Args:
         task_dir (path): folder path containing the sample-instance files
@@ -165,6 +165,7 @@ def pull_result(task_db, target_db):
     # task_output = manager.get_task_output(task_dir,scenariopath)
     # task_db = os.path.join(task_output,manager.result_filename)
     # target_db = manager.target_output_filepath
+    task_db = os.path.join(task_output,manager.result_filename) target_db = manager.target_output_filepath
     with h5py.File(task_db, 'r') as f:
         new_output = f['link_moe']['link_travel_time'][:]*f['link_moe']['link_in_volume'][:]
         new_output =  np.mean(new_output, axis=1)
