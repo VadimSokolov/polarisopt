@@ -196,7 +196,12 @@ def eval_sample_task(manager, output_fp, inputs, task, write_record=True):
     Returns:
         a results file containing the target error and objective values for the run
     """
-    obj, y_err, rtime = run_task(manager, inputs, task)
+    
+    res = run_task(manager, inputs, task)
+    if res is False:
+        return False
+    else:
+        obj, y_err, rtime = res
     # print(f'{type(obj)}, {type(y_err)}, {type(rtime)}', flush=True)
     if write_record:
         update_sample_record(obj, y_err, rtime, output_fp, inputs)

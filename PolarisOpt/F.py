@@ -71,15 +71,19 @@ def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, eq_sql=N
         for obj, y_err, rtime, task_id in result_list:
             eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
     else:
-        # eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False) 
+        # result = eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False) 
         with futures.ThreadPoolExecutor(max_parallel) as executor:
             result = executor.map(eval_sim.eval_sample_task, repeat(manager), repeat(res_fp), pend_samples, range(len(pend_samples)), repeat(False))
-            for obj, y_err, rtime, task_id in result:
-                eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
-        # while len(pend_samples)>0:
-        #     tasks = min(len(pend_samples), max_parallel)
-        #     util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
-        #     _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
+            for item in result:
+                if item is False:
+                    print("Error evaluating sample, skipping....")
+                else:
+                    obj, y_err, rtime, task_id = item
+                    eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
+        while len(pend_samples)>0:
+            tasks = min(len(pend_samples), max_parallel)
+            util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
+            _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
 
 
 
