@@ -19,9 +19,9 @@ This is the class used to create a central repository of parameter information t
 ```python
 
 from PolarisOpt.setup_manager import SetupManager
-settings_filename = "settings.json"
-config_filename = "config.json"
-manager = SetupManager(settings_filename, config_filename)
+settings_filepath = "settings.json"
+config_filepath = "config.json"
+manager = SetupManager(settings_filepath, config_filepath)
 ```
 
 ## Step 2: Building Datasets
@@ -30,7 +30,7 @@ In order to run the calibration and dimension reduction functions, a ```.json```
 
 ```PolarisOpt.F.build_sampleset()```
 
-This function, if applicable, creates a Latin Hypercube set of samples over the entire statespace of calibration variables defined in ```config_filename``` and evaluate all pending samples in parallel batches. To run, the function requires:
+This function, if applicable, creates a Latin Hypercube set of samples over the entire statespace of calibration variables defined in ```config_filepath``` and evaluate all pending samples in parallel batches. To run, the function requires:
  * ```manager``` (SetupManager class): the managing class
  * ```save_filename``` (file path): the file that the generated or pending samples are kept
  * ```max_parallel``` (int): the maximum number of evaluations to be performed simultaneously (Default 2)

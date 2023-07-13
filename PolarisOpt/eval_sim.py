@@ -4,6 +4,7 @@ from subprocess import Popen
 import platform
 import shutil
 import numpy as np
+import h5py
 from PolarisOpt.utils import archiver
 import sqlite3
 import json
@@ -54,8 +55,6 @@ def run_task(manager, inputs, task):
         shutil.rmtree(task_dir)
     
     copy_simulation(src_dir, task_dir)
-    # shutil.copytree(src_dir, task_dir)
-
     archiver.update_json(manager.vnames, inputs, task_dir)
 
     if hasattr(manager, 'polaris_executable'):
@@ -69,17 +68,22 @@ def run_task(manager, inputs, task):
     # print('Polaris Executable: {}'.format(polarisbin), flush=True)
 
     scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
+    task_output = manager.get_task_output(task_dir,scenariopath)
     if manager.convergence:
        convrgencepath=manager.convergence_path
     else:
        convrgencepath=None
     # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
-        run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager)
+        res = run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager)
+        if res is False:
+            return False
+        else:
+            print(res)
     else:
         run_sim(task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
     print(os.getcwd())
-    obj, y_err = pull_result(task_dir, manager)
+    obj, y_err = pull_result(task_output,manager)
     end = time.perf_counter()
     return obj, y_err, convert_time(end-start)
 
@@ -109,7 +113,6 @@ def run_sim(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None
     p1.wait()
     os.chdir(working_dir)
     return print("task completed")
-
 
 def create_conv_files(scenariopath,polarisbin, convrgencepath, num_threads):
     #create an init version of scenario
@@ -150,7 +153,7 @@ def pull_basenames(scenariopath):
         #    output_base = 'linux_{}'.format(output_base)
         return output_base, database_base
         
-def pull_result(task_dir, manager):
+def pull_result(task_output,manager):
     r"""Performs a SQL query to retrieve the results and calculates the objective value
     Args:
         task_dir (path): folder path containing the sample-instance files
@@ -159,14 +162,20 @@ def pull_result(task_dir, manager):
         the uncollapsed distance from the target outputs and objective
         value
     """
-    task_db = os.path.join(
-        task_dir,
-        manager.target_output_filename
-    )
-    target_db = manager._target_output_filepath
+    # task_output = manager.get_task_output(task_dir,scenariopath)
+    # task_db = os.path.join(task_output,manager.result_filename)
+    # target_db = manager.target_output_filepath
+    task_db = os.path.join(task_output,manager.result_filename) target_db = manager.target_output_filepath
+    with h5py.File(task_db, 'r') as f:
+        new_output = f['link_moe']['link_travel_time'][:]*f['link_moe']['link_in_volume'][:]
+        new_output =  np.mean(new_output, axis=1)
+    with h5py.File(target_db, 'r') as f:
+        ref_output = f['link_moe']['link_travel_time'][:]*f['link_moe']['link_in_volume'][:]
+        ref_output =  np.mean(ref_output, axis=1)
 
-    new_output = query_db(task_db, manager.output_SQL_query)
-    ref_output = query_db(target_db, manager.output_SQL_query)
+
+    # new_output = query_db(task_db, manager.output_SQL_query)
+    # ref_output = query_db(target_db, manager.output_SQL_query)
 
     if new_output.shape[0] != ref_output.shape[0]:
         print('output mismatch by {} and {}'.format(new_output.shape, ref_output.shape))
@@ -174,8 +183,7 @@ def pull_result(task_dir, manager):
         er = None
         return obj, er
     else:
-        return run_objective(ref_output[:, 1]-new_output[:, 1], manager.objective_type)
-
+        return run_objective(ref_output - new_output, manager.objective_type)
 
 def eval_sample_task(manager, output_fp, inputs, task, write_record=True):
     r"""Evaluates a set of inputs generated in the original subspace and records the outcome
@@ -189,7 +197,12 @@ def eval_sample_task(manager, output_fp, inputs, task, write_record=True):
     Returns:
         a results file containing the target error and objective values for the run
     """
-    obj, y_err, rtime = run_task(manager, inputs, task)
+    
+    res = run_task(manager, inputs, task)
+    if res is False:
+        return False
+    else:
+        obj, y_err, rtime = res
     # print(f'{type(obj)}, {type(y_err)}, {type(rtime)}', flush=True)
     if write_record:
         update_sample_record(obj, y_err, rtime, output_fp, inputs)

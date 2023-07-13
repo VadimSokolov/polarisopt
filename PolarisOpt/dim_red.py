@@ -36,7 +36,7 @@ def create_DR(manager, training_file = '', quiet = False):
         dimension reduction model (class)
     """
     if training_file == '':
-        training_file=manager._training_filepath
+        training_file=manager.training_filepath
         
     ############################################
     #Step 1: Establish needed info             #

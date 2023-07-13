@@ -89,6 +89,9 @@ def update_json(vnames, new_values, dest_dir):
             for ind in vkey[1]:
                if ind in dictionary[dkey]:
                     dictionary[dkey][ind], new_values = new_values[0], np.delete(new_values,0)
+               else:
+                   print(f'variable {ind} not found in {dkey}')
+            
         with open(t_fp, 'w') as fp:
             json.dump(dictionary, fp, indent = 4)
 
@@ -140,11 +143,11 @@ def load_update_settings(settings_filepath):
     return DR_updates, mean_updates
 
 
-def import_dataset(data_fp, x_key = "orig_input", y_key = "target_err"):
+def import_dataset(training_filename, x_key = "orig_input", y_key = "target_err"):
     r"""A helper function to parse a file of datapoints in a json file
     
     Args:
-        data_fp (filepath): the file containing the samples
+        training_filename (filepath): the file containing the samples
         x_key (text): whether to return the inputs in the original domain ("orig_input") or the DR domain ("DR_input")
         y_key (text): whether to return the error by input ("target_err") or BO objective function ("objective")
     
@@ -153,7 +156,7 @@ def import_dataset(data_fp, x_key = "orig_input", y_key = "target_err"):
         pend_samples (nd-array): an array with each row documenting an unevaluated sample
     """
     try:
-        dictionary = json.loads(open(data_fp).read())
+        dictionary = json.loads(open(training_filename).read())
     except OSError:
         return np.array([]), np.array([])
 
@@ -165,7 +168,6 @@ def import_dataset(data_fp, x_key = "orig_input", y_key = "target_err"):
     if 'P' in pends:
         raise print("Some pending samples are untranslated in subspace %s and have been excluded" % x_key)
     else:
-        # import pdb; pdb.set_trace()
         pend_samples = np.asarray([
             item.split()
             for item in pends if item!='P'
@@ -199,23 +201,25 @@ def new_record(inputs, var_names = None, identifier_key = "orig_input"):
         })
     return new   
 
-def create_record(inputs, data_fp, var_names = None, identifier_key = "orig_input"):
+def create_record(inputs, training_filename, var_names = None, identifier_key = "orig_input"):
     try:
-        dictionary = json.loads(open(data_fp).read())
+        dictionary = json.loads(open(training_filename).read())
     except OSError:
+        dictionary = []
+    except json.decoder.JSONDecodeError:
         dictionary = []
 
     for item in inputs:
         new = new_record(item, var_names, identifier_key)
         dictionary.append(new)
 
-    with open(data_fp, 'w') as fp:
+    with open(training_filename, 'w') as fp:
         json.dump(dictionary, fp, indent = 4)
 
 
-def update_record(inputs, keys, values, data_fp, identifier_key = "orig_input"):
+def update_record(inputs, keys, values, training_filename, identifier_key = "orig_input"):
     try:
-        dictionary = json.loads(open(data_fp).read())
+        dictionary = json.loads(open(training_filename).read())
     except OSError:
         dictionary = []
         
@@ -233,10 +237,10 @@ def update_record(inputs, keys, values, data_fp, identifier_key = "orig_input"):
                 new[k] = util.convert_2str(vv)
             dictionary.append(new)
         if flag > 1:
-            print("INFO: you have a repeated sample in %s" % data_fp)
+            print("INFO: you have a repeated sample in %s" % training_filename)
 
-    print("Writing record to {}".format(data_fp), flush=True)
-    with open(data_fp, 'w') as fp:
+    print("Writing record to {}".format(training_filename), flush=True)
+    with open(training_filename, 'w') as fp:
         json.dump(dictionary, fp, indent = 4)
 
 def pull_basenames(scenariopath):

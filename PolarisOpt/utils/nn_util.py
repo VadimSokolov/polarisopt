@@ -331,7 +331,7 @@ class Calibrate_Mean_NN(Calibrate_NN):
 
 
 # def find_dimDR(manager, DR_range):
-#     _, _, seed, NN_v, _ = archiver.load_DR_settings(manager._settings_filename)
+#     _, _, seed, NN_v, _ = archiver.load_DR_settings(manager._settings_filepath)
 #             #[epochs, learning_rate, lambda, penalty, XDR_layer, DRX_layer, DRY_layer]
 #     NN_var = [
 #         manager.dim_in, 
