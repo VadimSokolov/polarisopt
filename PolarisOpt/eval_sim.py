@@ -165,7 +165,8 @@ def pull_result(task_output,manager):
     # task_output = manager.get_task_output(task_dir,scenariopath)
     # task_db = os.path.join(task_output,manager.result_filename)
     # target_db = manager.target_output_filepath
-    task_db = os.path.join(task_output,manager.result_filename) target_db = manager.target_output_filepath
+    task_db = os.path.join(task_output,manager.result_filename) 
+    target_db = manager.target_output_filepath
     with h5py.File(task_db, 'r') as f:
         new_output = f['link_moe']['link_travel_time'][:]*f['link_moe']['link_in_volume'][:]
         new_output =  np.mean(new_output, axis=1)
@@ -184,6 +185,9 @@ def pull_result(task_output,manager):
         return obj, er
     else:
         return run_objective(ref_output - new_output, manager.objective_type)
+
+def eval_sample_task_mock(manager, output_fp, inputs, task, write_record=True):
+    return (1, 1, 1, task)
 
 def eval_sample_task(manager, output_fp, inputs, task, write_record=True):
     r"""Evaluates a set of inputs generated in the original subspace and records the outcome
