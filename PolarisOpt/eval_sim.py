@@ -75,6 +75,7 @@ def run_task(manager, inputs, task):
        convrgencepath=None
     # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
+        print('Submitting the slurm job')
         res = run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager)
         if res is False:
             return False

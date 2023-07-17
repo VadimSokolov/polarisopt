@@ -24,6 +24,7 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     slurmfn = f'{task_dir}/{d["name"]}-{manager.run_id}.slurm'
     with open(slurmfn,'w') as fh:
         fh.write(s)
+    print (f"Submitting slurm task with {slurmfn}")
     result = subprocess.run(f"sbatch {slurmfn}", shell=True, capture_output=True, text=True)
     if result.returncode!=0:
         print(f"\nSlurm task with {slurmfn} failed.\nResult: {result}\n")
