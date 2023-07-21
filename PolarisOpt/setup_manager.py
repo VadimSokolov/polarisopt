@@ -110,11 +110,11 @@ class SetupManager:
         return os.path.join(self.model_dir,n + '_model.pickle')
 
     def load_training(self):
-        if self.training_filepath is None:
+        if self.training_filename is None:
             raise ValueError('A training file path is required but has not been defined')
-        if not os.path.exists(self.training_filepath):
+        if not os.path.exists(self.training_filename):
             raise ValueError('The current training data file path is invalid')
-        train, _ = archiver.import_dataset(self.training_filepath, x_key = "orig_input", y_key = "target_err")
+        train, _ = archiver.import_dataset(self.training_filename, x_key = "orig_input", y_key = "target_err")
         if train.shape[1] != (self.dim_in + self.dim_out):
             raise ValueError('Expected %s columns but got %s' % ((self.dim_in + self.dim_out), train.shape[1]))
         return train[:, self.dim_out:], train[:, :self.dim_out]
