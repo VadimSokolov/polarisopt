@@ -47,9 +47,12 @@ class SetupManager:
         # self.dim_out = len(eval_sim.query_db(self.target_output_filepath, self.output_SQL_query))
 
     def get_dim_out(self):
-        n =  len(eval_sim.query_db(self.target_output_filepath, self.output_SQL_query))
-        self.dim_out = n
-        return n
+        train, _ = archiver.import_dataset(self.training_filename, x_key = "orig_input", y_key = "target_err")
+        self.dim_out = train.shape[1] - self.dim_in
+        return self.dim_out
+        # n =  len(eval_sim.query_db(self.target_output_filepath, self.output_SQL_query))
+        # self.dim_out = n
+        # return n
     
     def _check_file(self,file_path,create=False):
         if os.path.dirname(file_path)=='':
@@ -115,8 +118,8 @@ class SetupManager:
         if not os.path.exists(self.training_filename):
             raise ValueError('The current training data file path is invalid')
         train, _ = archiver.import_dataset(self.training_filename, x_key = "orig_input", y_key = "target_err")
-        if train.shape[1] != (self.dim_in + self.dim_out):
-            raise ValueError('Expected %s columns but got %s' % ((self.dim_in + self.dim_out), train.shape[1]))
+        # if train.shape[1] != (self.dim_in + self.dim_out):
+        #     raise ValueError('Expected %s columns but got %s' % ((self.dim_in + self.dim_out), train.shape[1]))
         return train[:, self.dim_out:], train[:, :self.dim_out]
         
     def load_results(self):
