@@ -17,21 +17,21 @@ from PolarisOpt import bo
 from PolarisOpt import dim_red
 
 
-def build_sampleset(manager, res_fn, max_parallel = 2, num_samples = 0, eq_sql=None, slurmfile=None):
+def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 0, eq_sql=None, slurmfile=None):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
     Args:
         manager (SetupManager class): central parameter keeper
-        res_fn (text): the file name to place evaluated or pending points into. Will be placed
+        training_filename (text): the file name to place evaluated or pending points into. Will be placed
         in the 'data' folder and in the format of [Y,X]
-        max_parellel (int): the largest number of parallel evaluations allowed while evaluating all pending samples
-                in the res_fn file
+        max_parallel (int): the largest number of parallel evaluations allowed while evaluating all pending samples
+                in the training_filename file
         num_samples (int): the number of samples taken from a Lating Hypercube constructed across the statespace
                 If num_samples = 0, no additional samples will be created
         
     Returns:
       a file containing the evaluated samples in the format necessary for training [Y, X]
     """
-    res_fp = manager._check_file(res_fn)
+    res_fp = manager._check_file(training_filename)
 
     #################################
     #STEP 1: Create LHS if desired  #
