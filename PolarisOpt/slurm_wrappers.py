@@ -2,13 +2,12 @@ import subprocess
 import os
 # from PolarisOpt.eval_sim import create_conv_files
 
-def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
+def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager,run_id):
     d = manager.dictionary["slurm"]
     with open(os.path.join(manager.working_dir,d["scripttemplate"]),'r') as fh:   
         s = fh.read()
-    manager.run_id+=1
     jobname = d["name"]
-    s = s.replace("$JOBNAME", f"{jobname}-{manager.run_id}")
+    s = s.replace("$JOBNAME", f"{jobname}-{run_id}")
     s = s.replace("$NCPUS", d["ncpus"])
     s = s.replace("$MEM", d["mem"])
     s = s.replace("$OUTPUTFOLDER", task_dir)
@@ -21,7 +20,7 @@ def run_sim_slurm(task_dir, polarisbin, scenariopath,convrgencepath,manager):
     #     cmd += " ".join([polarisbin, scenariopath, num_threads])
     cmd += " ".join([polarisbin, scenariopath, num_threads])
     s = s.replace("$SCRIPT", cmd)
-    slurmfn = f'{task_dir}/{d["name"]}-{manager.run_id}.slurm'
+    slurmfn = f'{task_dir}/{d["name"]}-{run_id}.slurm'
     with open(slurmfn,'w') as fh:
         fh.write(s)
     print (f"Submitting slurm task with {slurmfn}")

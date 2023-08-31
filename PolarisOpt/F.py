@@ -17,7 +17,7 @@ from PolarisOpt import bo
 from PolarisOpt import dim_red
 
 
-def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 0, eq_sql=None, slurmfile=None):
+def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 0, eq_sql=None):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
     Args:
         manager (SetupManager class): central parameter keeper
@@ -72,19 +72,24 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
             eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
     else:
         # result = eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False) 
+        n = len(pend_samples)
+        task_ids = range(manager.run_id,manager.run_id + n)
+        manager.run_id+=n
         with futures.ThreadPoolExecutor(max_parallel) as executor:
-            result = executor.map(eval_sim.eval_sample_task, repeat(manager), repeat(res_fp), pend_samples, range(len(pend_samples)), repeat(False))
+            result = executor.map(eval_sim.eval_sample_task, repeat(manager), pend_samples, task_ids)
             # result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), repeat(res_fp), pend_samples, range(len(pend_samples)), repeat(False))
-            for item in result:
+            for i in range(n):
+                item = result[i]
+                sample = pend_samples[i]
                 if item is False:
                     print("Error evaluating sample, skipping....")
                 else:
-                    obj, y_err, rtime, task_id = item
-                    eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
-        while len(pend_samples)>0:
-            tasks = min(len(pend_samples), max_parallel)
-            util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
-            _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
+                    obj, y_err, rtime, task_id, task_dir = item
+                    eval_sim.update_sample_record(obj, y_err, rtime, res_fp, sample,task_dir)
+        # while len(pend_samples)>0:
+        #     tasks = min(len(pend_samples), max_parallel)
+        #     util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
+        #     _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
 
 
 

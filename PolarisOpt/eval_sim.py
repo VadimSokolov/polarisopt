@@ -36,57 +36,7 @@ def copy_simulation(src_dir, dst_dir):
             shutil.copy2(src_name, dst_name)
 
 
-def run_task(manager, inputs, task):
-    r"""Evaluates a set of inputs in the simulator
 
-    Args:
-        manager (class): object containing settings for simulation
-        inputs (n-array): the new values to be run
-        task (int): counter indicating simulation instance being performed
-
-    Returns:
-        the single-output objective function and uncollapsed distance from target based on the outputs
-    """
-    print("Running task: {} - {}".format(task, inputs), flush=True)
-    start = time.perf_counter()
-    task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(task))
-    src_dir = manager.simulation_path
-    if os.path.exists(task_dir):
-        shutil.rmtree(task_dir)
-    
-    copy_simulation(src_dir, task_dir)
-    archiver.update_json(manager.vnames, inputs, task_dir)
-
-    if hasattr(manager, 'polaris_executable'):
-        polarisbin = manager.polaris_executable
-    else:
-        if platform.system().lower() == 'windows':
-            polarisbin = os.path.join(manager.polaris_executable, 'Integrated_model.exe')
-        else:
-            polarisbin = os.path.join(manager.polaris_executable, 'Integrated_Model')
-    
-    # print('Polaris Executable: {}'.format(polarisbin), flush=True)
-
-    scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
-    task_output = manager.get_task_output(task_dir,scenariopath)
-    if manager.convergence:
-       convrgencepath=manager.convergence_path
-    else:
-       convrgencepath=None
-    # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
-    if manager.dictionary["slurm"]["useslurm"]:
-        print('Submitting the slurm job')
-        res = run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager)
-        if res is False:
-            return False
-        else:
-            print(res)
-    else:
-        run_sim(task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
-    print(os.getcwd())
-    obj, y_err = pull_result(task_output,manager)
-    end = time.perf_counter()
-    return obj, y_err, convert_time(end-start)
 
 
 def run_sim(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None):
@@ -113,7 +63,7 @@ def run_sim(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None
         p1 = Popen([polarisbin, scenariopath, num_threads], shell=False)
     p1.wait()
     os.chdir(working_dir)
-    return print("task completed")
+    return print("Task completed")
 
 def create_conv_files(scenariopath,polarisbin, convrgencepath, num_threads):
     #create an init version of scenario
@@ -187,33 +137,83 @@ def pull_result(task_output,manager):
     else:
         return run_objective(ref_output - new_output, manager.objective_type)
 
-def eval_sample_task_mock(manager, output_fp, inputs, task, write_record=True):
-    return (1, 1, 1, task)
+def run_task(manager, inputs, run_id):
+    r"""Evaluates a set of inputs in the simulator
 
-def eval_sample_task(manager, output_fp, inputs, task, write_record=True):
+    Args:
+        manager (class): object containing settings for simulation
+        inputs (n-array): the new values to be run
+        run_id (int): counter indicating simulation instance being performed
+
+    Returns:
+        the single-output objective function and uncollapsed distance from target based on the outputs
+    """
+    print("Running run_id: {} - {}".format(run_id, inputs), flush=True)
+    start = time.perf_counter()
+    task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(run_id))
+    src_dir = manager.simulation_path
+    if os.path.exists(task_dir):
+        shutil.rmtree(task_dir)
+    
+    copy_simulation(src_dir, task_dir)
+    archiver.update_json(manager.F, inputs, task_dir)
+
+    if hasattr(manager, 'polaris_executable'):
+        polarisbin = manager.polaris_executable
+    else:
+        if platform.system().lower() == 'windows':
+            polarisbin = os.path.join(manager.polaris_executable, 'Integrated_model.exe')
+        else:
+            polarisbin = os.path.join(manager.polaris_executable, 'Integrated_Model')
+    
+    # print('Polaris Executable: {}'.format(polarisbin), flush=True)
+
+    scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
+    task_output = manager.get_task_output(task_dir,scenariopath)
+    if manager.convergence:
+       convrgencepath=manager.convergence_path
+    else:
+       convrgencepath=None
+    # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
+    if manager.dictionary["slurm"]["useslurm"]:
+        print('Submitting the slurm job')
+        res = run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager,run_id)
+        if res is False:
+            return False
+        else:
+            print(res)
+    else:
+        print('Running the simulation locally')
+        run_sim(task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
+    print(os.getcwd())
+    obj, y_err = pull_result(task_output,manager)
+    end = time.perf_counter()
+    return obj, y_err, convert_time(end-start), task_dir
+
+def eval_sample_task_mock(manager, output_fp, inputs, run_id):
+    return (1, 1, 1, run_id)
+
+def eval_sample_task(manager, inputs, run_id):
     r"""Evaluates a set of inputs generated in the original subspace and records the outcome
 
     Args:
         manager (class): object containing settings for simulation
-        output_fp (path): full path to file outputs should be saved to
         inputs (n-array): the new values to be run
-        task (int): counter indicating simulation instance being performed
+        run_id (int): counter indicating simulation instance being performed
 
     Returns:
         a results file containing the target error and objective values for the run
     """
     
-    res = run_task(manager, inputs, task)
+    res = run_task(manager, inputs, run_id)
     if res is False:
         return False
     else:
-        obj, y_err, rtime = res
+        obj, y_err, rtime, task_dir = res
     # print(f'{type(obj)}, {type(y_err)}, {type(rtime)}', flush=True)
-    if write_record:
-        update_sample_record(obj, y_err, rtime, output_fp, inputs)
-    return (obj, y_err, rtime, task)
+    return (obj, y_err, rtime, run_id, task_dir)
 
-def update_sample_record(obj, y_err, rtime, output_fp, inputs):
+def update_sample_record(obj, y_err, rtime, output_fp, inputs,tasks_dir=None):
     if obj == "P":
         archiver.update_record(
             [inputs],
@@ -225,14 +225,14 @@ def update_sample_record(obj, y_err, rtime, output_fp, inputs):
     else:
         archiver.update_record(
             [inputs],
-            ["status", "objective", "target_err", "run_time"],
-            [["Completed", obj, y_err, rtime]],
+            ["status", "objective", "target_err", "run_time","tasks_direcotry"],
+            [["Completed", obj, y_err, rtime,tasks_dir]],
             output_fp,
             identifier_key="orig_input"
         )
 
 
-def eval_DR_task(manager, DR_model, DR_input, task, write_record=True):
+def eval_DR_task(manager, DR_model, DR_input, run_id, write_record=True):
     r"""Evaluates a set of inputs and records the outcome
 
     Args:
@@ -240,18 +240,18 @@ def eval_DR_task(manager, DR_model, DR_input, task, write_record=True):
             simulation_path: path to the folder containing the simulation
         DR_model (class): the model using the Dimension Reduction
         DR_input (n-array): the new values
-        task (int): counter indicating simulation instance being performed
+        run_id (int): counter indicating simulation instance being performed
 
     Returns:
         a results file containing the target error and objective functions for the task
     """
-    print("running sample %d \n" % task)
+    print("running sample %d \n" % run_id)
 
     xhat = DR_model.decode_X(DR_input)
-    obj, y_err, rtime = run_task(manager, xhat, task)
+    obj, y_err, rtime, task_dir = run_task(manager, xhat, run_id)
     if write_record:
         update_DR_record(obj, y_err, rtime, DR_input, xhat, manager)
-    return (obj, y_err, rtime, xhat, task)
+    return (obj, y_err, rtime, xhat, run_id)
 
 
 def update_DR_record(obj, y_err, rtime, DR_input, xhat, manager):
