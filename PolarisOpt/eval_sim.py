@@ -155,7 +155,9 @@ def run_task(manager, inputs, run_id):
     if os.path.exists(task_dir):
         shutil.rmtree(task_dir)
     
+    print(f'Copying simulation files to {task_dir}')
     copy_simulation(src_dir, task_dir)
+    print(f'Updating json file for the simulation {run_id}')
     archiver.update_json(manager.F, inputs, task_dir)
 
     if hasattr(manager, 'polaris_executable'):
@@ -175,6 +177,7 @@ def run_task(manager, inputs, run_id):
     else:
        convrgencepath=None
     # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
+    print(manager.dictionary["slurm"]["useslurm"])
     if manager.dictionary["slurm"]["useslurm"]:
         print('Submitting the slurm job')
         res = run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager,run_id)
