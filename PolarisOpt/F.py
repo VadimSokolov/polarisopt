@@ -15,6 +15,16 @@ from PolarisOpt.utils import util
 from PolarisOpt import eval_sim
 from PolarisOpt import bo
 from PolarisOpt import dim_red
+import shutil
+
+def copy_simulation(src_dir, dst_dir):
+    names = os.listdir(src_dir)
+    os.makedirs(dst_dir)
+    for name in names:
+        src_name = os.path.join(src_dir, name)
+        if not os.path.isdir(src_name):
+            dst_name = os.path.join(dst_dir, name)
+            shutil.copy2(src_name, dst_name)
 
 
 def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 0, eq_sql=None):
@@ -41,6 +51,24 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
         archiver.create_record(pend_samples, res_fp, var_names = manager.var, identifier_key = "orig_input")
     else:
         _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
+    print('Creating directories for the simulation runs', flush=True)
+    n = len(pend_samples)
+    task_ids = range(manager.run_id,manager.run_id + n)
+    manager.run_id+=n
+    task_dirs = []
+    for i in range(n):
+        run_id = task_ids[i]
+        inputs = pend_samples[i]
+        task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(run_id))
+        src_dir = manager.simulation_path
+        if os.path.exists(task_dir):
+            shutil.rmtree(task_dir)
+        print(f'Copying simulation files to {task_dir}', flush=True)
+        copy_simulation(src_dir, task_dir)
+        print(f'Updating json file for the simulation {run_id}', flush=True)
+        archiver.update_json(manager.vnames, inputs, task_dir)
+        print(f'Finished updating json file for the simulation {run_id}', flush=True)
+        task_dirs.append(task_dir)
 
     if eq_sql is not None:
         from eqsql import proxies
@@ -71,15 +99,11 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
         for obj, y_err, rtime, task_id in result_list:
             eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
     else:
-        # result = eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False) 
-        n = len(pend_samples)
-        task_ids = range(manager.run_id,manager.run_id + n)
-        manager.run_id+=n
+        # result = eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False)         
         with futures.ThreadPoolExecutor(max_parallel) as executor:
-            result = executor.map(eval_sim.eval_sample_task, repeat(manager), pend_samples, task_ids)
+            result = executor.map(eval_sim.eval_sample_task, repeat(manager), task_ids,task_dirs)
             # result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), repeat(res_fp), pend_samples, range(len(pend_samples)), repeat(False))
-            for i in range(n):
-                item = result[i]
+            for item in result:
                 sample = pend_samples[i]
                 if item is False:
                     print("Error evaluating sample, skipping....")

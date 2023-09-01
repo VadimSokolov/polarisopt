@@ -2,7 +2,7 @@ import os
 import sys
 from subprocess import Popen
 import platform
-import shutil
+
 import numpy as np
 import h5py
 from PolarisOpt.utils import archiver
@@ -25,18 +25,6 @@ def query_db(db_path, SQL_query):
     output = cur.fetchall()
     db.close()
     return np.asarray(output)
-
-def copy_simulation(src_dir, dst_dir):
-    names = os.listdir(src_dir)
-    os.makedirs(dst_dir)
-    for name in names:
-        src_name = os.path.join(src_dir, name)
-        if not os.path.isdir(src_name):
-            dst_name = os.path.join(dst_dir, name)
-            shutil.copy2(src_name, dst_name)
-
-
-
 
 
 def run_sim(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None):
@@ -137,29 +125,18 @@ def pull_result(task_output,manager):
     else:
         return run_objective(ref_output - new_output, manager.objective_type)
 
-def run_task(manager, inputs, run_id):
-    r"""Evaluates a set of inputs in the simulator
+def run_task(manager, run_id, task_dir):
+    r"""Runs the simulator from task_dir
 
     Args:
         manager (class): object containing settings for simulation
-        inputs (n-array): the new values to be run
         run_id (int): counter indicating simulation instance being performed
 
     Returns:
         the single-output objective function and uncollapsed distance from target based on the outputs
     """
-    print("Running run_id: {} - {}".format(run_id, inputs), flush=True)
+    print("Running run_id: {} - {}".format(run_id), flush=True)
     start = time.perf_counter()
-    task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(run_id))
-    src_dir = manager.simulation_path
-    if os.path.exists(task_dir):
-        shutil.rmtree(task_dir)
-    
-    print(f'Copying simulation files to {task_dir}')
-    copy_simulation(src_dir, task_dir)
-    print(f'Updating json file for the simulation {run_id}')
-    archiver.update_json(manager.F, inputs, task_dir)
-
     if hasattr(manager, 'polaris_executable'):
         polarisbin = manager.polaris_executable
     else:
@@ -177,18 +154,17 @@ def run_task(manager, inputs, run_id):
     else:
        convrgencepath=None
     # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
-    print(manager.dictionary["slurm"]["useslurm"])
+    print(f'Using slurm flag: {manager.dictionary["slurm"]["useslurm"]}', flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
-        print('Submitting the slurm job')
+        print('Submitting the slurm job', flush=True)
         res = run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager,run_id)
         if res is False:
             return False
         else:
             print(res)
     else:
-        print('Running the simulation locally')
+        print('Running the simulation locally', flush=True)
         run_sim(task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
-    print(os.getcwd())
     obj, y_err = pull_result(task_output,manager)
     end = time.perf_counter()
     return obj, y_err, convert_time(end-start), task_dir
@@ -196,7 +172,7 @@ def run_task(manager, inputs, run_id):
 def eval_sample_task_mock(manager, output_fp, inputs, run_id):
     return (1, 1, 1, run_id)
 
-def eval_sample_task(manager, inputs, run_id):
+def eval_sample_task(manager, run_id, task_dir):
     r"""Evaluates a set of inputs generated in the original subspace and records the outcome
 
     Args:
@@ -208,7 +184,7 @@ def eval_sample_task(manager, inputs, run_id):
         a results file containing the target error and objective values for the run
     """
     
-    res = run_task(manager, inputs, run_id)
+    res = run_task(manager, run_id, task_dir)
     if res is False:
         return False
     else:
