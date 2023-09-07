@@ -125,17 +125,17 @@ def pull_result(task_output,manager):
     else:
         return run_objective(ref_output - new_output, manager.objective_type)
 
-def run_task(manager, run_id, task_dir):
+def run_task(manager, task):
     r"""Runs the simulator from task_dir
 
     Args:
         manager (class): object containing settings for simulation
-        run_id (int): counter indicating simulation instance being performed
+        task (SampleTask): contains necessary information about the task to be executed
 
     Returns:
         the single-output objective function and uncollapsed distance from target based on the outputs
     """
-    print("Running run_id: {} - {}".format(run_id), flush=True)
+    print(f'Running run_id: {task.run_id}', flush=True)
     start = time.perf_counter()
     if hasattr(manager, 'polaris_executable'):
         polarisbin = manager.polaris_executable
@@ -147,8 +147,8 @@ def run_task(manager, run_id, task_dir):
     
     # print('Polaris Executable: {}'.format(polarisbin), flush=True)
 
-    scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
-    task_output = manager.get_task_output(task_dir,scenariopath)
+    scenariopath = os.path.join(task.task_dir, manager.simulation_scenario_name)
+    task_output = manager.get_task_output(task.task_dir,scenariopath)
     if manager.convergence:
        convrgencepath=manager.convergence_path
     else:
@@ -157,40 +157,39 @@ def run_task(manager, run_id, task_dir):
     print(f'Using slurm flag: {manager.dictionary["slurm"]["useslurm"]}', flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
         print('Submitting the slurm job', flush=True)
-        res = run_sim_slurm(task_dir, polarisbin, scenariopath, convrgencepath,manager,run_id)
+        res = run_sim_slurm(task.task_dir, polarisbin, scenariopath, convrgencepath,manager,task.run_id)
         if res is False:
             return False
         else:
             print(res)
     else:
         print('Running the simulation locally', flush=True)
-        run_sim(task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
+        run_sim(task.task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
     obj, y_err = pull_result(task_output,manager)
     end = time.perf_counter()
-    return obj, y_err, convert_time(end-start), task_dir
+    return obj, y_err, convert_time(end-start), task
 
 def eval_sample_task_mock(manager, output_fp, inputs, run_id):
     return (1, 1, 1, run_id)
 
-def eval_sample_task(manager, run_id, task_dir):
+def eval_sample_task(manager, task):
     r"""Evaluates a set of inputs generated in the original subspace and records the outcome
 
     Args:
         manager (class): object containing settings for simulation
         inputs (n-array): the new values to be run
-        run_id (int): counter indicating simulation instance being performed
+        task (SampleTask): contains necessary information about the task to be executed
 
     Returns:
         a results file containing the target error and objective values for the run
     """
-    
-    res = run_task(manager, run_id, task_dir)
+    res = run_task(manager, task)
     if res is False:
-        return False
+        return task
     else:
-        obj, y_err, rtime, task_dir = res
+        obj, y_err, rtime, task = res
     # print(f'{type(obj)}, {type(y_err)}, {type(rtime)}', flush=True)
-    return (obj, y_err, rtime, run_id, task_dir)
+    return (obj, y_err, rtime, task)
 
 def update_sample_record(obj, y_err, rtime, output_fp, inputs,tasks_dir=None):
     if obj == "P":

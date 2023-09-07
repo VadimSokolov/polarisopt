@@ -26,6 +26,11 @@ def copy_simulation(src_dir, dst_dir):
             dst_name = os.path.join(dst_dir, name)
             shutil.copy2(src_name, dst_name)
 
+class SampleTask:
+    def __init__(self, task_dir, sample, run_id):
+        self.task_dir = task_dir
+        self.sample = sample
+        self.run_id = run_id
 
 def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 0, eq_sql=None):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
@@ -56,6 +61,7 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
     task_ids = range(manager.run_id,manager.run_id + n)
     manager.run_id+=n
     task_dirs = []
+    tasks = []
     for i in range(n):
         run_id = task_ids[i]
         inputs = pend_samples[i]
@@ -69,6 +75,8 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
         archiver.update_json(manager.vnames, inputs, task_dir)
         print(f'Finished updating json file for the simulation {run_id}', flush=True)
         task_dirs.append(task_dir)
+        task = SampleTask(task_dir, inputs, run_id)
+        tasks.append(task)
 
     if eq_sql is not None:
         from eqsql import proxies
@@ -101,15 +109,15 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
     else:
         # result = eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False)         
         with futures.ThreadPoolExecutor(max_parallel) as executor:
-            result = executor.map(eval_sim.eval_sample_task, repeat(manager), task_ids,task_dirs)
+            result = executor.map(eval_sim.eval_sample_task, repeat(manager), tasks)
             # result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), repeat(res_fp), pend_samples, range(len(pend_samples)), repeat(False))
             for item in result:
-                sample = pend_samples[i]
-                if item is False:
-                    print("Error evaluating sample, skipping....")
+                if len(item)==1: # only task object returned
+                    task = item
+                    print(f'Error evaluating sample, {task.run_id} skipping....')
                 else:
-                    obj, y_err, rtime, task_id, task_dir = item
-                    eval_sim.update_sample_record(obj, y_err, rtime, res_fp, sample,task_dir)
+                    obj, y_err, rtime, task = item
+                    eval_sim.update_sample_record(obj, y_err, rtime, res_fp, task.sample,task.task_dir)
         # while len(pend_samples)>0:
         #     tasks = min(len(pend_samples), max_parallel)
         #     util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])

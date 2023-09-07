@@ -1,6 +1,8 @@
 experiments/
 token
 mock.py
+mock.ipynb
+temp.txt
 # Compiled Object files
 *.slo
 *.lo
