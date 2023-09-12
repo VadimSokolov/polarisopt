@@ -19,7 +19,6 @@ import shutil
 
 def copy_simulation(src_dir, dst_dir):
     names = os.listdir(src_dir)
-    os.makedirs(dst_dir)
     for name in names:
         src_name = os.path.join(src_dir, name)
         if not os.path.isdir(src_name):
@@ -67,13 +66,11 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
         inputs = pend_samples[i]
         task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(run_id))
         src_dir = manager.simulation_path
-        if os.path.exists(task_dir):
-            shutil.rmtree(task_dir)
-        print(f'Copying simulation files to {task_dir}', flush=True)
-        copy_simulation(src_dir, task_dir)
-        print(f'Updating json file for the simulation {run_id}', flush=True)
-        archiver.update_json(manager.vnames, inputs, task_dir)
-        print(f'Finished updating json file for the simulation {run_id}', flush=True)
+        if not os.path.exists(task_dir):
+            os.makedirs(task_dir)    
+            print(f'Copying simulation files to {task_dir}', flush=True)
+            copy_simulation(src_dir, task_dir)
+            archiver.update_json(manager.vnames, inputs, task_dir) # replace 
         task_dirs.append(task_dir)
         task = SampleTask(task_dir, inputs, run_id)
         tasks.append(task)
@@ -109,8 +106,8 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
     else:
         # result = eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False)         
         with futures.ThreadPoolExecutor(max_parallel) as executor:
-            result = executor.map(eval_sim.eval_sample_task, repeat(manager), tasks)
-            # result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), repeat(res_fp), pend_samples, range(len(pend_samples)), repeat(False))
+            # result = executor.map(eval_sim.eval_sample_task, repeat(manager), tasks)
+            result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), tasks)
             for item in result:
                 if len(item)==1: # only task object returned
                     task = item

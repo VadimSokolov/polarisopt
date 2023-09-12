@@ -169,8 +169,8 @@ def run_task(manager, task):
     end = time.perf_counter()
     return obj, y_err, convert_time(end-start), task
 
-def eval_sample_task_mock(manager, output_fp, inputs, run_id):
-    return (1, 1, 1, run_id)
+def eval_sample_task_mock(manager, task):
+    return (1, 1, 1, task)
 
 def eval_sample_task(manager, task):
     r"""Evaluates a set of inputs generated in the original subspace and records the outcome

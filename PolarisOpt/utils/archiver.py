@@ -233,7 +233,7 @@ def update_record(inputs, keys, values, training_filename, identifier_key = "ori
         records_list = []
         
     for x, v in zip(inputs, values):
-        x = util.convert_2str(i)
+        x = util.convert_2str(x)
         flag = 0
         for item in records_list:
             if item[identifier_key] == x:
