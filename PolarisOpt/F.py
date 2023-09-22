@@ -30,6 +30,10 @@ class SampleTask:
         self.task_dir = task_dir
         self.sample = sample
         self.run_id = run_id
+        self.obj=None
+        self.y_err = None
+        self.rtime = None
+        self.complete = False
 
 def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 0, eq_sql=None):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
@@ -55,7 +59,6 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
         archiver.create_record(pend_samples, res_fp, var_names = manager.var, identifier_key = "orig_input")
     else:
         _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
-    print('Creating directories for the simulation runs', flush=True)
     n = len(pend_samples)
     task_ids = range(manager.run_id,manager.run_id + n)
     manager.run_id+=n
@@ -106,15 +109,13 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
     else:
         # result = eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False)         
         with futures.ThreadPoolExecutor(max_parallel) as executor:
-            # result = executor.map(eval_sim.eval_sample_task, repeat(manager), tasks)
-            result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), tasks)
-            for item in result:
-                if len(item)==1: # only task object returned
-                    task = item
+            result = executor.map(eval_sim.run_task, repeat(manager), tasks)
+            # result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), tasks)
+            for task in result:
+                if not task.complete: # Execution failed
                     print(f'Error evaluating sample, {task.run_id} skipping....')
                 else:
-                    obj, y_err, rtime, task = item
-                    eval_sim.update_sample_record(obj, y_err, rtime, res_fp, task.sample,task.task_dir)
+                    eval_sim.update_sample_record(task.obj, task.y_err, task.rtime, res_fp, task.sample,task.task_dir)
         # while len(pend_samples)>0:
         #     tasks = min(len(pend_samples), max_parallel)
         #     util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])

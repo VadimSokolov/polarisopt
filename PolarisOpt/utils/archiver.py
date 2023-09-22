@@ -248,7 +248,7 @@ def update_record(inputs, keys, values, training_filename, identifier_key = "ori
         if flag > 1:
             print("INFO: you have a repeated sample in %s" % training_filename)
 
-    print("Writing record to {}".format(training_filename), flush=True)
+    # print("Writing record to {}".format(training_filename), flush=True)
     with open(training_filename, 'w') as fp:
         json.dump(records_list, fp, indent = 4)
 

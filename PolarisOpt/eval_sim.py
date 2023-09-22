@@ -159,37 +159,17 @@ def run_task(manager, task):
         print('Submitting the slurm job', flush=True)
         res = run_sim_slurm(task.task_dir, polarisbin, scenariopath, convrgencepath,manager,task.run_id)
         if res is False:
-            return False
+            return task
         else:
             print(res)
     else:
         print('Running the simulation locally', flush=True)
         run_sim(task.task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
-    obj, y_err = pull_result(task_output,manager)
+    task.obj, task.y_err = pull_result(task_output,manager)
     end = time.perf_counter()
-    return obj, y_err, convert_time(end-start), task
-
-def eval_sample_task_mock(manager, task):
-    return (1, 1, 1, task)
-
-def eval_sample_task(manager, task):
-    r"""Evaluates a set of inputs generated in the original subspace and records the outcome
-
-    Args:
-        manager (class): object containing settings for simulation
-        inputs (n-array): the new values to be run
-        task (SampleTask): contains necessary information about the task to be executed
-
-    Returns:
-        a results file containing the target error and objective values for the run
-    """
-    res = run_task(manager, task)
-    if res is False:
-        return task
-    else:
-        obj, y_err, rtime, task = res
-    # print(f'{type(obj)}, {type(y_err)}, {type(rtime)}', flush=True)
-    return (obj, y_err, rtime, task)
+    task.rtime = convert_time(end-start)
+    task.completed = True
+    return task
 
 def update_sample_record(obj, y_err, rtime, output_fp, inputs,tasks_dir=None):
     if obj == "P":
