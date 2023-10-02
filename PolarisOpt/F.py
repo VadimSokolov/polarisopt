@@ -62,7 +62,6 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
     n = len(pend_samples)
     task_ids = range(manager.run_id,manager.run_id + n)
     manager.run_id+=n
-    task_dirs = []
     tasks = []
     for i in range(n):
         run_id = task_ids[i]
@@ -73,10 +72,16 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
             os.makedirs(task_dir)    
             print(f'Copying simulation files to {task_dir}', flush=True)
             copy_simulation(src_dir, task_dir)
-            archiver.update_json(manager.vnames, inputs, task_dir) # replace 
-        task_dirs.append(task_dir)
-        task = SampleTask(task_dir, inputs, run_id)
-        tasks.append(task)
+            archiver.update_json(manager.vnames, inputs, task_dir) # replace the json file with the new inputs
+        
+        # check if task was already executed
+        scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
+        task_output = manager.get_task_output(task_dir,scenariopath)
+        if os.path.exists(os.path.join(task_output,'finished')):
+            print(f"Finished file was created in {task_output}. Not adding this task to the queue.")
+        else:
+            task = SampleTask(task_dir, inputs, run_id)
+            tasks.append(task)
 
     if eq_sql is not None:
         from eqsql import proxies

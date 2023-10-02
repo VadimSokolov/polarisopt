@@ -251,11 +251,3 @@ def update_record(inputs, keys, values, training_filename, identifier_key = "ori
     # print("Writing record to {}".format(training_filename), flush=True)
     with open(training_filename, 'w') as fp:
         json.dump(records_list, fp, indent = 4)
-
-def pull_basenames(scenariopath):
-        records_list = json.loads(open(scenariopath).read())
-        output_base = records_list['Output controls']['output_dir_name']
-        database_base = records_list["General simulation controls"]['database_name']
-        if platform.system().lower() == 'linux':
-            output_base = 'linux_{}'.format(output_base)
-        return output_base, database_name

@@ -135,7 +135,7 @@ def run_task(manager, task):
     Returns:
         the single-output objective function and uncollapsed distance from target based on the outputs
     """
-    print(f'Running run_id: {task.run_id}', flush=True)
+    # print(f'Running run_id: {task.run_id}', flush=True)
     start = time.perf_counter()
     if hasattr(manager, 'polaris_executable'):
         polarisbin = manager.polaris_executable
@@ -154,9 +154,9 @@ def run_task(manager, task):
     else:
        convrgencepath=None
     # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
-    print(f'Using slurm flag: {manager.dictionary["slurm"]["useslurm"]}', flush=True)
+    # print(f'Using slurm flag: {manager.dictionary["slurm"]["useslurm"]}', flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
-        print('Submitting the slurm job', flush=True)
+        # print(f'Submitting the slurm job: {task.task_dir}', flush=True)
         res = run_sim_slurm(task.task_dir, polarisbin, scenariopath, convrgencepath,manager,task.run_id)
         if res is False:
             return task
