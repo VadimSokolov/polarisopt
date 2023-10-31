@@ -28,7 +28,7 @@ def query_db(db_path, SQL_query):
     return np.asarray(output)
 
 
-def run_sim(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None):
+def run_sim_local(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None):
     r"""runs the POLARIS executable with the associated scenario file
     Args:
         task_dir: (path) path to the folder containing the scenario and variable-related files
@@ -36,7 +36,6 @@ def run_sim(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None
         scenariopath: (path) scenario filename within task_dir for the .json needed to run an instance of the executable
         convrgencepath: (path) convergence directory path if convergence should be run
     """
-    create_simulation_folder()
     os.chdir(task_dir)
     # Run the Polaris exe file via pipe
     num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
@@ -167,7 +166,7 @@ def run_task(manager, task):
             print(res)
     else:
         print('Running the simulation locally', flush=True)
-        run_sim(task.task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
+        run_sim_local(task.task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
     task.obj, task.y_err = pull_result(task_output,manager)
     end = time.perf_counter()
     task.rtime = convert_time(end-start)

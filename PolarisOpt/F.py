@@ -30,7 +30,7 @@ def create_simulation_folder(task, manager):
         os.makedirs(task.task_dir)    
         print(f'Copying simulation files to {task.task_dir}', flush=True)
         copy_simulation(manager.simulation_path, task.task_dir)
-        archiver.update_json(manager.vnames, task.sample, task.task_dir) # replace the json file with the new inputs
+    archiver.update_json(manager.vnames, task.sample, task.task_dir) # replace the json file with the new inputs
 
 class SampleTask:
     def __init__(self, task_dir, var_values,run_id):
