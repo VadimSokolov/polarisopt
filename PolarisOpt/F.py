@@ -25,15 +25,36 @@ def copy_simulation(src_dir, dst_dir):
             dst_name = os.path.join(dst_dir, name)
             shutil.copy2(src_name, dst_name)
 
+def create_simulation_folder(task, manager):
+    if not os.path.exists(task.task_dir):
+        os.makedirs(task.task_dir)    
+        print(f'Copying simulation files to {task.task_dir}', flush=True)
+        copy_simulation(manager.simulation_path, task.task_dir)
+        archiver.update_json(manager.vnames, task.sample, task.task_dir) # replace the json file with the new inputs
+
 class SampleTask:
-    def __init__(self, task_dir, sample, run_id):
+    def __init__(self, task_dir, var_values,run_id):
         self.task_dir = task_dir
-        self.sample = sample
+        self.sample = var_values
         self.run_id = run_id
         self.obj=None
         self.y_err = None
         self.rtime = None
         self.complete = False
+
+def create_task(run_id,inputs,manager):
+    task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(run_id))
+    # check if task was already executed
+    scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
+    if os.path.exists(scenariopath):
+        task_output = manager.get_task_output(task_dir,scenariopath)
+        if os.path.exists(os.path.join(task_output,'finished')):
+            print(f"Finished file was created in {task_output}. Not adding this task to the queue.")
+            return None
+    task = SampleTask(task_dir, inputs,run_id)
+    return task
+
+
 
 def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 0, eq_sql=None):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
@@ -66,23 +87,9 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
     for i in range(n):
         run_id = task_ids[i]
         inputs = pend_samples[i]
-        task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(run_id))
-        src_dir = manager.simulation_path
-        if not os.path.exists(task_dir):
-            os.makedirs(task_dir)    
-            print(f'Copying simulation files to {task_dir}', flush=True)
-            copy_simulation(src_dir, task_dir)
-            archiver.update_json(manager.vnames, inputs, task_dir) # replace the json file with the new inputs
-        
-        # check if task was already executed
-        scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
-        task_output = manager.get_task_output(task_dir,scenariopath)
-        if os.path.exists(os.path.join(task_output,'finished')):
-            print(f"Finished file was created in {task_output}. Not adding this task to the queue.")
-        else:
-            task = SampleTask(task_dir, inputs, run_id)
+        task = create_task(run_id,inputs,manager)
+        if task is not None:
             tasks.append(task)
-
     if eq_sql is not None:
         from eqsql import proxies
         from eqsql import eq

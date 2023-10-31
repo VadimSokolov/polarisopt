@@ -5,7 +5,6 @@
         * loading/saving models with dill
 """
 import os
-import sys
 import numpy as np
 import dill
 import json

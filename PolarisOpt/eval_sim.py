@@ -12,6 +12,7 @@ from PolarisOpt.utils.objective_funcs import run_objective
 import time
 from pathlib import Path
 from PolarisOpt.slurm_wrappers import run_sim_slurm
+from PolarisOpt.F import create_simulation_folder
 
 
 def convert_time(seconds):
@@ -35,6 +36,7 @@ def run_sim(task_dir, polarisbin, scenariopath, working_dir, convrgencepath=None
         scenariopath: (path) scenario filename within task_dir for the .json needed to run an instance of the executable
         convrgencepath: (path) convergence directory path if convergence should be run
     """
+    create_simulation_folder()
     os.chdir(task_dir)
     # Run the Polaris exe file via pipe
     num_threads = os.environ['POLARIS_NUM_THREADS'] if 'POLARIS_NUM_THREADS' in os.environ else '1'
@@ -146,7 +148,7 @@ def run_task(manager, task):
             polarisbin = os.path.join(manager.polaris_executable, 'Integrated_Model')
     
     # print('Polaris Executable: {}'.format(polarisbin), flush=True)
-
+    create_simulation_folder(task,manager)
     scenariopath = os.path.join(task.task_dir, manager.simulation_scenario_name)
     task_output = manager.get_task_output(task.task_dir,scenariopath)
     if manager.convergence:
@@ -157,7 +159,8 @@ def run_task(manager, task):
     # print(f'Using slurm flag: {manager.dictionary["slurm"]["useslurm"]}', flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
         # print(f'Submitting the slurm job: {task.task_dir}', flush=True)
-        res = run_sim_slurm(task.task_dir, polarisbin, scenariopath, convrgencepath,manager,task.run_id)
+        # res = run_sim_slurm(task, polarisbin, scenariopath, convrgencepath,manager,task.run_id)
+        res = run_sim_slurm(task,polarisbin,scenariopath,manager)
         if res is False:
             return task
         else:
