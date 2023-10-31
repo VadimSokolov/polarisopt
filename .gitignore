@@ -1,4 +1,5 @@
 experiments/
+scrarch/
 token
 mock.py
 mock.ipynb
@@ -7,6 +8,8 @@ temp.txt
 *.slo
 *.lo
 *.o
+*.err
+*.out
 
 # Compiled Dynamic libraries
 *.so

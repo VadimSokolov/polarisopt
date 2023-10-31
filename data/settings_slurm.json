@@ -1,8 +1,8 @@
 {
 	"General simulation controls" :
 	{
-        "polaris_executable" : "/home/vsokolov/pbin/Integrated_Model",
-        "simulation_path" : "/home/vsokolov/polaris/polaris-opt/models/20230419/copy/Bloomington",
+        "polaris_executable" : "/home/vsokolov/pol/polaris-linux/build/linux/gcc/release/bin/Integrated_Model",
+        "simulation_path" : "/home/vsokolov/Austin/",
         "convergence_path": "/gpfs/fs1/home/lschultz/DR_GP/simulator/convergence",
         "convergence": false,
         "simulation_scenario_name" : "scenario_abm.modified.json",
@@ -12,15 +12,15 @@
     {
         "training_filename" : "timedep_training_data.json",
         "res_filename" : "timedep_results.json",
-        "working_dir" : "/home/vsokolov/polaris/polaris-opt/models/20230419/copy/Bloomington/morris",
-        "target_output_filepath" : "/home/vsokolov/polaris/polaris-opt/models/20230419/copy/Bloomington/Bloomington_iteration_1/Bloomington-Result.h5",
-        "result_filename" : "Bloomington-Result.h5"
+        "working_dir" : "/home/vsokolov/projects/hbw-austin/",
+        "target_output_filepath" : "/home/vsokolov/Austin/Austin_iteration_10/Austin-Result.h5",
+        "result_filename" : "Austin-Result.h5"
     },
     "slurm":{
         "useslurm": true,
         "ncpus": "16",
-        "mem": "16GB",
-        "scripttemplate": "template-bebop.slurm",
+        "mem": "42GB",
+        "scripttemplate": "template-argo.slurm",
         "name": "Austin"
     },
     "General BO controls" :

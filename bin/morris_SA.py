@@ -17,8 +17,8 @@ from PolarisOpt.setup_manager import SetupManager
 #######################################
 
 
-settings_filepath = 'settings_slurm.json'
-config_filepath = 'config_morris_transit.json'
+settings_filepath = 'scratch/settings_slurm.json'
+config_filepath = 'scratch/config_morris_hbw.json'
 manager=SetupManager(settings_filepath, config_filepath)
 
 problem = {
@@ -36,7 +36,7 @@ problem = {
 manager.run_id = 0
 if os.stat(manager.training_filename).st_size == 0:
     print("Creating training set")
-    X = morris_s.sample(problem,N=25,num_levels=4)
+    X = morris_s.sample(problem,N=8,num_levels=4)
     # X = latin_s.sample(problem,N=40)
     print(f'X shape: {X.shape}')
     archiver.create_record(X, manager.training_filename, var_names = manager.var, identifier_key = "orig_input")
@@ -44,7 +44,7 @@ if os.stat(manager.training_filename).st_size == 0:
 # np.unique(X, axis=0, return_counts=True)
 print(f'Using Slurm: {manager.dictionary["slurm"]["useslurm"]}')
 print("Starting Evaluation of Sample")
-build_sampleset(manager, manager.training_filename, max_parallel=100,num_samples=0)
+build_sampleset(manager, manager.training_filename, max_parallel=40,num_samples=0)
 
 # We do the analysis in a separate file now: morris-eda.ipynb
 # X,Err = manager.load_training()

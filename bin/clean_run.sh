@@ -3,4 +3,4 @@
 # rm -rf experiments
 rm *.err 2> /dev/null
 rm *.out 2> /dev/null
-sbatch run_argo.sh 
+sbatch bin/run_argo.sh 
