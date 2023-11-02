@@ -9,20 +9,30 @@
 # find . -maxdepth 1 ! -name '*.json' ! -name '*.slurm' ! -name '*.out' ! -name '*.err'  -type f -exec rm -f {} +
 # find . -maxdepth 1 ! -name 'Austin-Demand.sqlite' ! -name 'Austin-Result.h5' ! -name 'summary.csv' -type f -exec rm -f {} +
 
-cd /projects/vsokolov/austin-transit-focus/experiments
-# d=Sim48/
+ef=/projects/vsokolov/hbw-austin/experiments
+cd $ef
 for d in */ ; do
-# for d in Sim0 Sim1 Sim2 ; do
     echo "$d"
     cd $d
-    # find . -maxdepth 1 ! -name '*.json' ! -name '*.slurm' ! -name '*.out' ! -name '*.err'  -type f -exec rm -f {} +
-    rm -rf  Austin_iteration_10
-    rm -rf  log
-    rm *.out
+    rm -rf  Austin
+    rm -rf  Austin1
+    rm -rf  Austin2
     rm *.err
-    rm *.slurm
-    # echo "$(pwd)" 
-    # find . -maxdepth 1 ! -name 'Austin-Demand.sqlite' ! -name 'Austin-Result.h5' ! -name 'summary.csv' -type f -exec rm -f {} +
-    cd /projects/vsokolov/austin-transit-focus/experiments
-    # echo "$(pwd)" 
+    rm *.out
+    cd $ef
 done
+# for d in */ ; do
+# # for d in Sim0 Sim1 Sim2 ; do
+#     echo "$d"
+#     cd $d
+#     # find . -maxdepth 1 ! -name '*.json' ! -name '*.slurm' ! -name '*.out' ! -name '*.err'  -type f -exec rm -f {} +
+#     rm -rf  Austin_iteration_10
+#     rm -rf  log
+#     rm *.out
+#     rm *.err
+#     rm *.slurm
+#     # echo "$(pwd)" 
+#     # find . -maxdepth 1 ! -name 'Austin-Demand.sqlite' ! -name 'Austin-Result.h5' ! -name 'summary.csv' -type f -exec rm -f {} +
+#     cd /projects/vsokolov/austin-transit-focus/experiments
+#     # echo "$(pwd)" 
+# done

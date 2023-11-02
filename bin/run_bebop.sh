@@ -17,4 +17,4 @@ export PYTHONPATH="$PYTHONPATH:/home/vsokolov/polaris-hpc"
 
 cd /home/vsokolov/polaris-hpc
 # rm /gpfs/fs1/home/vsokolov/polaris-hpc/DRGP/data/timedep_training_data.json
-python bin/morris_SA.py  
+python -u bin/morris_SA.py  

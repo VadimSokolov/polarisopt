@@ -160,17 +160,16 @@ def run_task(manager, task):
         # print(f'Submitting the slurm job: {task.task_dir}', flush=True)
         # res = run_sim_slurm(task, polarisbin, scenariopath, convrgencepath,manager,task.run_id)
         res = run_sim_slurm(task,polarisbin,scenariopath,manager)
-        if res is False:
-            return task
-        else:
-            print(res)
     else:
         print('Running the simulation locally', flush=True)
-        run_sim_local(task.task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
-    task.obj, task.y_err = pull_result(task_output,manager)
-    end = time.perf_counter()
-    task.rtime = convert_time(end-start)
-    task.completed = True
+        res = run_sim_local(task.task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
+    if res is False:
+        task.completed = False
+    else:
+        task.obj, task.y_err = pull_result(task_output,manager)
+        end = time.perf_counter()
+        task.rtime = convert_time(end-start)
+        task.completed = True
     return task
 
 def update_sample_record(obj, y_err, rtime, output_fp, inputs,tasks_dir=None):
