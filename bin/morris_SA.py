@@ -32,6 +32,8 @@ problem = {
 # morris_s.sample(test_problem,N=25,num_levels=4).shape
 
 # manager.get_dim_out()
+import pickle
+pickle.dump(problem, open('scratch/problem.pkl','wb'))
 
 manager.run_id = 0
 if os.stat(manager.training_filename).st_size == 0:
@@ -45,6 +47,7 @@ if os.stat(manager.training_filename).st_size == 0:
 print(f'Using Slurm: {manager.dictionary["slurm"]["useslurm"]}')
 print("Starting Evaluation of Sample")
 build_sampleset(manager, manager.training_filename, max_parallel=40,num_samples=0)
+
 
 # We do the analysis in a separate file now: morris-eda.ipynb
 # X,Err = manager.load_training()
