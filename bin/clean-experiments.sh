@@ -9,7 +9,7 @@
 # find . -maxdepth 1 ! -name '*.json' ! -name '*.slurm' ! -name '*.out' ! -name '*.err'  -type f -exec rm -f {} +
 # find . -maxdepth 1 ! -name 'Austin-Demand.sqlite' ! -name 'Austin-Result.h5' ! -name 'summary.csv' -type f -exec rm -f {} +
 
-ef=/projects/vsokolov/hbw-austin/experiments
+ef=/projects/vsokolov/timing-austin/experiments
 cd $ef
 # for d in */ ; do
 #     echo "$d"
@@ -28,9 +28,20 @@ for d in */ ; do
     rm  Austin/Austin-Popsyn.sqlite
     rm  Austin/Austin-Result.sqlite
     rm  Austin/*.omx
-    rm *
     cd $ef
 done
+
+# for d in */ ; do
+#     echo "$d"
+#     cd $d
+#     if [ -d Austin1 ]; then
+#         echo "Directory exists."
+#         rm -rf Austin
+#         mv Austin1 Austin
+#     fi
+#     cd $ef
+# done
+
 
 # for d in */ ; do
 # # for d in Sim0 Sim1 Sim2 ; do

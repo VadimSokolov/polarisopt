@@ -18,7 +18,7 @@ from PolarisOpt.setup_manager import SetupManager
 
 
 settings_filepath = 'scratch/settings_slurm.json'
-config_filepath = 'scratch/config_morris_hbw.json'
+config_filepath = 'scratch/config_morris_timing.json'
 manager=SetupManager(settings_filepath, config_filepath)
 
 problem = {
