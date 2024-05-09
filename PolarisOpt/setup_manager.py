@@ -75,7 +75,7 @@ class SetupManager:
 
     def get_task_output(self, task_dir,scenariopath):
          d = json.loads(open(scenariopath).read())
-         outpath = os.path.join(task_dir,d["Output controls"]['output_dir_name'])
+         outpath = os.path.join(task_dir,d["Output controls"]['output_directory'])
          return outpath
     
     @property

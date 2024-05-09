@@ -150,15 +150,7 @@ def run_task(manager, task):
     create_simulation_folder(task,manager)
     scenariopath = os.path.join(task.task_dir, manager.simulation_scenario_name)
     task_output = manager.get_task_output(task.task_dir,scenariopath)
-    if manager.convergence:
-       convrgencepath=manager.convergence_path
-    else:
-       convrgencepath=None
-    # print('Polaris Convergence: {}'.format(convrgencepath), flush=True)
-    # print(f'Using slurm flag: {manager.dictionary["slurm"]["useslurm"]}', flush=True)
     if manager.dictionary["slurm"]["useslurm"]:
-        # print(f'Submitting the slurm job: {task.task_dir}', flush=True)
-        # res = run_sim_slurm(task, polarisbin, scenariopath, convrgencepath,manager,task.run_id)
         res = run_sim_slurm(task,polarisbin,scenariopath,manager)
     else:
         print('Running the simulation locally', flush=True)
@@ -166,7 +158,7 @@ def run_task(manager, task):
     if res is False:
         task.completed = False
     else:
-        task.obj, task.y_err = pull_result(task_output,manager)
+        # task.obj, task.y_err = pull_result(task_output,manager) # No need to run result evaluaiton at this point
         end = time.perf_counter()
         task.rtime = convert_time(end-start)
         task.completed = True
