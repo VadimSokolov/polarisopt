@@ -9,5 +9,7 @@ config = ConvergenceConfig(data_dir     = project_dir,
                            db_name      = $DBNAME, 
                            num_abm_runs = 10, 
                            num_threads  = $NCPUS,
+                           num_retries = 3,
+                           restart_from = $RESTART,
                            polaris_exe = polaris_binary)
 run_polaris_convergence(config)

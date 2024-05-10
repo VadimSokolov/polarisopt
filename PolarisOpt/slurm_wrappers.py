@@ -26,6 +26,7 @@ def run_sim_slurm(task, polarisbin, scenariopath,manager):
         pyscript = pyscript.replace("$PRJDIR", "'"+task.task_dir+"'")
         pyscript = pyscript.replace("$DBNAME", "'"+jobname+"'")
         pyscript = pyscript.replace("$NCPUS", num_threads)
+        pyscript = pyscript.replace("$RESTART", 1) # TODO: replace with the actual number of siumulations that were already executed, by checking the 'finish' file/ .
         convfn  = f'{task.task_dir}/{d["name"]}-{task.run_id}.py'
         with open(convfn,'w') as fh:
             fh.write(pyscript)
