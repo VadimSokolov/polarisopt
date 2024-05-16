@@ -41,45 +41,55 @@ class SampleTask:
         self.y_err = None
         self.rtime = None
         self.complete = False
+        self.start_iteration_from = 1
 
 def create_task(run_id,inputs,manager):
     task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(run_id))
     # check if task was already executed
     scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
-    if os.path.exists(scenariopath):
+    if manager.convergence:
+        lastit, _ = manager.check_iterations(task_dir,scenariopath)
+        if lastit >= manager.num_abm_runs:
+            print(f"Simulation {task_dir} was already run {manager.num_abm_runs} times. Not adding this task to the queue.")
+            return None
+    else:
         task_output = manager.get_task_output(task_dir,scenariopath)
         if os.path.exists(os.path.join(task_output,'finished')):
             print(f"Finished file was created in {task_output}. Not adding this task to the queue.")
             return None
     task = SampleTask(task_dir, inputs,run_id)
+    if manager.convergence:
+        task.start_iteration_from  = lastit
     return task
 
 
 
-def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 0, eq_sql=None):
+def evaluate_samples(manager, max_parallel = 2, num_samples = 0, eq_sql=None):
     r"""Function which runs all necessary steps to (create and) evaluate a sample training file.
     Args:
         manager (SetupManager class): central parameter keeper
-        training_filename (text): the file name to place evaluated or pending points into. Will be placed
-        in the 'data' folder and in the format of [Y,X]
         max_parallel (int): the largest number of parallel evaluations allowed while evaluating all pending samples
-                in the training_filename file
+                in the manager.training_filename file
         num_samples (int): the number of samples taken from a Lating Hypercube constructed across the statespace
                 If num_samples = 0, no additional samples will be created
         
     Returns:
       a file containing the evaluated samples in the format necessary for training [Y, X]
     """
-    res_fp = manager._check_file(training_filename)
+
+    # manager.training_filename (text): the file name to place evaluated or pending points into. Will be placed
+    # in the 'data' folder and in the format of [Y,X]
+    
+    training_file = manager._check_file(manager.training_filename)
 
     #################################
     #STEP 1: Create LHS if desired  #
     #################################
     if num_samples>0:
         pend_samples = sampler.LHS_pool(manager.orig_range[0], num_samples, manager.orig_range[1])
-        archiver.create_record(pend_samples, res_fp, var_names = manager.var, identifier_key = "orig_input")
+        archiver.create_record(pend_samples, training_file, var_names = manager.var, identifier_key = "orig_input")
     else:
-        _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
+        _, pend_samples = archiver.import_dataset(training_file, x_key = "orig_input", y_key = "target_err")
     n = len(pend_samples)
     task_ids = range(manager.run_id,manager.run_id + n)
     manager.run_id+=n
@@ -90,48 +100,16 @@ def build_sampleset(manager, training_filename, max_parallel = 2, num_samples = 
         task = create_task(run_id,inputs,manager)
         if task is not None:
             tasks.append(task)
-    if eq_sql is not None:
-        from eqsql import proxies
-        from eqsql import eq
-        import eval_wrapper
+            
+    with futures.ThreadPoolExecutor(max_parallel) as executor:
+        result = executor.map(eval_sim.run_task, repeat(manager), tasks)
+        # result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), tasks)
+        for task in result:
+            if not task.complete: # Execution failed
+                print(f'Error evaluating sample, {task.run_id} skipping....')
+            else:
+                eval_sim.update_sample_record(task.obj, task.y_err, task.rtime, training_file, task.sample,task.task_dir)
 
-        func = proxies.dump_proxies(f=eval_wrapper.eval_sample_task)['f']
-        proxy_map = proxies.dump_proxies(manager=manager, output_fp=res_fp,
-                                        pend_samples=pend_samples)
-        exp_id = os.getenv("EXP_ID")
-        payload = {'func': func, 'proxies': proxy_map, 'parameters': [{'row': r} for r in range(len(pend_samples))]}
-        status, ft = eq_sql.submit_task(exp_id, eq_type=0, payload=json.dumps(payload))
-        if status != eq.ResultStatus.SUCCESS:
-            eq_sql.stop_worker_pool(eq_type=0)
-            raise ValueError("Error submitting task while attempting to calibrate simulation")
-        # timeout should be set to max duration of polaris run in seconds
-        timeout = float(os.getenv("ME_TIMEOUT"))
-        status, result = ft.result(timeout=timeout)
-        if status != eq.ResultStatus.SUCCESS:
-            # don't call this as it typically leaves a stop flag in the DB
-            # for the next run
-            # eq.stop_worker_pool(eq_type=0)
-            raise ValueError("Error querying task result while attempting to calibrate simulation: {}".format(result))
-        
-        result_dict = json.loads(result)
-        proxy_result = proxies.load_proxies(result_dict['proxies'])
-        result_list = proxy_result['results']
-        for obj, y_err, rtime, task_id in result_list:
-            eval_sim.update_sample_record(obj, y_err, rtime, res_fp, pend_samples[task_id])
-    else:
-        # result = eval_sim.eval_sample_task(manager, res_fp, pend_samples[0], 0, False)         
-        with futures.ThreadPoolExecutor(max_parallel) as executor:
-            result = executor.map(eval_sim.run_task, repeat(manager), tasks)
-            # result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), tasks)
-            for task in result:
-                if not task.complete: # Execution failed
-                    print(f'Error evaluating sample, {task.run_id} skipping....')
-                else:
-                    eval_sim.update_sample_record(task.obj, task.y_err, task.rtime, res_fp, task.sample,task.task_dir)
-        # while len(pend_samples)>0:
-        #     tasks = min(len(pend_samples), max_parallel)
-        #     util.thread_it(eval_sim.eval_sample_task, [(manager, res_fp, pend_samples[row], row) for row in range(tasks)])
-        #     _, pend_samples = archiver.import_dataset(res_fp, x_key = "orig_input", y_key = "target_err")
 
 
 

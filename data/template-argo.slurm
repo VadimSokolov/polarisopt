@@ -5,7 +5,7 @@
 #NOTE: %u=userID, %x=jobName, %N=nodeID, %j=jobID, %A=arrayID, %a=arrayTaskID`
 #SBATCH --output=$OUTPUTFOLDER/%x-%j.out  # Output file`
 #SBATCH --error=$OUTPUTFOLDER/%x-%j.err   # Error file
-#SBATCh --cpus-per-task=$NCPUS
+#SBATCH --cpus-per-task=$NCPUS
 #SBATCH --mem=$MEM
 #SBATCH --job-name=$JOBNAME
 

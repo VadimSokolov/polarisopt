@@ -1,6 +1,5 @@
 import os
-import sys
-import numpy as np
+import glob
 import json
 from .utils import archiver
 from . import eval_sim
@@ -73,6 +72,18 @@ class SetupManager:
             os.makedirs(self.model_dir)
         self.target_output_filename = os.path.basename(self.target_output_filepath)
 
+    # Check with iterations finished which are not
+    def check_iterations(self, task_dir,scenariopath):
+        unfinishedit = []
+        lastit = 0
+        task_output = self.get_task_output(task_dir,scenariopath)
+        for it in glob.glob(f'{task_output}_iteration_*'):
+            if os.path.exists(os.path.join(it,'finished')):
+                lastit = max(lastit,int(it.split('_')[-1]))
+            else:
+                unfinishedit.append(it)
+        return lastit, unfinishedit
+                
     def get_task_output(self, task_dir,scenariopath):
          d = json.loads(open(scenariopath).read())
          outpath = os.path.join(task_dir,d["Output controls"]['output_directory'])
@@ -95,7 +106,7 @@ class SetupManager:
             raise ValueError('File path %s is invalid' % json_fp)
         self.dictionary = json.loads(open(json_fp).read())
         # p = [vkey for vkey in self.dictionary]
-        for vkey in ['General simulation controls', 'File controls', 'General BO controls']:
+        for vkey in ['General simulation controls', 'Convergence','File controls', 'General BO controls']:
             for key, value in self.dictionary[vkey].items(): 
                 self.__dict__[key] = value 
 

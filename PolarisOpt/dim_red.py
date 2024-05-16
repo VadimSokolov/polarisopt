@@ -13,10 +13,10 @@ from .utils import archiver
 from .utils import transforms
 from .utils.objective_funcs import run_objective
 import shutil
-try:
-    import active_subspaces as ac
-except ImportError:
-    print('Active Subspace dimension reduction technique is unavailable; Active Subspace package could not be loaded')
+# try:
+#     import active_subspaces as ac
+# except ImportError:
+#     print('Active Subspace dimension reduction technique is unavailable; Active Subspace package could not be loaded')
 try:
     from sklearn.decomposition import PCA
     from sklearn.cross_decomposition import PLSRegression

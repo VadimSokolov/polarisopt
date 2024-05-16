@@ -7,7 +7,7 @@ import os
 import sys
 # import PolarisOpt
 from PolarisOpt.utils import archiver
-from PolarisOpt.F import build_sampleset
+from PolarisOpt.F import evaluate_samples
 from PolarisOpt.setup_manager import SetupManager
 
 #######################################
@@ -46,7 +46,7 @@ if os.stat(manager.training_filename).st_size == 0:
 # np.unique(X, axis=0, return_counts=True)
 print(f'Using Slurm: {manager.dictionary["slurm"]["useslurm"]}')
 print("Starting Evaluation of Sample")
-build_sampleset(manager, manager.training_filename, max_parallel=40,num_samples=0)
+evaluate_samples(manager, max_parallel=40,num_samples=0)
 
 
 # We do the analysis in a separate file now: morris-eda.ipynb

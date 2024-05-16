@@ -138,23 +138,14 @@ def run_task(manager, task):
     """
     # print(f'Running run_id: {task.run_id}', flush=True)
     start = time.perf_counter()
-    if hasattr(manager, 'polaris_executable'):
-        polarisbin = manager.polaris_executable
-    else:
-        if platform.system().lower() == 'windows':
-            polarisbin = os.path.join(manager.polaris_executable, 'Integrated_model.exe')
-        else:
-            polarisbin = os.path.join(manager.polaris_executable, 'Integrated_Model')
-    
     # print('Polaris Executable: {}'.format(polarisbin), flush=True)
     create_simulation_folder(task,manager)
-    scenariopath = os.path.join(task.task_dir, manager.simulation_scenario_name)
-    task_output = manager.get_task_output(task.task_dir,scenariopath)
     if manager.dictionary["slurm"]["useslurm"]:
-        res = run_sim_slurm(task,polarisbin,scenariopath,manager)
+        res = run_sim_slurm(task,manager)
     else:
+        scenariopath = os.path.join(task.task_dir, manager.simulation_scenario_name)
         print('Running the simulation locally', flush=True)
-        res = run_sim_local(task.task_dir, polarisbin, scenariopath, manager.working_dir, convrgencepath)
+        res = run_sim_local(task.task_dir, manager.polaris_executable, scenariopath, manager.working_dir, convrgencepath)
     if res is False:
         task.completed = False
     else:
