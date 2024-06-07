@@ -106,7 +106,7 @@ def evaluate_samples(manager, max_parallel = 2, num_samples = 0, eq_sql=None):
         # result = executor.map(eval_sim.eval_sample_task_mock, repeat(manager), tasks)
         for task in result:
             if not task.complete: # Execution failed
-                print(f'Error evaluating sample, {task.run_id} skipping....')
+                print(f'Error evaluating sample {task.run_id}, skipping....')
             else:
                 eval_sim.update_sample_record(task.obj, task.y_err, task.rtime, training_file, task.sample,task.task_dir)
 

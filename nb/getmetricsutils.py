@@ -21,3 +21,14 @@ def plotsum(f):
     fig, axs = plt.subplots(1,2,figsize=(6,2))
     axs[0].plot(sum)
     axs[1].plot(ref_output)
+
+def getnet(fl):
+    with h5py.File(f'{fl}/Austin-Result.h5', 'r') as f:
+        ref_output = f['link_moe']['link_travel_time'][:]*f['link_moe']['link_in_volume'][:]
+        # moe = f['link_moe']['num_vehicles_in_link'][:]
+    moe =  np.sum(ref_output, axis=1)
+    return(moe)
+
+def pltnet(f):
+    moe = getnet(f)
+    plt.plot(moe)
