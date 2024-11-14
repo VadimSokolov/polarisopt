@@ -143,7 +143,7 @@ def run_task(manager, task):
     if manager.dictionary["slurm"]["useslurm"]:
         res = run_sim_slurm(task,manager)
     else:
-        scenariopath = os.path.join(task.task_dir, manager.simulation_scenario_name)
+        scenariopath = os.path.join(task.task_dir, manager.polaris_scenario_file)
         print('Running the simulation locally', flush=True)
         res = run_sim_local(task.task_dir, manager.polaris_executable, scenariopath, manager.working_dir, convrgencepath)
     if res is False:

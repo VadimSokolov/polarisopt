@@ -4,25 +4,20 @@ import json
 from .utils import archiver
 from . import eval_sim
 
-class SetupManager:
+class Manager:
     r"""A helper class to house and manage all of the necessary files, parameters, and settings
         required to run package functions 
         
         Example:
         >>> settings_filepath = 'settings.json'
-        >>> config_filepath = 'config.json'
-        >>> manager = SetupManager(settings_filepath, config_filepath)
+        >>> manager = Manager(settings_filepath)
         """
-    def __init__(self, settings_filepath, config_filepath):
+    def __init__(self, settings_filepath):
         r"""
         Args:
             settings_filepath (str): the filename for the json file containing the simulation, reductive subspace, 
                                   and Bayesian Optimization controls. This file must be located in the "data" folder.
                                   See "settings_readme.md" for more information
-            config_filepath (str):   the filename for the json file containing information on the variables of the 
-                                  simulation being optimized. This file must be located in the "data" folder.
-                                  See "example_config.json" for structure help
-
         Returns:
            a class object containing the information necessary to perform package functionality
            """
@@ -37,7 +32,6 @@ class SetupManager:
         self.settings_filepath =  self._check_file(settings_filepath) 
         self._load_jsonfile(self.settings_filepath)
         self._set_paths()
-        self.config_filepath = config_filepath
         self.run_id = 0
         if not os.path.exists(self.working_dir):
             os.mkdir(self.working_dir)
@@ -66,11 +60,11 @@ class SetupManager:
     def _set_paths(self):
         self.training_filename = self._check_file(self.training_filename,True)
         self.res_filename      = self._check_file(self.res_filename,True)
-        self.target_output_filepath = self._check_file(self.target_output_filepath)
+        # self.target_output_filepath = self._check_file(self.target_output_filepath)
         self.model_dir = os.path.join(self.working_dir, 'Models')   #automatically saved in the results file folder
         if not os.path.exists(self.model_dir):
             os.makedirs(self.model_dir)
-        self.target_output_filename = os.path.basename(self.target_output_filepath)
+        # self.target_output_filename = os.path.basename(self.target_output_filepath)
 
     # Check with iterations finished which are not
     def check_iterations(self, task_dir,scenariopath):
@@ -88,16 +82,6 @@ class SetupManager:
          d = json.loads(open(scenariopath).read())
          outpath = os.path.join(task_dir,d["Output controls"]['output_directory'])
          return outpath
-    
-    @property
-    def config_filepath(self):
-        return self._config_filepath
-
-    @config_filepath.setter
-    def config_filepath(self, file_fn):
-        self._config_filepath = self._check_file(file_fn)
-        self.vnames, self.dim_in, self.orig_range = archiver.read_config(self._config_filepath) 
-        self.var = [i for v in self.vnames for i in v[1]]
 
     def _load_jsonfile(self, json_fp):
         if not json_fp.endswith('.json'):

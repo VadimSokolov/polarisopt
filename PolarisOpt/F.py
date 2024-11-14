@@ -46,17 +46,18 @@ class SampleTask:
 def create_task(run_id,inputs,manager):
     task_dir = os.path.join(manager.working_dir, 'experiments', "Sim"+str(run_id))
     # check if task was already executed
-    scenariopath = os.path.join(task_dir, manager.simulation_scenario_name)
+    scenariopath = os.path.join(task_dir, manager.polaris_scenario_file)
     if manager.convergence:
         lastit, _ = manager.check_iterations(task_dir,scenariopath)
         if lastit >= manager.num_abm_runs:
             print(f"Simulation {task_dir} was already run {manager.num_abm_runs} times. Not adding this task to the queue.")
             return None
     else:
-        task_output = manager.get_task_output(task_dir,scenariopath)
-        if os.path.exists(os.path.join(task_output,'finished')):
-            print(f"Finished file was created in {task_output}. Not adding this task to the queue.")
-            return None
+        if os.path.exists(scenariopath):
+            task_output = manager.get_task_output(task_dir,scenariopath)
+            if os.path.exists(os.path.join(task_output,'finished')):
+                print(f"Finished file was created in {task_output}. Not adding this task to the queue.")
+                return None
     task = SampleTask(task_dir, inputs,run_id)
     if manager.convergence:
         task.start_iteration_from  = lastit

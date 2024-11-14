@@ -6,7 +6,7 @@
         "simulation_path" : "/home/nick/Documents/data/DR_GP/simulator/POLARIS/Bloomington",
         "convergence_path": "/home/nick/Documents/data/repos/polaris-hpc/convergence",
         "convergence": false,
-        "simulation_scenario_name" : "scenario_abm.json",
+        "polaris_scenario_file" : "scenario_abm.json",
         "target_output_filepath" : "/home/nick/Documents/data/DR_GP/simulator/Target/bloomington-Result.sqlite",
         "output_SQL_query": "SELECT start_time,SUM(outbound_turn_travel_time - inbound_turn_travel_time) FROM 'TurnMOE' GROUP BY start_time"
     },

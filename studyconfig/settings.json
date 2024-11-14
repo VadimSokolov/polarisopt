@@ -1,28 +1,21 @@
 {
 	"General simulation controls" :
 	{
-        "polaris_executable" : "/home/vsokolov/pol/polaris-linux/build/linux/gcc/release/bin/Integrated_Model",
-        "simulation_path" : "/home/vsokolov/Austin/",
+        "polaris_executable" : "/home/vsokolov/polaris/polaris_OPT/Austin_Oct28/austin/built/bin/Integrated_Model",
+        "simulation_path" : "/home/vsokolov/polaris/polaris_OPT/Austin_Oct28/austin/built/",
         "convergence_path": "/gpfs/fs1/home/lschultz/DR_GP/simulator/convergence",
         "convergence": false,
-        "simulation_scenario_name" : "scenario_abm.json",
-        "calibration" : false
+        "polaris_scenario_file" : "scenario_abm.json",
+        "target_output_filepath" : "austin-Result.sqlite",
+        "output_SQL_query": "SELECT start_time,SUM(outbound_turn_travel_time - inbound_turn_travel_time) FROM 'TurnMOE' GROUP BY start_time"
     },
+
     "File controls" :
     {
         "training_filename" : "timedep_training_data.json",
-        "res_filename" : "timedep_results.json",
-        "working_dir" : "/home/vsokolov/projects/hbw-austin/",
-        "target_output_filepath" : "/home/vsokolov/Austin/Austin_iteration_10/Austin-Result.h5",
-        "result_filename" : "Austin-Result.h5"
+        "res_filename" : "timedep_results.json"
     },
-    "slurm":{
-        "useslurm": true,
-        "ncpus": "16",
-        "mem": "42GB",
-        "scripttemplate": "template-argo.slurm",
-        "name": "Austin"
-    },
+
     "General BO controls" :
 	{
         "xxxnum_BO_loops" : 20,

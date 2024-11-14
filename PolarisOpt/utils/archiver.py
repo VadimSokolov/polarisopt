@@ -207,6 +207,7 @@ def check_record_duplicate(x, records_list, identifier_key = "orig_input"):
             return True
     return False
 
+# Creates file with the innputs
 def create_record(inputs, training_filename, var_names = None, identifier_key = "orig_input"):
     try:
         records_list = json.loads(open(training_filename).read())

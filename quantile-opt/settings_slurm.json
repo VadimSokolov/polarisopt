@@ -1,0 +1,30 @@
+{
+	"General simulation controls" :
+	{
+        "polaris_executable" : "/home/vsokolov/pol/polaris-linux/build/linux/gcc/release/bin/Integrated_Model",
+        "simulation_path" : "/home/vsokolov/models/agit50",
+        "polaris_scenario_file" : "scenario_abm.json",
+        "num_parallel_runs" : 10,
+        "calibration" : false
+    },
+    "Convergence":
+    {
+        "convergence": false,
+        "iteration_scenario_name" : "scenario_abm.modified.json",
+        "convergence_path": "data/conv.py",
+        "num_abm_runs": 10
+    },
+    "File controls" :
+    {
+        "working_dir" : "/home/vsokolov/projects/timing-austin/quantile-opt",
+        "target_output_filepath" : "/home/vsokolov/Austin/Austin-Result.h5",
+        "result_filename" : "Austin-Result.h5"
+    },
+    "slurm":{
+        "useslurm": true,
+        "ncpus": "24",
+        "mem": "42GB",
+        "scripttemplate": "template-argo.slurm",
+        "name": "Austin"
+    }
+}

@@ -1,25 +1,37 @@
 {
 	"General simulation controls" :
 	{
-        "polaris_executable" : "/lcrc/project/POLARIS/bebop/polaris/model/Integrated_Model",
-        "comment": "simulation_path is copy of data in /lcrc/project/POLARIS/bebop/polaris/data/Bloomington/",
-        "simulation_path" : "/lcrc/project/EMEWS/bebop/DR_GP/simulator/POLARIS/Bloomington",
-        "convergence_path": "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/convergence",
-        "convergence": false,
-        "simulation_scenario_name" : "scenario_abm.json",
-        "target_output_filepath" : "/lcrc/project/EMEWS/bebop/DR_GP/simulator/Target/bloomington-Result.sqlite",
-        "output_SQL_query": "SELECT start_time,SUM(outbound_turn_travel_time - inbound_turn_travel_time) FROM 'TurnMOE' GROUP BY start_time"
+        "polaris_executable" : "/home/vsokolov/pol/polaris-linux/build/linux/gcc/release/bin/Integrated_Model",
+        "simulation_path" : "/home/vsokolov/models/agit50",
+        "polaris_scenario_file" : "scenario_abm.json",
+        "num_parallel_runs" : 10,
+        "calibration" : false
     },
-
+    "Convergence":
+    {
+        "convergence": false,
+        "iteration_scenario_name" : "scenario_abm.modified.json",
+        "convergence_path": "data/conv.py",
+        "num_abm_runs": 10
+    },
     "File controls" :
     {
-        "training_filename" : "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/swift_proj/data/test_input/timedep_training_data.json",
-        "res_filename" : "/lcrc/project/EMEWS/bebop/repos/polaris-hpc/swift_proj/data/test_input/timedep_results.json"
+        "training_filename" : "manual_training_data.json",
+        "res_filename" : "timedep_results.json",
+        "working_dir" : "/home/vsokolov/projects/timing-austin/test/",
+        "target_output_filepath" : "/home/vsokolov/Austin/Austin-Result.h5",
+        "result_filename" : "Austin-Result.h5"
     },
-
+    "slurm":{
+        "useslurm": true,
+        "ncpus": "24",
+        "mem": "42GB",
+        "scripttemplate": "template-argo.slurm",
+        "name": "Austin"
+    },
     "General BO controls" :
 	{
-        "xxxnum_BO_loops" : 20,
+        "num_BO_loops" : 20,
         "num_BO_loops" : 3,
         "num_rec_points" : 2,
         "num_grid_points" : 2000,
