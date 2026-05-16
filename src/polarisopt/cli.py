@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 
 import click
@@ -10,6 +11,12 @@ from polarisopt import __version__
 from polarisopt.config import load_study_config
 from polarisopt.samples.sample import SampleStatus
 from polarisopt.samples.store import SampleStore
+from polarisopt.studies.ops import (
+    abort_study,
+    cancel_sample,
+    open_store,
+    sample_log_paths,
+)
 from polarisopt.studies.runner import StudyRunner
 from polarisopt.utils.logging import configure
 from polarisopt.utils.paths import workspace_layout
@@ -73,6 +80,75 @@ def resume(config: Path) -> None:
     runner = StudyRunner(cfg, store=store)
     samples = runner.run()
     click.echo(f"resume complete: {len(samples)} samples processed")
+
+
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("sample_id", type=int)
+def cancel(config: Path, sample_id: int) -> None:
+    """Cancel a single sample (scancel its Slurm job and mark CANCELLED)."""
+    cfg = load_study_config(config)
+    try:
+        sample = cancel_sample(sample_id, config=cfg)
+    except (FileNotFoundError, KeyError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"sample {sample.id}: status={sample.status.value}")
+
+
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def abort(config: Path) -> None:
+    """Cancel every non-terminal sample in the study."""
+    cfg = load_study_config(config)
+    try:
+        cancelled = abort_study(cfg)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(f"aborted {len(cancelled)} non-terminal sample(s)")
+
+
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("sample_id", type=int)
+@click.option("--follow", "-f", is_flag=True, help="Stream new log lines (like tail -f).")
+@click.option("--lines", "-n", type=int, default=0, help="Print last N lines first (default: all).")
+def logs(config: Path, sample_id: int, follow: bool, lines: int) -> None:
+    """Print stdout / stderr / *.log files for a sample."""
+    cfg = load_study_config(config)
+    try:
+        store = open_store(cfg)
+        sample = store.get(sample_id)
+    except (FileNotFoundError, KeyError) as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    files = sample_log_paths(sample)
+    if not files:
+        raise click.ClickException(f"no log files in {sample.folder}")
+
+    for path in files:
+        click.secho(f"==> {path} <==", fg="cyan")
+        text = path.read_text(errors="replace")
+        if lines > 0:
+            text = "\n".join(text.splitlines()[-lines:])
+        click.echo(text)
+
+    if not follow:
+        return
+
+    # Naive single-file follow (the largest log) — terminates on Ctrl-C.
+    target = max(files, key=lambda p: p.stat().st_size)
+    click.secho(f"\n[follow] {target}", fg="cyan")
+    with target.open("r") as fh:
+        fh.seek(0, 2)  # end
+        try:
+            while True:
+                line = fh.readline()
+                if line:
+                    click.echo(line, nl=False)
+                else:
+                    time.sleep(0.5)
+        except KeyboardInterrupt:
+            pass
 
 
 def main() -> None:
