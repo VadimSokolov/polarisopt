@@ -51,6 +51,10 @@ dev = [
     "types-PyYAML",
     "mkdocs>=1.5",
     "mkdocs-material>=9.5",
+    "mkdocstrings[python]>=0.24",
+    "mkdocs-section-index>=0.3",
+    "mkdocs-gen-files>=0.5",
+    "mkdocs-literate-nav>=0.6",
 ]
 
 [project.scripts]
