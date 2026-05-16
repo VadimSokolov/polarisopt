@@ -1,7 +1,7 @@
 # EQSQL compatibility
 
 Argonne users coming from `polaris.hpc.eqsql` can use
-``polarisopt.compat.eqsql`` as a drop-in replacement that routes
+``polarisopt.eqsql_compat`` as a drop-in replacement that routes
 everything through plain Slurm — no Postgres, no worker pool, no
 ``worker_id`` regex pinning.
 
@@ -14,9 +14,9 @@ working.
 ## Usage
 
 ```python
-from polarisopt.compat import eqsql
+from polarisopt import eqsql_compat
 
-with eqsql.open_queue("/path/to/workspace") as queue:
+with eqsql_compat.open_queue("/path/to/workspace") as queue:
     result = queue.insert_task(
         definition={"task-type": "bash-script", "command": "/path/to/run.sh"},
         exp_id="my-experiment",

@@ -3,8 +3,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from polarisopt.compat import eqsql
-from polarisopt.compat.eqsql import (
+from polarisopt import eqsql_compat as eqsql
+from polarisopt.eqsql_compat import (
     CANCELLED,
     FINISHED,
     QUEUED,

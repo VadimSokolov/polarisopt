@@ -13,8 +13,8 @@ that compares against ``"queued"``, ``"running"``, ``"finished"``,
 Example
 -------
 
->>> from polarisopt.compat import eqsql
->>> with eqsql.open_queue("/path/to/workspace") as queue:
+>>> from polarisopt import eqsql_compat
+>>> with eqsql_compat.open_queue("/path/to/workspace") as queue:
 ...     result = queue.insert_task(
 ...         definition={"task-type": "bash-script", "command": "/bin/echo hi"},
 ...         exp_id="hello-world",
@@ -371,7 +371,7 @@ class TaskQueue:
         task_type = definition.get("task-type")
         if task_type != "bash-script":
             raise ValueError(
-                f"polarisopt.compat.eqsql only supports task-type='bash-script'; got {task_type!r}"
+                f"polarisopt.eqsql_compat only supports task-type='bash-script'; got {task_type!r}"
             )
         command = definition.get("command")
         if not command or not isinstance(command, str):
@@ -427,7 +427,7 @@ def insert_task(
     """Module-level convenience — requires :func:`configure_default_queue` first."""
     if _DEFAULT_QUEUE is None:
         raise RuntimeError(
-            "No default queue configured. Call polarisopt.compat.eqsql.configure_default_queue() "
+            "No default queue configured. Call polarisopt.eqsql_compat.configure_default_queue() "
             "or use open_queue() as a context manager."
         )
     return _DEFAULT_QUEUE.insert_task(

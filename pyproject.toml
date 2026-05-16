@@ -54,7 +54,7 @@ dev = [
 ]
 
 [project.scripts]
-polarisopt = "polarisopt.cli.__main__:main"
+polarisopt = "polarisopt.cli:main"
 
 [project.urls]
 Repository = "https://github.com/anl-polaris/polaris-hpc"
