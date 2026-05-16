@@ -51,7 +51,13 @@ class StudyRunner:
 
         self.store = store or SampleStore.open(self.layout["db"], config.name)
         self.space = _build_space(config.parameters)
-        self.runner = make_runner({"type": config.runner.type, "options": config.runner.options})
+        # Pluck Study-level poll/orphan knobs out of runner.options before
+        # building the runner itself — they belong to the orchestrator loop,
+        # not to the runner backend.
+        runner_options = dict(config.runner.options)
+        self.poll_interval: float = float(runner_options.pop("poll_interval", 5.0))
+        self.orphan_threshold: int = int(runner_options.pop("orphan_threshold", 3))
+        self.runner = make_runner({"type": config.runner.type, "options": runner_options})
         self.simulator = make_simulator({"type": config.simulator.type, "options": config.simulator.options})
         self.metric = make_metric({"type": config.metric.type, "options": config.metric.options})
 
@@ -71,6 +77,8 @@ class StudyRunner:
                 simulator=self.simulator,
                 metric=self.metric,
                 rng=self.rng,
+                poll_interval=self.poll_interval,
+                orphan_threshold=self.orphan_threshold,
             )
             if isinstance(phase, StaticPhaseConfig):
                 design = make_design({"type": phase.design.type, "options": phase.design.options})

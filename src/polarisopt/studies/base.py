@@ -36,6 +36,32 @@ class StudyContext:
 
     Aggregating these into one struct keeps Study subclasses' __init__
     short and makes them easier to test.
+
+    Parameters
+    ----------
+    name :
+        Logical name of the study (matches the YAML ``name``).
+    space :
+        :class:`~polarisopt.parameters.ParameterSpace`.
+    workspace :
+        Root directory for experiment folders, logs, scripts, and the DB.
+    store :
+        Open :class:`~polarisopt.samples.store.SampleStore`.
+    runner :
+        Backend that submits and polls jobs.
+    simulator :
+        Bridges Sample inputs into a :class:`JobSpec` and reads outputs back.
+    metric :
+        Reduces simulator output to an objective vector.
+    rng :
+        Shared random number generator (persisted across restart).
+    poll_interval :
+        Seconds between :meth:`Runner.status` calls. Default 5s.
+    orphan_threshold :
+        Number of consecutive ``JobStatus.UNKNOWN`` polls before a sample
+        is force-marked FAILED. Catches Slurm jobs that disappear without
+        a finished sentinel. Default 3. Set to 0 to disable orphan
+        detection (legacy behavior — poll forever).
     """
 
     name: str
@@ -47,6 +73,7 @@ class StudyContext:
     metric: Metric
     rng: np.random.Generator
     poll_interval: float = 5.0
+    orphan_threshold: int = 3
 
 
 class Study(ABC):
@@ -97,13 +124,36 @@ class Study(ABC):
             assert sample.id is not None
             jobs[sample.id] = job
 
-        # 2) Poll until all jobs terminate
+        # 2) Poll until all jobs terminate. Track per-sample UNKNOWN counts
+        # so orphaned Slurm jobs (e.g. lost from squeue + sacct) don't make
+        # us poll forever.
         outstanding = dict(jobs)
+        unknown_counts: dict[int, int] = {sid: 0 for sid in outstanding}
         while outstanding:
             for sid, job in list(outstanding.items()):
                 ctx.runner.status(job)
                 if job.status.is_terminal():
                     outstanding.pop(sid)
+                    continue
+                if job.status is JobStatus.UNKNOWN:
+                    unknown_counts[sid] = unknown_counts.get(sid, 0) + 1
+                    if (
+                        ctx.orphan_threshold > 0
+                        and unknown_counts[sid] >= ctx.orphan_threshold
+                    ):
+                        log.warning(
+                            "sample %s: jobid %s orphaned after %d UNKNOWN polls",
+                            sid,
+                            job.task_id,
+                            unknown_counts[sid],
+                        )
+                        job.status = JobStatus.FAILED
+                        job.message = (
+                            f"job orphaned (Slurm lost track of jobid={job.task_id})"
+                        )
+                        outstanding.pop(sid)
+                else:
+                    unknown_counts[sid] = 0
             if outstanding:
                 time.sleep(ctx.poll_interval)
 
