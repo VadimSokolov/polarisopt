@@ -11,17 +11,40 @@ from polarisopt.parameters import ParameterSpace
 
 @design_registry.register("morris")
 class MorrisDesign(Design):
-    """Morris screening design.
+    """Morris elementary-effects screening design via SALib.
 
     Returns ``n_trajectories * (ndim + 1)`` sample rows — the standard Morris
     grid trajectory structure that SALib's ``morris.sample`` produces.
 
     Parameters
     ----------
-    n_trajectories:
+    n_trajectories : int
         Number of trajectories (``N`` in the SALib API).
-    num_levels:
-        Number of grid levels per dimension (typically 4).
+    num_levels : int, optional
+        Number of grid levels per dimension (default 4).
+
+    Raises
+    ------
+    ValueError
+        If ``n_trajectories <= 0`` or ``num_levels < 2``.
+
+    See Also
+    --------
+    SALib documentation : https://salib.readthedocs.io/
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from polarisopt.parameters import Parameter, ParameterSpace
+    >>> space = ParameterSpace.from_iterable([
+    ...     Parameter("x", "a.json", 0.0, 1.0),
+    ...     Parameter("y", "a.json", 0.0, 1.0),
+    ... ])
+    >>> design = MorrisDesign(n_trajectories=3, num_levels=4)
+    >>> pts = design.generate(space, rng=np.random.default_rng(0))
+    >>> # N=3 trajectories over d=2 dims => 3 * (2+1) = 9 points
+    >>> pts.shape
+    (9, 2)
     """
 
     def __init__(self, n_trajectories: int, *, num_levels: int = 4) -> None:

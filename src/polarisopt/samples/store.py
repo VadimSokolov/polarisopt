@@ -109,8 +109,33 @@ def _now() -> datetime:
 class SampleStore:
     """Persistence layer for a study.
 
-    Open with :meth:`open` (or :meth:`open_memory` for tests). Each study has a
-    unique name; reopening with the same name attaches to the existing record.
+    Open with :meth:`open` (or :meth:`open_memory` for tests). Each study has
+    a unique name; reopening with the same name attaches to the existing
+    record rather than creating a duplicate. Concurrent access is safe via
+    SQLite WAL mode (enabled automatically).
+
+    The store is the single source of truth for sample state. Every status
+    transition goes through :meth:`update`, so the master process can be
+    killed and resumed without losing per-sample progress.
+
+    Examples
+    --------
+    Open or create a workspace store:
+
+    >>> store = SampleStore.open("/tmp/study.db", "my-study")           # doctest: +SKIP
+    >>> from polarisopt.samples import Sample
+    >>> import numpy as np
+    >>> s = store.add(Sample(phase="warmup", inputs=np.array([0.5])))   # doctest: +SKIP
+    >>> s.id is not None                                                # doctest: +SKIP
+    True
+
+    Query everything as a pandas DataFrame:
+
+    >>> df = store.to_dataframe()                                       # doctest: +SKIP
+    >>> df.columns.tolist()                                             # doctest: +SKIP
+    ['id', 'phase', 'iteration', 'inputs', 'status', 'metric',
+     'folder', 'runtime_s', 'runner_task_id', 'message',
+     'created_at', 'updated_at']
     """
 
     def __init__(self, engine: Engine, study_id: int, study_name: str) -> None:

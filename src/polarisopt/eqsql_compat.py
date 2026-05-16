@@ -13,8 +13,8 @@ that compares against ``"queued"``, ``"running"``, ``"finished"``,
 Example
 -------
 
->>> from polarisopt import eqsql_compat
->>> with eqsql_compat.open_queue("/path/to/workspace") as queue:
+>>> from polarisopt import eqsql_compat                                # doctest: +SKIP
+>>> with eqsql_compat.open_queue("/path/to/workspace") as queue:       # doctest: +SKIP
 ...     result = queue.insert_task(
 ...         definition={"task-type": "bash-script", "command": "/bin/echo hi"},
 ...         exp_id="hello-world",

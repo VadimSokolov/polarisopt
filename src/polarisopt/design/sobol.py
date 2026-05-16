@@ -11,15 +11,33 @@ from polarisopt.parameters import ParameterSpace
 
 @design_registry.register("sobol")
 class SobolDesign(Design):
-    """Sobol design. ``n`` should ideally be a power of 2; the underlying
-    scipy generator emits a UserWarning otherwise.
+    """Sobol low-discrepancy sequence via :class:`scipy.stats.qmc.Sobol`.
 
     Parameters
     ----------
-    n:
-        Number of sample points.
-    scramble:
-        Owen scrambling (default True) — recommended for unbiased estimates.
+    n : int
+        Number of sample points. Should ideally be a power of 2 for
+        balance; scipy emits a ``UserWarning`` otherwise.
+    scramble : bool, optional
+        Owen scrambling (default ``True``) — recommended for unbiased
+        sample estimates.
+
+    Raises
+    ------
+    ValueError
+        If ``n <= 0``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from polarisopt.parameters import Parameter, ParameterSpace
+    >>> space = ParameterSpace.from_iterable([
+    ...     Parameter("x", "a.json", 0.0, 1.0),
+    ...     Parameter("y", "a.json", 0.0, 1.0),
+    ... ])
+    >>> pts = SobolDesign(n=8).generate(space, rng=np.random.default_rng(0))
+    >>> pts.shape
+    (8, 2)
     """
 
     def __init__(self, n: int, *, scramble: bool = True) -> None:

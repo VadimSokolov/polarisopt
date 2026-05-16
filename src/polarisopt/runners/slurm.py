@@ -89,16 +89,40 @@ _SBATCH_JOBID_RE = re.compile(r"Submitted batch job\s+(\d+)")
 
 @runner_registry.register("slurm")
 class SlurmRunner(Runner):
-    """Submit via sbatch. Default resources come from ``default_resources``
-    and per-job overrides arrive via ``JobSpec.extra['resources']``.
+    """Submit jobs via ``sbatch``; track them via ``squeue``/``sacct``.
+
+    Each :meth:`submit` writes a generated sbatch script next to the job's
+    ``cwd`` and submits it. Per-job resource overrides flow in via
+    ``JobSpec.extra['resources']``; otherwise the ``default_resources``
+    supplied at construction time apply.
 
     Parameters
     ----------
-    default_resources:
-        ``SlurmResources`` applied unless a JobSpec overrides via ``extra``.
-    shell_runner:
-        Override the function used to exec shell commands. Defaults to
-        ``subprocess.run``. Tests inject a fake here.
+    default_resources : SlurmResources or None
+        Cluster resources applied to every submission unless overridden
+        per JobSpec. ``None`` → empty defaults (you must override per-job).
+    shell_runner : callable, optional
+        Function that takes ``list[str]`` argv and returns a
+        :class:`subprocess.CompletedProcess[str]`. Defaults to
+        :func:`subprocess.run`. Tests inject a fake here so the suite
+        runs without a real Slurm cluster.
+
+    Raises
+    ------
+    RunnerError
+        If ``sbatch`` exits nonzero or its stdout cannot be parsed for
+        a jobid.
+
+    Examples
+    --------
+    >>> from polarisopt.runners.slurm import SlurmRunner, SlurmResources
+    >>> runner = SlurmRunner(default_resources=SlurmResources(           # doctest: +SKIP
+    ...     partition="bdwall",
+    ...     account="POLARIS",
+    ...     time="02:00:00",
+    ...     cpus_per_task=16,
+    ...     mem="64G",
+    ... ))
     """
 
     def __init__(

@@ -51,15 +51,44 @@ def _vehicle_time_per_link(path: Path) -> np.ndarray:
 
 @metric_registry.register("link_moe")
 class LinkMoeMetric(Metric):
-    """RMSE / MSE / MAE of per-link vehicle-time vs a target HDF5.
+    """Per-link vehicle-time error vs a target POLARIS result HDF5.
+
+    Reads ``link_moe/link_travel_time`` and ``link_moe/link_in_volume``
+    from both the simulated and target HDF5 files, multiplies elementwise
+    to form a vehicle-time proxy, averages over time intervals to a
+    per-link vector, and returns a scalar comparing the two.
 
     Parameters
     ----------
-    target:
+    target : path
         Path to the target POLARIS result HDF5.
-    aggregation:
-        How to summarize the per-link error vector into a scalar
-        (``rmse`` [default], ``mse``, or ``mae``).
+    aggregation : {"rmse", "mse", "mae"}, optional
+        How to summarize the per-link error vector into a scalar.
+        Default ``"rmse"``.
+
+    Raises
+    ------
+    ValueError
+        If ``aggregation`` is not one of the supported values.
+    MetricError
+        At ``compute`` time if the simulator output dict doesn't carry
+        a ``result_path`` key, or if the HDF5 file is missing required
+        groups, or if the simulated and target arrays have incompatible
+        shapes.
+
+    Examples
+    --------
+    Construct against a target and call ``compute`` with whatever the
+    Simulator's ``collect_output`` returns:
+
+    >>> from polarisopt.metrics import LinkMoeMetric
+    >>> metric = LinkMoeMetric(target="/path/to/baseline.h5",         # doctest: +SKIP
+    ...                        aggregation="rmse")
+    >>> metric.n_objectives                                            # doctest: +SKIP
+    1
+    >>> # During a study, the orchestrator does:
+    >>> # output = simulator.collect_output(sample)
+    >>> # sample.metric = metric.compute(output)
     """
 
     def __init__(self, target: Path | str, *, aggregation: AggregationKind = "rmse") -> None:
