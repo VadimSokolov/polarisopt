@@ -58,6 +58,18 @@ class Manager:
                     print(r.excepition())
             next_sample = self.s.getsamples(max = self.num_parallel_runs)
     
+    def _resolve_backend(self):
+        """Pick the HPC backend from settings.json.
+
+        Priority: eqsql > slurm > local. EQSQL wins if both flags are set.
+        """
+        d = self.dictionary
+        if d.get("eqsql", {}).get("useeqsql"):
+            return "eqsql"
+        if d.get("slurm", {}).get("useslurm"):
+            return "slurm"
+        return "local"
+
     def run_task(self, sample):
         completeflag, last_it = self.check_sample_complition(sample.folder)
         if completeflag:
@@ -77,7 +89,11 @@ class Manager:
         sample.start_iteration_from = 1
         for i in range(self.s.p):
             self.update_json(self.s.varnames[i],sample.input[i],os.path.join(sample.folder,self.s.varfiles[i]))
-        if self.dictionary["slurm"]["useslurm"]:
+        backend = self._resolve_backend()
+        if backend == "eqsql":
+            from PolarisOpt.eqsql_wrappers import run_sim_eqsql
+            sample = run_sim_eqsql(sample,self)
+        elif backend == "slurm":
             sample = run_sim_slurm(sample,self)
         else:
             scenariopath = os.path.join(sample.folder, self.polaris_scenario_file)
