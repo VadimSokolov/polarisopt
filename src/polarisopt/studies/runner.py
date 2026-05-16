@@ -8,10 +8,12 @@ import numpy as np
 
 from polarisopt.config.schema import (
     ParametersConfig,
+    SequentialPhaseConfig,
     StaticPhaseConfig,
     StudyConfig,
 )
 from polarisopt.design.base import make_design
+from polarisopt.generators.base import make_generator
 from polarisopt.metrics.base import make_metric
 from polarisopt.parameters import ParameterSpace, load_parameter_file
 from polarisopt.parameters.space import parameter_space_from_records
@@ -19,7 +21,9 @@ from polarisopt.runners.factory import make_runner
 from polarisopt.samples.sample import Sample
 from polarisopt.samples.store import SampleStore
 from polarisopt.simulator.base import make_simulator
+from polarisopt.stop.base import make_stop
 from polarisopt.studies.base import StudyContext, StudyError
+from polarisopt.studies.sequential import SequentialDesignStudy, SequentialPhase
 from polarisopt.studies.static import StaticDesignStudy
 from polarisopt.utils.logging import get_logger
 from polarisopt.utils.paths import workspace_layout
@@ -71,11 +75,25 @@ class StudyRunner:
             if isinstance(phase, StaticPhaseConfig):
                 design = make_design({"type": phase.design.type, "options": phase.design.options})
                 study = StaticDesignStudy(ctx, design, phase_name=phase.name)
-            else:
-                raise StudyError(
-                    f"phase type {type(phase).__name__} not yet implemented in v0.1.0 — "
-                    "sequential phases land in Week 3"
+            elif isinstance(phase, SequentialPhaseConfig):
+                warm = (
+                    make_design({"type": phase.warm_up.type, "options": phase.warm_up.options})
+                    if phase.warm_up is not None
+                    else None
                 )
+                generator = make_generator(phase.generator)
+                stop = make_stop(phase.stop.model_dump())
+                seq_phase = SequentialPhase(
+                    name=phase.name,
+                    generator=generator,
+                    stop=stop,
+                    warm_up=warm,
+                    batch_size=phase.batch_size,
+                    minimize=phase.minimize,
+                )
+                study = SequentialDesignStudy(ctx, seq_phase)
+            else:
+                raise StudyError(f"unknown phase config type: {type(phase).__name__}")
             log.info("Running phase %r", phase.name)
             all_samples.extend(study.run())
         return all_samples

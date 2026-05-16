@@ -79,6 +79,17 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "B", "I", "UP", "N", "SIM"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# X, Y are standard math notation in ML/stats code.
+"src/polarisopt/surrogates/*.py" = ["N803", "N806"]
+"src/polarisopt/acquisition/*.py" = ["N803", "N806"]
+"src/polarisopt/generators/*.py" = ["N803", "N806"]
+"src/polarisopt/stop/*.py" = ["N803", "N806"]
+"src/polarisopt/studies/*.py" = ["N803", "N806"]
+# Tests use math notation; tests/integration/* and tests/unit/test_acquisition.py
+# importorskip torch before importing torch-dependent modules — that's intentional.
+"tests/**/*.py" = ["N803", "N806", "E402"]
+
 [tool.mypy]
 python_version = "3.11"
 strict = true
