@@ -19,6 +19,19 @@ def convert_time(seconds):
     return time.strftime("%H:%M:%S", time.gmtime(seconds))
 
 
+def _resolve_backend(manager):
+    """Pick the HPC backend from settings.json.
+
+    Priority: eqsql > slurm > local. EQSQL wins if both flags are set.
+    """
+    d = manager.dictionary
+    if d.get("eqsql", {}).get("useeqsql"):
+        return "eqsql"
+    if d.get("slurm", {}).get("useslurm"):
+        return "slurm"
+    return "local"
+
+
 def query_db(db_path, SQL_query):
     db = sqlite3.connect(db_path, timeout=120)
     cur = db.cursor()
@@ -140,7 +153,11 @@ def run_task(manager, task):
     start = time.perf_counter()
     # print('Polaris Executable: {}'.format(polarisbin), flush=True)
     create_simulation_folder(task,manager)
-    if manager.dictionary["slurm"]["useslurm"]:
+    backend = _resolve_backend(manager)
+    if backend == "eqsql":
+        from PolarisOpt.eqsql_wrappers import run_sim_eqsql
+        res = run_sim_eqsql(task,manager)
+    elif backend == "slurm":
         res = run_sim_slurm(task,manager)
     else:
         scenariopath = os.path.join(task.task_dir, manager.polaris_scenario_file)
