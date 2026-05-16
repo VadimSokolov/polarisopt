@@ -54,12 +54,12 @@ polarisopt/
 
 ## EQSQL compatibility
 
-Argonne users coming from `polaris.hpc.eqsql` can use `polarisopt.compat.eqsql` as a drop-in replacement. The wrapper offers the same `insert_task` / `Task.from_id` / `Task.cancel` surface but delegates to plain `sbatch`/`squeue`/`scancel` underneath — no Postgres, no worker pool.
+Argonne users coming from `polaris.hpc.eqsql` can use `polarisopt.eqsql_compat` as a drop-in replacement. The wrapper offers the same `insert_task` / `Task.from_id` / `Task.cancel` surface but delegates to plain `sbatch`/`squeue`/`scancel` underneath — no Postgres, no worker pool.
 
 ```python
-from polarisopt.compat import eqsql
+from polarisopt import eqsql_compat
 
-result = eqsql.insert_task(
+result = eqsql_compat.insert_task(
     definition={"task-type": "bash-script", "command": "/path/to/run.sh"},
     exp_id="my-experiment",
 )

@@ -8,7 +8,7 @@ from textwrap import dedent
 import numpy as np
 from click.testing import CliRunner
 
-from polarisopt.cli.__main__ import cli
+from polarisopt.cli import cli
 from polarisopt.config import load_study_config
 from polarisopt.samples.sample import SampleStatus
 from polarisopt.samples.store import SampleStore
