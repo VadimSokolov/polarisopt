@@ -23,12 +23,36 @@ class ParameterType(StrEnum):
 class Parameter:
     """A single calibration parameter.
 
-    Attributes:
-        name: variable name as it appears in the POLARIS JSON.
-        file: relative path of the POLARIS JSON that owns this variable.
-        low: lower bound (inclusive).
-        high: upper bound (inclusive).
-        ptype: ``float`` or ``int``.
+    Parameters
+    ----------
+    name : str
+        Variable name as it appears in the POLARIS JSON file.
+    file : str
+        Relative path of the POLARIS JSON that owns this variable.
+        ``ParameterSpace.by_file`` groups parameters by this field.
+    low : float
+        Lower bound, inclusive.
+    high : float
+        Upper bound, inclusive. Must be strictly greater than ``low``.
+    ptype : ParameterType
+        ``ParameterType.FLOAT`` (default) or ``ParameterType.INT``.
+        Integer parameters are rounded by :meth:`clip`.
+
+    Raises
+    ------
+    ValueError
+        If ``high <= low``.
+
+    Examples
+    --------
+    >>> p = Parameter("trip_threshold", "DestinationChoice.json", 0.0, 1.0)
+    >>> p.clip(0.5)
+    0.5
+    >>> p.clip(-1.0)
+    0.0
+    >>> q = Parameter("top_k", "DestinationChoice.json", 1, 10, ParameterType.INT)
+    >>> q.clip(3.7)
+    4
     """
 
     name: str
@@ -42,7 +66,17 @@ class Parameter:
             raise ValueError(f"Parameter '{self.name}': high ({self.high}) must exceed low ({self.low}).")
 
     def clip(self, value: float) -> float | int:
-        """Clip ``value`` into [low, high] and coerce to the declared type."""
+        """Clip ``value`` into ``[low, high]`` and coerce to the declared type.
+
+        Parameters
+        ----------
+        value : float
+
+        Returns
+        -------
+        float or int
+            Float for FLOAT parameters; rounded int for INT parameters.
+        """
         v = float(np.clip(value, self.low, self.high))
         if self.ptype is ParameterType.INT:
             return int(round(v))
@@ -51,7 +85,24 @@ class Parameter:
 
 @dataclass(frozen=True)
 class ParameterSpace:
-    """Ordered collection of parameters defining the search space."""
+    """Ordered collection of :class:`Parameter` defining the search space.
+
+    Use :meth:`from_iterable` for construction so duplicate-name detection
+    runs. The space is immutable once constructed.
+
+    Examples
+    --------
+    >>> space = ParameterSpace.from_iterable([
+    ...     Parameter("x1", "a.json", -5.0, 10.0),
+    ...     Parameter("x2", "a.json",  0.0, 15.0),
+    ... ])
+    >>> space.ndim
+    2
+    >>> space.names
+    ('x1', 'x2')
+    >>> space.bounds.shape
+    (2, 2)
+    """
 
     parameters: tuple[Parameter, ...]
 

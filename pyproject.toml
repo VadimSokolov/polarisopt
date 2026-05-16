@@ -70,6 +70,7 @@ markers = [
     "slow: marks tests as slow",
     "slurm: marks tests that need a real Slurm cluster",
 ]
+doctest_optionflags = ["NORMALIZE_WHITESPACE", "ELLIPSIS"]
 
 [tool.ruff]
 line-length = 120

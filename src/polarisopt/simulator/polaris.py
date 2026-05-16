@@ -37,27 +37,55 @@ log = get_logger(__name__)
 
 @simulator_registry.register("polaris")
 class PolarisSimulator(Simulator):
-    """Run a POLARIS C++ binary on a per-sample copy of the model.
+    """Run the POLARIS C++ engine on a per-sample copy of the model.
+
+    The master process never imports polarislib or executes POLARIS;
+    this class only stages files and constructs a :class:`JobSpec`. The
+    POLARIS binary runs on a slave compute node via the configured
+    :class:`Runner` (typically ``slurm``).
 
     Parameters
     ----------
-    binary:
-        Absolute path to the POLARIS executable / Apptainer image.
-    model_source:
-        Absolute path to the source model directory. Copied (recursively)
-        into each sample's workspace.
-    scenario_file:
-        Name of the scenario JSON inside the model directory.
-    output_dir_key:
-        Where in the scenario JSON to find the relative output directory
-        (default ``("Output controls", "output_directory")``).
-    output_db_filename:
+    binary : path
+        Absolute path to the POLARIS executable or Apptainer ``.sif`` image.
+    model_source : path
+        Absolute path to the source model directory. Copied recursively
+        into each sample's workspace by the configured :class:`Transfer`.
+    scenario_file : str
+        Name of the scenario JSON inside the model directory (e.g.
+        ``"scenario_abm.json"``).
+    output_db_filename : str
         Name of the result file written by POLARIS inside the output
         directory (e.g. ``"DFW-Result.h5"``).
-    num_threads:
-        Threads to pass to POLARIS (e.g. ``"16"``).
-    transfer:
-        Optional ``{type, options}`` for a custom Transfer (defaults to local).
+    num_threads : str, optional
+        Thread count passed to POLARIS. Default ``"1"``. Numeric strings
+        match POLARIS's CLI convention.
+    output_dir_key : tuple of (str, str) or None
+        Where in the scenario JSON to find the relative output directory.
+        Default ``("Output controls", "output_directory")``.
+    transfer : dict or None
+        Optional ``{"type": ..., "options": {...}}`` configuring a
+        :class:`~polarisopt.transfer.base.Transfer` for staging. Defaults
+        to ``{"type": "local"}``. Use ``{"type": "anl"}`` for Globus on
+        VMS-backed paths (requires ``polarisopt[anl]``).
+
+    Raises
+    ------
+    SimulatorError
+        If ``output_dir_key`` isn't 2-element, or if the model source
+        path is missing at ``prepare`` time, or if the result file is
+        missing at ``collect_output`` time.
+
+    Examples
+    --------
+    >>> from polarisopt.simulator import PolarisSimulator
+    >>> sim = PolarisSimulator(                                         # doctest: +SKIP
+    ...     binary="/lcrc/.../polaris_exe/Integrated_Model.sif",
+    ...     model_source="/lcrc/.../DFW_2050_20251028",
+    ...     scenario_file="scenario_abm.json",
+    ...     output_db_filename="DFW-Result.h5",
+    ...     num_threads="16",
+    ... )
     """
 
     DEFAULT_OUTPUT_DIR_KEY: tuple[str, str] = ("Output controls", "output_directory")

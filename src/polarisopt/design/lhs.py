@@ -11,14 +11,32 @@ from polarisopt.parameters import ParameterSpace
 
 @design_registry.register("lhs")
 class LHSDesign(Design):
-    """Latin Hypercube design.
+    """Latin Hypercube design via :class:`scipy.stats.qmc.LatinHypercube`.
 
     Parameters
     ----------
-    n:
-        Number of sample points.
-    scramble:
-        Pass through to scipy's ``LatinHypercube(scramble=...)``.
+    n : int
+        Number of sample points (must be positive).
+    scramble : bool, optional
+        Whether to scramble the LHS (default ``True``).
+
+    Raises
+    ------
+    ValueError
+        If ``n <= 0``.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from polarisopt.parameters import Parameter, ParameterSpace
+    >>> space = ParameterSpace.from_iterable([
+    ...     Parameter("x", "a.json", 0.0, 1.0),
+    ...     Parameter("y", "a.json", -1.0, 1.0),
+    ... ])
+    >>> design = LHSDesign(n=8)
+    >>> pts = design.generate(space, rng=np.random.default_rng(0))
+    >>> pts.shape
+    (8, 2)
     """
 
     def __init__(self, n: int, *, scramble: bool = True) -> None:

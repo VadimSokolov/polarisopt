@@ -32,18 +32,53 @@ from polarisopt.surrogates.gp import GPSurrogate
 
 @acquisition_registry.register("qehvi")
 class QEHVIAcquisition(AcquisitionFunction):
-    """Multi-objective batch acquisition via expected hypervolume improvement.
+    """Multi-objective batch acquisition via q-EHVI.
 
-    A reference point can be supplied; otherwise we use ``ref = max(Y) + 1`` per
-    objective (for minimization the model is negated, see :meth:`optimize`).
+    Wraps :class:`botorch.acquisition.multi_objective.logei.qLogExpectedHypervolumeImprovement`.
+    For minimization (the default), model outputs are negated via a
+    :class:`WeightedMCMultiOutputObjective` so the underlying BoTorch
+    routine can maximize hypervolume against a reference point that's
+    safely worse than every observed point.
 
     Parameters
     ----------
-    mc_samples:
-        Sobol QMC samples for the inner expectation.
-    ref_point:
-        Optional list of reference values in the *objective space* the user
-        thinks about (i.e. before any internal sign flip for minimization).
+    surrogate : GPSurrogate
+        Fitted multi-output surrogate.
+    minimize : bool, optional
+        ``True`` to minimize each objective (default).
+    ref_point : list of float or None
+        Reference point in **user-facing** objective space (i.e. before
+        the internal sign flip for minimization). If omitted, defaults
+        to ``min(observed) - 1`` per objective in the negated space.
+    mc_samples : int, optional
+        Sobol QMC posterior samples (default 128).
+    num_restarts, raw_samples : int, optional
+        Forwarded to :func:`botorch.optim.optimize_acqf`.
+
+    Raises
+    ------
+    AcquisitionError
+        If the surrogate is single-output, the reference-point shape
+        disagrees with the number of objectives, or ``q < 1``.
+
+    Examples
+    --------
+    >>> # Two-output minimization on a 2D space
+    >>> import numpy as np
+    >>> from polarisopt.parameters import Parameter, ParameterSpace
+    >>> from polarisopt.surrogates.gp import GPSurrogate
+    >>> rng = np.random.default_rng(0)
+    >>> X = rng.uniform(size=(12, 2))
+    >>> Y = np.column_stack([((X - 0.3) ** 2).sum(1), ((X - 0.7) ** 2).sum(1)])
+    >>> gp = GPSurrogate(); gp.fit(X, Y)
+    >>> space = ParameterSpace.from_iterable([
+    ...     Parameter("x1", "a.json", 0.0, 1.0),
+    ...     Parameter("x2", "a.json", 0.0, 1.0),
+    ... ])
+    >>> acq = QEHVIAcquisition(gp, mc_samples=16, num_restarts=2, raw_samples=16)
+    >>> next_pts = acq.optimize(space, q=2, observed_Y=Y, rng=rng)
+    >>> next_pts.shape
+    (2, 2)
     """
 
     def __init__(

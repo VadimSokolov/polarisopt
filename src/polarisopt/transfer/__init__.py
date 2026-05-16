@@ -18,11 +18,14 @@ __all__ = [
 
 
 def _autoload_optional() -> None:
-    """Register the ANL/Globus backend if polarislib is installed."""
-    import contextlib
+    """Register the ANL Globus-aware backend.
 
-    with contextlib.suppress(ImportError):
-        from polarisopt.transfer import anl  # noqa: F401
+    The module imports cleanly without polaris-studio; the ImportError
+    only fires when :meth:`AnlTransfer.copy` is actually called. So we
+    always register the backend so ``transfer_registry.get("anl")``
+    works for discoverability.
+    """
+    from polarisopt.transfer import anl  # noqa: F401
 
 
 _autoload_optional()

@@ -21,16 +21,34 @@ from polarisopt.simulator.benchmarks import BENCHMARKS
 
 @simulator_registry.register("mock")
 class MockSimulator(Simulator):
-    """Evaluate a benchmark function from
-    :mod:`polarisopt.simulator.benchmarks` in a slave subprocess.
+    """Evaluate a benchmark function in a slave subprocess.
+
+    Useful for tutorials, smoke tests, and CI runs that don't require a
+    POLARIS install. Picks one of the named SFU benchmark functions in
+    :data:`polarisopt.simulator.benchmarks.BENCHMARKS`. Each sample is
+    evaluated by forking ``python -m polarisopt.simulator._mock_runner``
+    against an ``inputs.json``, exactly mirroring the master/slave
+    pattern used for real POLARIS runs.
 
     Parameters
     ----------
-    function:
-        Name of the benchmark function (e.g. ``"branin"``, ``"hartmann6"``).
-    python_executable:
-        Python interpreter to use for the slave subprocess. Defaults to
-        :data:`sys.executable` so the same env as the master is used.
+    function : str
+        One of ``"branin"``, ``"rosenbrock"``, ``"hartmann6"``, ``"quadratic"``.
+    python_executable : str or None
+        Python interpreter to use in the slave subprocess. Defaults to
+        :data:`sys.executable`.
+
+    Raises
+    ------
+    SimulatorError
+        If ``function`` isn't a known benchmark.
+
+    Examples
+    --------
+    >>> from polarisopt.simulator import MockSimulator
+    >>> sim = MockSimulator(function="branin")
+    >>> sim.function
+    'branin'
     """
 
     INPUT_FILE = "inputs.json"

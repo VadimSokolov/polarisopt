@@ -9,16 +9,25 @@ from __future__ import annotations
 
 from pathlib import Path
 
-try:
-    from polaris.utils.copy_utils import magic_copy
-except ImportError as exc:  # pragma: no cover
-    raise ImportError(
-        "polarisopt.transfer.anl requires the [anl] extra: "
-        "pip install 'polarisopt[anl]'"
-    ) from exc
-
 from polarisopt.transfer.base import Transfer, TransferError, transfer_registry
 from polarisopt.utils.logging import get_logger
+
+
+def _load_magic_copy():
+    """Import ``polaris.utils.copy_utils.magic_copy`` lazily.
+
+    Kept out of module import so ``polarisopt.transfer`` can register the
+    ``anl`` backend on every install — users only hit the ImportError
+    when they actually try to use it.
+    """
+    try:
+        from polaris.utils.copy_utils import magic_copy
+    except ImportError as exc:  # pragma: no cover
+        raise ImportError(
+            "polarisopt.transfer.anl requires the [anl] extra: "
+            "pip install 'polarisopt[anl]'"
+        ) from exc
+    return magic_copy
 
 log = get_logger(__name__)
 
@@ -32,6 +41,7 @@ class AnlTransfer(Transfer):
     """
 
     def copy(self, src: Path | str, dst: Path | str, *, recursive: bool = False) -> None:
+        magic_copy = _load_magic_copy()
         src_p, dst_p = Path(src), Path(dst)
         try:
             magic_copy(src_p, dst_p, recursive=recursive)

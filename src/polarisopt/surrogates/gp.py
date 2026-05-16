@@ -35,15 +35,43 @@ from polarisopt.surrogates.base import Surrogate, SurrogateError, surrogate_regi
 
 @surrogate_registry.register("gp")
 class GPSurrogate(Surrogate):
-    """BoTorch GP, single- or multi-output.
+    """Gaussian-Process surrogate (single- or multi-output) via BoTorch.
+
+    Single-objective uses :class:`botorch.models.SingleTaskGP` with a
+    Matern ARD kernel. Multi-objective wraps one ``SingleTaskGP`` per
+    output in :class:`botorch.models.ModelListGP`. Inputs are normalized
+    via :class:`botorch.models.transforms.input.Normalize`; outputs are
+    standardized via :class:`botorch.models.transforms.outcome.Standardize`.
 
     Parameters
     ----------
-    nu:
-        Matern smoothness (1.5 or 2.5 typical; default 2.5).
-    bounds:
-        Optional ``(d, 2)`` array of feature bounds for the Normalize
-        transform. If omitted, BoTorch infers from training data.
+    nu : {0.5, 1.5, 2.5}, optional
+        Matern smoothness. ``2.5`` (default) is typical for smooth
+        engineering responses; ``1.5`` for less smooth; ``0.5`` for
+        exponential-kernel-like behavior.
+    bounds : array-like of shape ``(d, 2)`` or None
+        Optional explicit input bounds for the ``Normalize`` transform.
+        If ``None``, BoTorch infers from training data.
+
+    Raises
+    ------
+    ValueError
+        If ``nu`` is not one of ``{0.5, 1.5, 2.5}``.
+    SurrogateError
+        If :meth:`fit` is called with fewer than 2 points or with
+        non-finite inputs/targets.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(0)
+    >>> X = rng.uniform(size=(10, 2))
+    >>> Y = (X ** 2).sum(axis=1, keepdims=True)
+    >>> gp = GPSurrogate(nu=2.5)
+    >>> gp.fit(X, Y)
+    >>> mean, var = gp.predict(X[:2])
+    >>> mean.shape, var.shape
+    ((2, 1), (2, 1))
     """
 
     def __init__(self, *, nu: float = 2.5, bounds: list[list[float]] | None = None) -> None:

@@ -14,7 +14,36 @@ T = TypeVar("T")
 
 
 class Registry(Generic[T]):
-    """Name → class registry with a decorator for registration."""
+    """Name → class registry with a decorator for registration.
+
+    Every pluggable family in polarisopt owns a ``Registry`` instance. The
+    decorator pattern lets concrete classes self-register at import time.
+
+    Parameters
+    ----------
+    family : str
+        Human-readable name of the family (e.g. ``"design"``, ``"surrogate"``).
+        Used in error messages.
+
+    Examples
+    --------
+    >>> from abc import ABC, abstractmethod
+    >>> class Greeter(ABC):
+    ...     @abstractmethod
+    ...     def hello(self) -> str: ...
+    >>> registry: Registry[Greeter] = Registry("greeter")
+
+    >>> @registry.register("loud")
+    ... class LoudGreeter(Greeter):
+    ...     def hello(self): return "HELLO!"
+
+    >>> "loud" in registry
+    True
+    >>> registry.get("loud") is LoudGreeter
+    True
+    >>> registry.names()
+    ['loud']
+    """
 
     def __init__(self, family: str) -> None:
         self._family = family
