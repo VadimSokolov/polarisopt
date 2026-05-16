@@ -84,14 +84,19 @@ class StaticPhaseConfig(_Base):
 
 
 class SequentialPhaseConfig(_Base):
-    """One sequential-DOE phase: warm-up design + surrogate + generator + stop."""
+    """One sequential-DOE phase: warm-up design + generator + stop.
+
+    The generator owns its own surrogate/acquisition sub-specs — see
+    :class:`polarisopt.generators.acquisition.AcquisitionGenerator`.
+    """
 
     name: str
     type: Literal["sequential"]
     warm_up: DesignConfig | None = None
-    surrogate: dict[str, Any]
     generator: dict[str, Any]
+    batch_size: int = 1
     stop: StoppingConfig
+    minimize: bool = True
 
 
 PhaseConfig = StaticPhaseConfig | SequentialPhaseConfig
