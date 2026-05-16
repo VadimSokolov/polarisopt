@@ -1,0 +1,44 @@
+site_name: polarisopt
+site_description: Modular design-of-experiments and Bayesian optimization for POLARIS
+repo_url: https://github.com/anl-polaris/polaris-hpc
+repo_name: anl-polaris/polaris-hpc
+edit_uri: edit/master/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - search.highlight
+  palette:
+    - scheme: default
+      primary: blue
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - scheme: slate
+      primary: blue
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Architecture: architecture.md
+  - Study YAML reference: yaml-reference.md
+  - Plugin authoring: plugins.md
+  - EQSQL compatibility: eqsql-compat.md
+  - Restart and resume: restart.md
