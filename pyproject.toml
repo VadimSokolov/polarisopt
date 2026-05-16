@@ -1,0 +1,88 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polarisopt"
+version = "0.1.0.dev0"
+description = "Modular design-of-experiments and Bayesian optimization for POLARIS"
+readme = "README.md"
+license = { file = "License.txt" }
+requires-python = ">=3.11"
+authors = [
+    { name = "Vadim Sokolov", email = "vsokolov@anl.gov" },
+]
+keywords = ["polaris", "design-of-experiments", "bayesian-optimization", "calibration", "hpc"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy>=1.26",
+    "pandas>=2.1",
+    "scipy>=1.11",
+    "sqlalchemy>=2.0",
+    "pydantic>=2.5",
+    "pyyaml>=6.0",
+    "jinja2>=3.1",
+    "salib>=1.4",
+    "click>=8.1",
+]
+
+[project.optional-dependencies]
+bo = [
+    "torch>=2.1",
+    "gpytorch>=1.11",
+    "botorch>=0.10",
+]
+anl = [
+    "polaris-studio",
+]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=4.1",
+    "ruff>=0.4",
+    "mypy>=1.8",
+    "types-PyYAML",
+    "mkdocs>=1.5",
+    "mkdocs-material>=9.5",
+]
+
+[project.scripts]
+polarisopt = "polarisopt.cli.__main__:main"
+
+[project.urls]
+Repository = "https://github.com/anl-polaris/polaris-hpc"
+Issues = "https://github.com/anl-polaris/polaris-hpc/issues"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/polarisopt"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra --strict-markers"
+markers = [
+    "slow: marks tests as slow",
+    "slurm: marks tests that need a real Slurm cluster",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "B", "I", "UP", "N", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_ignores = true
+ignore_missing_imports = true
+files = ["src/polarisopt"]

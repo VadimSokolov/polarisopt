@@ -1,78 +1,66 @@
-experiments/
-scrarch/
+# Secrets / credentials
 token
-mock.py
-mock.ipynb
-temp.txt
-# Compiled Object files
-*.slo
-*.lo
-*.o
-*.err
-*.out
-
-# Compiled Dynamic libraries
-*.so
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-
-*~
-.DS_Store
-
-*.d
-/io.txt
-/.cproject
-/.project
-/.settings
-
-Debug/
-Release/
-/ReleaseWithDebInfo/
-/Profiling/
-/TODO.txt
-/scratch.txt
-automate/scratch.txt
-
-model-master/
-model-schools/
-model-intervention/
-
-turbine-output
-
-.ipynb_checkpoints/
-Untitled.ipynb
-notes.R
-!scripts/notes.R
-.RData
-.Rhistory
-obsolete/
-
-*.pyc
-
-swift_proj/model/pkgIndex.tcl
-.lazybones
-swift_proj/experiments
-*.tic
-
-.vscode
+*.token
 .env
 
+# Python build/cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Test/coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+coverage.xml
+*.cover
+.hypothesis/
+
+# Type checkers
+.mypy_cache/
+.ruff_cache/
+.pyre/
+.pytype/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+
+# Docs
+site/
+
+# Workspace artifacts (study runs, polarisopt SampleStores, logs)
+.polarisopt/
+workspace/
+experiments/
+slurm-*.out
+slurm-*.err
+
+# polarisopt dev playground
 scratch/
-test_proj/experiments
-
-swift_proj/data/external_data/*
-!swift_proj/data/external_data/.keep
-swift_proj/swift/turbine_output
-
-convergence/slurm-*
-!swift_proj/data
-DRGP/simulator/
-DRGP/experiments/
-DRGP/data/timedep_training_data.json
-swift_proj/bloomington-nick-email.txt
-swift_proj/swift/db_env_vars_*.txt
-timedep_training_data.json
-timedep_results.json
