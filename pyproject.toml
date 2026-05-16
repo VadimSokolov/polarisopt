@@ -31,6 +31,7 @@ dependencies = [
     "jinja2>=3.1",
     "salib>=1.4",
     "click>=8.1",
+    "h5py>=3.10",
 ]
 
 [project.optional-dependencies]
