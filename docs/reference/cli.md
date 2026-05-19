@@ -86,6 +86,33 @@ polarisopt logs study.yaml 42 --follow
 polarisopt logs study.yaml 42 -n 100
 ```
 
+### `polarisopt retry-failed STUDY [--id N]... [--run]`
+
+Flip FAILED samples back to PENDING. A subsequent ``polarisopt run`` /
+``resume`` will pick them up and re-evaluate.
+
+| Flag | Meaning |
+|---|---|
+| ``--id N`` | Retry only a specific sample id. Repeat for many. Default: every FAILED sample. |
+| ``--run`` | Immediately re-run the study after flipping (one fewer command to type). |
+
+```bash
+polarisopt retry-failed study.yaml                 # retry every FAILED
+polarisopt retry-failed study.yaml --id 42         # retry sample 42 only
+polarisopt retry-failed study.yaml --id 42 --id 47 # retry several
+polarisopt retry-failed study.yaml --run           # retry + re-run in one command
+```
+
+### `polarisopt examples list | show NAME | copy NAME DEST`
+
+Bundled example study YAMLs.
+
+```bash
+polarisopt examples list                           # branin, morris, multi-objective, polaris-slurm
+polarisopt examples show branin                    # cat the YAML
+polarisopt examples copy branin ./my-study.yaml    # copy for local editing
+```
+
 ## Exit codes
 
 | Code | Meaning |

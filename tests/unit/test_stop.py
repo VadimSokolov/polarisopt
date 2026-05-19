@@ -74,6 +74,29 @@ def test_hypervolume_eventually_stagnates() -> None:
     assert s.should_stop(_state(2, Y))
 
 
+def test_hypervolume_3d_via_botorch() -> None:
+    """Smoke test for the 3-objective code path (requires [bo] extra)."""
+    pytest.importorskip("torch")
+    s = HypervolumeStop(ref_point=[10.0, 10.0, 10.0], tol=1e-6, patience=2)
+    Y = np.array([[1.0, 5.0, 2.0], [5.0, 1.0, 4.0], [3.0, 3.0, 1.0]])
+    assert s.n_objectives == 3
+    assert not s.should_stop(_state(0, Y))
+    assert not s.should_stop(_state(1, Y))
+    assert s.should_stop(_state(2, Y))
+
+
+def test_hypervolume_rejects_1d_ref_point() -> None:
+    with pytest.raises(ValueError, match="length >= 2"):
+        HypervolumeStop(ref_point=[10.0])
+
+
+def test_hypervolume_ignores_wrong_shape_y() -> None:
+    s = HypervolumeStop(ref_point=[10.0, 10.0])
+    # Y has 3 obj but stop expects 2 — silently no-op
+    Y3 = np.array([[1.0, 2.0, 3.0]])
+    assert not s.should_stop(_state(0, Y3))
+
+
 def test_make_stop_recursive() -> None:
     spec = {
         "type": "any",

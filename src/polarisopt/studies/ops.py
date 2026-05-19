@@ -106,6 +106,60 @@ def abort_study(config: StudyConfig, *, store: SampleStore | None = None) -> lis
     return cancelled
 
 
+def retry_failed(
+    config: StudyConfig,
+    *,
+    sample_ids: list[int] | None = None,
+    store: SampleStore | None = None,
+) -> list[Sample]:
+    """Flip FAILED samples back to PENDING so a subsequent :func:`run_study`
+    or ``polarisopt resume`` re-evaluates them.
+
+    Parameters
+    ----------
+    config : StudyConfig
+        The validated study config.
+    sample_ids : list of int or None
+        If given, retry only these samples (filtering to those that are
+        currently FAILED). If ``None``, retry every FAILED sample.
+    store : SampleStore or None
+        Optional pre-opened store; otherwise opened from ``config``.
+
+    Returns
+    -------
+    list of Sample
+        The samples that were transitioned FAILED → PENDING.
+
+    Notes
+    -----
+    The previous failure message is preserved by appending
+    ``" | retry"`` so the audit trail isn't lost. Resume picks up the
+    PENDING samples automatically before running new iterations.
+    """
+    store = store or open_store(config)
+    if sample_ids is not None:
+        wanted = set(sample_ids)
+        candidates = [s for s in store.list(status=SampleStatus.FAILED) if s.id in wanted]
+        missing = wanted - {s.id for s in candidates}
+        if missing:
+            raise ValueError(
+                f"sample ids {sorted(missing)} are not FAILED in this study "
+                f"(check 'polarisopt status' first)"
+            )
+    else:
+        candidates = store.list(status=SampleStatus.FAILED)
+
+    retried: list[Sample] = []
+    for sample in candidates:
+        sample.status = SampleStatus.PENDING
+        sample.message = (sample.message or "") + " | retry"
+        # Clear stale runner_task_id so resume gets a fresh sbatch.
+        sample.runner_task_id = None
+        store.update(sample)
+        retried.append(sample)
+    return retried
+
+
 def sample_log_paths(sample: Sample) -> list[Path]:
     """Return every readable ``*.log`` / ``*.out`` / ``*.err`` file in
     ``sample.folder``, sorted by mtime.
