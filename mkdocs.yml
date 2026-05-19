@@ -122,3 +122,4 @@ nav:
   - For AI agents:
       - AGENTS.md: agents.md
       - llms.txt: llms-txt.md
+  - Changelog: changelog.md

@@ -7,6 +7,7 @@ from polarisopt.studies.ops import (
     build_runner,
     cancel_sample,
     open_store,
+    reconcile_running,
     retry_failed,
     sample_log_paths,
 )
@@ -29,6 +30,7 @@ __all__ = [
     "cancel_sample",
     "diff_studies",
     "open_store",
+    "reconcile_running",
     "retry_failed",
     "run_study",
     "sample_log_paths",

@@ -339,6 +339,102 @@ class SampleStore:
             )
         return pd.DataFrame.from_records(records)
 
+    # ---------- analysis helpers ----------
+
+    def finished_samples(self, *, phase: str | None = None) -> list[Sample]:
+        """Return every FINISHED sample with a metric set (optionally filtered by phase)."""
+        return [
+            s
+            for s in self.list(phase=phase, status=SampleStatus.FINISHED)
+            if s.metric is not None
+        ]
+
+    def metric_matrix(self, *, phase: str | None = None) -> np.ndarray:
+        """Stack finished metrics into a ``(n, m)`` numpy array.
+
+        Empty result is ``(0, 0)`` so callers can do shape checks.
+        """
+        finished = self.finished_samples(phase=phase)
+        if not finished:
+            return np.empty((0, 0))
+        return np.stack([np.asarray(s.metric) for s in finished])  # type: ignore[arg-type]
+
+    def best_so_far(
+        self,
+        *,
+        objective_index: int = 0,
+        minimize: bool = True,
+        phase: str | None = None,
+    ) -> tuple[Sample, float] | None:
+        """Return ``(sample, value)`` of the single best FINISHED sample.
+
+        Parameters
+        ----------
+        objective_index : int, optional
+            Which objective column to optimize over. Default ``0``.
+        minimize : bool, optional
+            ``True`` for argmin (default), ``False`` for argmax.
+        phase : str or None
+            Optional phase filter.
+
+        Returns
+        -------
+        tuple of (Sample, float) or None
+            ``None`` if no FINISHED samples exist.
+        """
+        finished = self.finished_samples(phase=phase)
+        if not finished:
+            return None
+        chooser = min if minimize else max
+        s = chooser(finished, key=lambda s: float(s.metric[objective_index]))  # type: ignore[index]
+        return s, float(s.metric[objective_index])  # type: ignore[index]
+
+    def pareto_front(
+        self,
+        *,
+        minimize: bool = True,
+        phase: str | None = None,
+    ) -> list[Sample]:
+        """Return the non-dominated FINISHED samples.
+
+        Parameters
+        ----------
+        minimize : bool, optional
+            Dominance direction. Default ``True``.
+        phase : str or None
+            Optional phase filter.
+
+        Returns
+        -------
+        list of Sample
+            Non-dominated samples in store-insertion order. Empty list
+            if no FINISHED samples exist.
+
+        Notes
+        -----
+        For single-objective studies this collapses to a single-element
+        list (the best sample). For multi-objective it's the Pareto front.
+        Complexity is O(n²) — fine for typical study sizes (≤ a few
+        hundred samples). For thousands of samples, use BoTorch's
+        ``is_non_dominated`` directly.
+        """
+        finished = self.finished_samples(phase=phase)
+        if not finished:
+            return []
+        Y = np.stack([np.asarray(s.metric) for s in finished])  # type: ignore[arg-type]
+        if not minimize:
+            Y = -Y
+        n = Y.shape[0]
+        keep = np.ones(n, dtype=bool)
+        for i in range(n):
+            if not keep[i]:
+                continue
+            diff = Y - Y[i]
+            dominated = (diff <= 0).all(axis=1) & (diff < 0).any(axis=1)
+            if dominated.any():
+                keep[i] = False
+        return [s for s, k in zip(finished, keep.tolist(), strict=True) if k]
+
     # ---------- phase state (restart support) ----------
 
     def save_phase_state(

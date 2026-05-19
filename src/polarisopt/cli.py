@@ -18,6 +18,7 @@ from polarisopt.studies.ops import (
     abort_study,
     cancel_sample,
     open_store,
+    reconcile_running,
     retry_failed,
     sample_log_paths,
 )
@@ -94,13 +95,27 @@ def status(config: Path) -> None:
 
 @cli.command()
 @click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-def resume(config: Path) -> None:
-    """Pick up an interrupted study (re-evaluates any PENDING samples)."""
+@click.option(
+    "--skip-reconcile",
+    is_flag=True,
+    help="Don't reconcile RUNNING samples with the runner at startup.",
+)
+def resume(config: Path, skip_reconcile: bool) -> None:
+    """Pick up an interrupted study (re-evaluates any PENDING samples).
+
+    Before running, reconciles every previously-RUNNING sample with the
+    runner: if Slurm has already finished/failed/lost it, the store row
+    is transitioned accordingly so resume isn't blocked.
+    """
     cfg = load_study_config(config)
     layout = workspace_layout(cfg.workspace)
     if not layout["db"].exists():
         raise click.ClickException(f"no store at {layout['db']}; run first")
     store = SampleStore.open(layout["db"], cfg.name)
+    if not skip_reconcile:
+        reconciled = reconcile_running(cfg, store=store)
+        if reconciled:
+            click.echo(f"reconciled {len(reconciled)} previously-RUNNING sample(s)")
     runner = StudyRunner(cfg, store=store)
     samples = runner.run()
     click.echo(f"resume complete: {len(samples)} samples processed")
@@ -207,6 +222,99 @@ def logs(config: Path, sample_id: int, follow: bool, lines: int) -> None:
                     time.sleep(0.5)
         except KeyboardInterrupt:
             pass
+
+
+@cli.command(name="smoke-test")
+@click.option(
+    "--workspace",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Workspace directory for the smoke run (default: a fresh /tmp dir).",
+)
+@click.option("--keep", is_flag=True, help="Keep the workspace dir after the test passes.")
+def smoke_test(workspace: Path | None, keep: bool) -> None:
+    """End-to-end install check — runs a 4-point LHS study with the mock simulator.
+
+    Verifies the core packages import cleanly, the SampleStore opens,
+    the LocalRunner forks subprocesses, and the metric round-trip works.
+    Takes about 5 seconds. No POLARIS, BoTorch, or Slurm needed.
+
+    Exits 0 on success, 1 if anything fails. On failure the workspace
+    is preserved so you can inspect logs.
+    """
+    import json as _json
+    import shutil as _shutil
+    import tempfile as _tempfile
+    from importlib.metadata import version as _version
+
+    workspace = workspace or Path(_tempfile.mkdtemp(prefix="polarisopt-smoke-"))
+    click.echo(f"polarisopt smoke-test ({_version('polarisopt')})")
+    click.echo(f"workspace: {workspace}")
+
+    config_path = workspace / "smoke.yaml"
+    config_path.parent.mkdir(parents=True, exist_ok=True)
+    config_text = (
+        f"name: smoke\n"
+        f"workspace: {workspace}\n"
+        f"seed: 1\n"
+        f"simulator: {{ type: mock, options: {{ function: quadratic }} }}\n"
+        f"runner: {{ type: local, options: {{}} }}\n"
+        f"parameters:\n"
+        f"  inline:\n"
+        f"    - {{ name: x, file: dummy.json, min: -1.0, max: 1.0 }}\n"
+        f"    - {{ name: y, file: dummy.json, min: -1.0, max: 1.0 }}\n"
+        f"metric: {{ type: identity, options: {{ keys: value }} }}\n"
+        f"phases:\n"
+        f"  - name: smoke\n"
+        f"    type: static\n"
+        f"    design: {{ type: lhs, options: {{ n: 4 }} }}\n"
+    )
+    config_path.write_text(config_text)
+
+    try:
+        report = validate_study(config_path)
+        if not report.ok:
+            click.echo(report.render())
+            raise click.ClickException("validate failed")
+
+        cfg = load_study_config(config_path)
+        samples = StudyRunner(cfg).run()
+        finished = sum(1 for s in samples if s.status is SampleStatus.FINISHED)
+        if finished != len(samples):
+            failed = [s for s in samples if s.status is SampleStatus.FAILED]
+            for s in failed:
+                click.echo(f"  failed sample {s.id}: {s.message}")
+            raise click.ClickException(
+                f"only {finished}/{len(samples)} samples finished — see {workspace}"
+            )
+
+        store = open_store(cfg)
+        best = store.best_so_far()
+        assert best is not None
+        click.echo(f"ok: {len(samples)} samples finished, best={best[1]:.4g}")
+
+        df = store.to_dataframe()
+        assert len(df) == len(samples)
+        click.echo(f"ok: SampleStore round-trip ({len(df)} rows)")
+
+        summary = workspace / "smoke-summary.json"
+        summary.write_text(
+            _json.dumps(
+                {
+                    "version": _version("polarisopt"),
+                    "samples": len(samples),
+                    "best": best[1],
+                },
+                indent=2,
+            )
+        )
+        click.echo(f"ok: summary written to {summary}")
+    except Exception:
+        click.echo(f"FAILED. Workspace preserved at: {workspace}")
+        raise
+
+    if not keep:
+        _shutil.rmtree(workspace, ignore_errors=True)
 
 
 @cli.command()

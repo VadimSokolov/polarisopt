@@ -101,6 +101,7 @@ ignore = ["E501"]
 "src/polarisopt/generators/*.py" = ["N803", "N806"]
 "src/polarisopt/stop/*.py" = ["N803", "N806"]
 "src/polarisopt/studies/*.py" = ["N803", "N806"]
+"src/polarisopt/samples/*.py" = ["N803", "N806"]
 # Tests use math notation; tests/integration/* and tests/unit/test_acquisition.py
 # importorskip torch before importing torch-dependent modules — that's intentional.
 "tests/**/*.py" = ["N803", "N806", "E402"]

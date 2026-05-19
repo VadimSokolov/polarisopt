@@ -16,7 +16,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from polarisopt.config.schema import StudyConfig
-from polarisopt.runners.base import Job, JobSpec, Runner
+from polarisopt.runners.base import Job, JobSpec, JobStatus, Runner
 from polarisopt.runners.factory import make_runner
 from polarisopt.samples.sample import Sample, SampleStatus
 from polarisopt.samples.store import SampleStore
@@ -158,6 +158,78 @@ def retry_failed(
         store.update(sample)
         retried.append(sample)
     return retried
+
+
+def reconcile_running(
+    config: StudyConfig,
+    *,
+    store: SampleStore | None = None,
+) -> list[Sample]:
+    """Reconcile RUNNING samples with the runner backend at resume time.
+
+    On startup of a previously-interrupted study, every sample in the
+    SampleStore that's still RUNNING needs to be reconciled with the
+    underlying runner (most commonly Slurm). For each:
+
+    - if the runner reports FINISHED → leave it RUNNING so the
+      orchestrator's normal poll loop picks it up and collects metrics
+    - if the runner reports FAILED / CANCELLED → mark the sample
+      accordingly so it doesn't block the resume
+    - if the runner says UNKNOWN (squeue + sacct both empty) → mark the
+      sample FAILED with an "orphan" message; the user can ``retry-failed``
+
+    Returns the list of samples that were transitioned to a terminal
+    state (i.e. samples that **don't** need further runner polling).
+
+    Parameters
+    ----------
+    config : StudyConfig
+        Validated study config (provides the Runner to query).
+    store : SampleStore or None
+        Optional pre-opened store; otherwise opened from ``config``.
+
+    Returns
+    -------
+    list of Sample
+        Samples transitioned to a terminal state by this reconcile.
+    """
+    store = store or open_store(config)
+    running = [s for s in store.list(status=SampleStatus.RUNNING) if s.runner_task_id]
+    if not running:
+        return []
+    runner = build_runner(config)
+    reconciled: list[Sample] = []
+    for sample in running:
+        job = _runner_job_for(sample)
+        try:
+            runner.status(job)
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "runner.status failed for sample %s (jobid=%s): %s",
+                sample.id, sample.runner_task_id, exc,
+            )
+            continue
+        if job.status is JobStatus.FAILED:
+            sample.status = SampleStatus.FAILED
+            sample.message = (sample.message or "") + (
+                f" | runner FAILED on resume: {job.message or ''}"
+            )
+            store.update(sample)
+            reconciled.append(sample)
+        elif job.status is JobStatus.CANCELLED:
+            sample.status = SampleStatus.CANCELLED
+            sample.message = (sample.message or "") + " | runner CANCELLED on resume"
+            store.update(sample)
+            reconciled.append(sample)
+        elif job.status is JobStatus.UNKNOWN:
+            sample.status = SampleStatus.FAILED
+            sample.message = (sample.message or "") + (
+                f" | orphaned on resume (Slurm lost jobid={sample.runner_task_id})"
+            )
+            store.update(sample)
+            reconciled.append(sample)
+        # RUNNING / QUEUED / FINISHED: leave for the regular poll loop
+    return reconciled
 
 
 def sample_log_paths(sample: Sample) -> list[Path]:
