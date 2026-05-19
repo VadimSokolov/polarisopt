@@ -1,0 +1,50 @@
+# Smallest end-to-end example: Bayesian optimization of the Branin function.
+# Runs locally in a few seconds, no POLARIS or Slurm required.
+#
+# Usage:
+#   polarisopt run branin.yaml
+#   polarisopt status branin.yaml
+
+name: branin-example
+workspace: /tmp/polarisopt-branin
+seed: 42
+
+simulator:
+  type: mock
+  options:
+    function: branin
+
+runner:
+  type: local
+  options: {}
+
+parameters:
+  inline:
+    - { name: x1, file: dummy.json, min: -5.0, max: 10.0 }
+    - { name: x2, file: dummy.json, min:  0.0, max: 15.0 }
+
+metric:
+  type: identity
+  options:
+    keys: value
+
+phases:
+  - name: bo
+    type: sequential
+    warm_up:
+      type: lhs
+      options:
+        n: 8
+    generator:
+      type: acquisition
+      options:
+        surrogate: { type: gp, options: {} }
+        acquisition:
+          type: qei
+          options:
+            mc_samples: 128
+    batch_size: 2
+    stop:
+      type: max_iter
+      options:
+        n: 6

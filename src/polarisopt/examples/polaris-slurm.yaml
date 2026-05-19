@@ -1,0 +1,71 @@
+# A POLARIS calibration on a real Slurm cluster.
+#
+# Copy this file, then set POLARIS_BIN / POLARIS_MODEL / POLARIS_TARGET_H5
+# environment variables before running.
+#
+#   export POLARIS_BIN=/lcrc/project/POLARIS/.../polaris_exe/Integrated_Model.sif
+#   export POLARIS_MODEL=/lcrc/project/POLARIS/.../DFW_2050_20251028
+#   export POLARIS_TARGET_H5=/lcrc/project/POLARIS/.../baseline/DFW-Result.h5
+#   polarisopt run polaris-slurm.yaml
+
+name: polaris-calibration
+workspace: /lcrc/project/POLARIS/{{ env.USER }}/runs/calib-{{ now('%Y%m%dT%H%M%SZ') }}
+seed: 42
+
+simulator:
+  type: polaris
+  options:
+    binary: "{{ env.POLARIS_BIN }}"
+    model_source: "{{ env.POLARIS_MODEL }}"
+    scenario_file: scenario_abm.json
+    output_db_filename: DFW-Result.h5
+    num_threads: "16"
+    transfer:
+      type: local      # change to "anl" for VMS-backed model_source
+
+runner:
+  type: slurm
+  options:
+    default_resources:
+      partition: bdwall
+      account: POLARIS
+      time: "04:00:00"
+      nodes: 1
+      cpus_per_task: 16
+      mem: 64G
+    poll_interval: 30
+    orphan_threshold: 5
+
+parameters:
+  inline:
+    - { name: trip_threshold, file: DestinationChoice.json, min: 0.05, max: 0.5 }
+    - { name: gravity_alpha,  file: DestinationChoice.json, min: 0.5,  max: 2.0 }
+    - { name: walk_max,       file: ActivityChoice.json,    min: 100,  max: 1000 }
+
+metric:
+  type: link_moe
+  options:
+    target: "{{ env.POLARIS_TARGET_H5 }}"
+    aggregation: rmse
+
+phases:
+  - name: lhs-screen
+    type: static
+    design:
+      type: lhs
+      options:
+        n: 8
+
+  - name: bo
+    type: sequential
+    generator:
+      type: acquisition
+      options:
+        surrogate:  { type: gp,  options: { nu: 2.5 } }
+        acquisition: { type: qei, options: { mc_samples: 256 } }
+    batch_size: 4
+    stop:
+      type: any
+      criteria:
+        - { type: max_iter, options: { n: 12 } }
+        - { type: epsilon,  options: { epsilon: 0.01 } }

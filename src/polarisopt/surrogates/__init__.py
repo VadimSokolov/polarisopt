@@ -16,6 +16,8 @@ def _autoload_optional() -> None:
 
     with contextlib.suppress(ImportError):  # BoTorch GP
         from polarisopt.surrogates import gp  # noqa: F401
+    with contextlib.suppress(ImportError):  # BoTorch multi-task GP
+        from polarisopt.surrogates import mtgp  # noqa: F401
 
 
 _autoload_optional()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 import time
 from pathlib import Path
 
@@ -9,17 +10,20 @@ import click
 
 from polarisopt import __version__
 from polarisopt.config import load_study_config
+from polarisopt.examples import example_path, list_examples, read_example
 from polarisopt.samples.sample import SampleStatus
 from polarisopt.samples.store import SampleStore
 from polarisopt.studies.ops import (
     abort_study,
     cancel_sample,
     open_store,
+    retry_failed,
     sample_log_paths,
 )
 from polarisopt.studies.runner import StudyRunner
 from polarisopt.utils.logging import configure
 from polarisopt.utils.paths import workspace_layout
+from polarisopt.utils.plugins import load_external_plugins
 
 
 @click.group(name="polarisopt")
@@ -32,6 +36,9 @@ from polarisopt.utils.paths import workspace_layout
 def cli(log_level: str) -> None:
     """polarisopt — design-of-experiments and Bayesian optimization for POLARIS."""
     configure(log_level.upper())  # type: ignore[arg-type]
+    # Discover external plugin packages so their @register decorators run
+    # before any factory is called.
+    load_external_plugins()
 
 
 @cli.command()
@@ -80,6 +87,40 @@ def resume(config: Path) -> None:
     runner = StudyRunner(cfg, store=store)
     samples = runner.run()
     click.echo(f"resume complete: {len(samples)} samples processed")
+
+
+@cli.command(name="retry-failed")
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--id",
+    "ids",
+    type=int,
+    multiple=True,
+    help="Specific sample id(s) to retry (repeat for many). Default: every FAILED sample.",
+)
+@click.option(
+    "--run/--no-run",
+    default=False,
+    help="After flipping FAILED → PENDING, immediately re-run the study to evaluate them.",
+)
+def retry_failed_cmd(config: Path, ids: tuple[int, ...], run: bool) -> None:
+    """Flip FAILED samples back to PENDING (and optionally re-run the study)."""
+    cfg = load_study_config(config)
+    try:
+        retried = retry_failed(cfg, sample_ids=list(ids) if ids else None)
+    except (FileNotFoundError, ValueError) as exc:
+        raise click.ClickException(str(exc)) from exc
+    if not retried:
+        click.echo("no FAILED samples to retry")
+        return
+    click.echo(f"retried {len(retried)} sample(s): {sorted(s.id for s in retried)}")  # type: ignore[type-var]
+    if run:
+        store = open_store(cfg)
+        click.echo("re-running study...")
+        samples = StudyRunner(cfg, store=store).run()
+        finished = sum(1 for s in samples if s.status is SampleStatus.FINISHED)
+        failed = sum(1 for s in samples if s.status is SampleStatus.FAILED)
+        click.echo(f"completed: {finished}/{len(samples)} samples (failed: {failed})")
 
 
 @cli.command()
@@ -149,6 +190,51 @@ def logs(config: Path, sample_id: int, follow: bool, lines: int) -> None:
                     time.sleep(0.5)
         except KeyboardInterrupt:
             pass
+
+
+@cli.group()
+def examples() -> None:
+    """Bundled example study YAMLs."""
+
+
+@examples.command("list")
+def examples_list() -> None:
+    """List the bundled example YAMLs."""
+    names = list_examples()
+    if not names:
+        click.echo("(no examples bundled)")
+        return
+    for name in names:
+        click.echo(name)
+
+
+@examples.command("show")
+@click.argument("name")
+def examples_show(name: str) -> None:
+    """Print the YAML text of a bundled example to stdout."""
+    try:
+        click.echo(read_example(name), nl=False)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+
+@examples.command("copy")
+@click.argument("name")
+@click.argument("destination", type=click.Path(dir_okay=False, path_type=Path))
+@click.option("--force", is_flag=True, help="Overwrite DESTINATION if it exists.")
+def examples_copy(name: str, destination: Path, force: bool) -> None:
+    """Copy a bundled example YAML to DESTINATION for local editing."""
+    try:
+        src = example_path(name)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if destination.exists() and not force:
+        raise click.ClickException(
+            f"{destination} already exists; pass --force to overwrite"
+        )
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(src, destination)
+    click.echo(f"copied {name} -> {destination}")
 
 
 def main() -> None:
