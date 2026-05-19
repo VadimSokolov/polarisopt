@@ -18,14 +18,13 @@ __all__ = [
 
 
 def _autoload_optional() -> None:
-    """Register the ANL Globus-aware backend.
+    """Register the optional ANL Globus-aware and Globus-SDK-direct backends.
 
-    The module imports cleanly without polaris-studio; the ImportError
-    only fires when :meth:`AnlTransfer.copy` is actually called. So we
-    always register the backend so ``transfer_registry.get("anl")``
-    works for discoverability.
+    Both modules import cleanly without their underlying deps; the
+    ImportError fires only when ``.copy()`` is actually called. We
+    always register so the registry surface is discoverable.
     """
-    from polarisopt.transfer import anl  # noqa: F401
+    from polarisopt.transfer import anl, globus  # noqa: F401
 
 
 _autoload_optional()

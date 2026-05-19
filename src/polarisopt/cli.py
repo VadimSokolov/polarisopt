@@ -13,6 +13,7 @@ from polarisopt.config import load_study_config
 from polarisopt.examples import example_path, list_examples, read_example
 from polarisopt.samples.sample import SampleStatus
 from polarisopt.samples.store import SampleStore
+from polarisopt.studies.diff import diff_studies
 from polarisopt.studies.ops import (
     abort_study,
     cancel_sample,
@@ -21,6 +22,7 @@ from polarisopt.studies.ops import (
     sample_log_paths,
 )
 from polarisopt.studies.runner import StudyRunner
+from polarisopt.studies.validate import validate_study
 from polarisopt.utils.logging import configure
 from polarisopt.utils.paths import workspace_layout
 from polarisopt.utils.plugins import load_external_plugins
@@ -51,6 +53,21 @@ def run(config: Path) -> None:
     finished = sum(1 for s in samples if s.status is SampleStatus.FINISHED)
     failed = sum(1 for s in samples if s.status is SampleStatus.FAILED)
     click.echo(f"completed: {finished}/{len(samples)} samples (failed: {failed})")
+
+
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--warnings-as-errors",
+    is_flag=True,
+    help="Treat warnings as errors (exit nonzero if any warning fires).",
+)
+def validate(config: Path, warnings_as_errors: bool) -> None:
+    """Pre-flight validation. Exits 0 if the study is ready to run."""
+    report = validate_study(config)
+    click.echo(report.render())
+    if not report.ok or (warnings_as_errors and report.warnings):
+        raise click.exceptions.Exit(1)
 
 
 @cli.command()
@@ -190,6 +207,18 @@ def logs(config: Path, sample_id: int, follow: bool, lines: int) -> None:
                     time.sleep(0.5)
         except KeyboardInterrupt:
             pass
+
+
+@cli.command()
+@click.argument("config_a", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.argument("config_b", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def diff(config_a: Path, config_b: Path) -> None:
+    """Compare two study runs side by side."""
+    try:
+        d = diff_studies(config_a, config_b)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+    click.echo(d.render())
 
 
 @cli.group()

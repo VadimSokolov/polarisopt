@@ -105,6 +105,12 @@ nav:
       - Bayesian optimization: concepts/bayesian-optimization.md
       - Multi-objective: concepts/multi-objective.md
       - Restart correctness: concepts/restart-correctness.md
+  - Notebooks:
+      - notebooks/index.md
+      - Convergence plots: notebooks/convergence.md
+      - Pareto front: notebooks/pareto-front.md
+      - Morris sensitivity: notebooks/morris.md
+      - Compare two studies: notebooks/compare-runs.md
   - Reference:
       - Study YAML schema: yaml-reference.md
       - CLI: reference/cli.md

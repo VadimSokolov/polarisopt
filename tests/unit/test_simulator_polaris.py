@@ -114,7 +114,21 @@ def test_collect_output_missing_result_raises(tmp_path: Path, space: ParameterSp
     workspace = tmp_path / "experiments" / "sim-3"
     sim.prepare(sample, space, workspace)
     sample.folder = workspace
-    # do NOT write result file
+    # do NOT create the output directory at all
+    with pytest.raises(SimulatorError, match="no output directory found"):
+        sim.collect_output(sample)
+
+
+def test_collect_output_missing_h5_in_existing_dir_raises(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """Output directory exists but the H5 result file is absent."""
+    sim = _make_sim(tmp_path)
+    sample = Sample(id=33, inputs=np.array([0.0, 0.0]))
+    workspace = tmp_path / "experiments" / "sim-33"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    (workspace / "out").mkdir(parents=True, exist_ok=True)  # exists but empty
     with pytest.raises(SimulatorError, match="result file missing"):
         sim.collect_output(sample)
 
@@ -133,3 +147,86 @@ def test_make_simulator_polaris(tmp_path: Path) -> None:
         }
     )
     assert isinstance(sim, PolarisSimulator)
+
+
+def test_num_iterations_rejected_when_lt_one(tmp_path: Path) -> None:
+    model = _build_fake_model(tmp_path / "m")
+    with pytest.raises(SimulatorError):
+        PolarisSimulator(
+            binary="/usr/bin/echo",
+            model_source=str(model),
+            scenario_file="scenario_abm.json",
+            output_db_filename="R.h5",
+            num_iterations=0,
+        )
+
+
+def test_prepare_wraps_iterations_in_bash_loop(tmp_path: Path, space: ParameterSpace) -> None:
+    model = _build_fake_model(tmp_path / "src_model")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="TestModel-Result.h5",
+        num_threads="8",
+        num_iterations=3,
+    )
+    sample = Sample(id=99, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-99"
+    spec = sim.prepare(sample, space, workspace)
+    assert "for i in $(seq 1 3); do" in spec.command
+    assert "iteration $i of 3" in spec.command
+
+
+def test_collect_output_picks_latest_iteration(tmp_path: Path, space: ParameterSpace) -> None:
+    model = _build_fake_model(tmp_path / "src_model")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="TestModel-Result.h5",
+        num_iterations=3,
+    )
+    sample = Sample(id=10, inputs=np.array([0.4, 0.6]))
+    workspace = tmp_path / "experiments" / "sim-10"
+    sim.prepare(sample, space, workspace)
+
+    # Simulate POLARIS writing iteration_1, iteration_2, iteration_3 dirs.
+    # Each contains its own Result.h5; we should pick iteration_3.
+    for n in (1, 2, 3):
+        d = workspace / f"out_iteration_{n}"
+        d.mkdir(parents=True, exist_ok=True)
+        with h5py.File(d / "TestModel-Result.h5", "w") as f:
+            g = f.create_group("link_moe")
+            g.create_dataset("link_travel_time", data=np.full((2, 2), n))
+            g.create_dataset("link_in_volume", data=np.ones((2, 2)))
+
+    sample.folder = workspace
+    out = sim.collect_output(sample)
+    assert out["iteration"] == 3
+    assert out["output_dir"].endswith("out_iteration_3")
+    assert "iteration_3" in out["result_path"]
+
+
+def test_collect_output_no_iteration_dirs_returns_iteration_none(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    model = _build_fake_model(tmp_path / "src_model")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="TestModel-Result.h5",
+    )
+    sample = Sample(id=11, inputs=np.array([0.2, 0.3]))
+    workspace = tmp_path / "experiments" / "sim-11"
+    sim.prepare(sample, space, workspace)
+    (workspace / "out").mkdir(parents=True, exist_ok=True)
+    with h5py.File(workspace / "out" / "TestModel-Result.h5", "w") as f:
+        g = f.create_group("link_moe")
+        g.create_dataset("link_travel_time", data=np.ones((1, 1)))
+        g.create_dataset("link_in_volume", data=np.ones((1, 1)))
+    sample.folder = workspace
+    out = sim.collect_output(sample)
+    assert out["iteration"] is None
+    assert out["output_dir"].endswith("/out")
