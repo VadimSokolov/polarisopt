@@ -64,10 +64,9 @@ study files reference plugins by string name.
 
 - **One feature per commit**. Verbose commit messages with rationale,
   not just "Add foo".
-- **Co-author tag**: include `Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>`
-  in commits you make. Use the [HEREDOC pattern documented in CLAUDE.md
-  conventions](https://docs.anthropic.com/) so multi-line messages
-  format correctly.
+- **Do not add AI-agent co-author tags.** Commit as the human author
+  on whose behalf you're working. The git author/committer is enough.
+- Use a HEREDOC for multi-line messages so formatting survives.
 
 ## How to add a plugin (checklist)
 
