@@ -94,6 +94,30 @@ class Study(ABC):
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    def _cancel_outstanding(
+        self,
+        samples: list[Sample],
+        jobs: dict[int, Job],
+        outstanding: dict[int, Job],
+    ) -> None:
+        """Cancel every still-running job and mark its sample CANCELLED."""
+        ctx = self.ctx
+        sid_to_sample = {s.id: s for s in samples if s.id is not None}
+        for sid, job in outstanding.items():
+            try:
+                ctx.runner.cancel(job)
+            except Exception:  # noqa: BLE001 — best-effort cleanup
+                log.exception("runner.cancel failed for sample %s", sid)
+            sample = sid_to_sample.get(sid)
+            if sample is None:
+                continue
+            sample.status = SampleStatus.CANCELLED
+            sample.message = (sample.message or "") + " | cancelled by master shutdown"
+            try:
+                ctx.store.update(sample)
+            except Exception:  # noqa: BLE001
+                log.exception("store.update failed for cancelled sample %s", sid)
+
     def _evaluate_batch(self, samples: list[Sample]) -> list[Sample]:
         """Submit, monitor, and collect a batch of samples synchronously.
 
@@ -126,36 +150,45 @@ class Study(ABC):
 
         # 2) Poll until all jobs terminate. Track per-sample UNKNOWN counts
         # so orphaned Slurm jobs (e.g. lost from squeue + sacct) don't make
-        # us poll forever.
+        # us poll forever. KeyboardInterrupt cleanly cancels all in-flight
+        # jobs and re-raises so the orchestrator can shut down.
         outstanding = dict(jobs)
         unknown_counts: dict[int, int] = {sid: 0 for sid in outstanding}
-        while outstanding:
-            for sid, job in list(outstanding.items()):
-                ctx.runner.status(job)
-                if job.status.is_terminal():
-                    outstanding.pop(sid)
-                    continue
-                if job.status is JobStatus.UNKNOWN:
-                    unknown_counts[sid] = unknown_counts.get(sid, 0) + 1
-                    if (
-                        ctx.orphan_threshold > 0
-                        and unknown_counts[sid] >= ctx.orphan_threshold
-                    ):
-                        log.warning(
-                            "sample %s: jobid %s orphaned after %d UNKNOWN polls",
-                            sid,
-                            job.task_id,
-                            unknown_counts[sid],
-                        )
-                        job.status = JobStatus.FAILED
-                        job.message = (
-                            f"job orphaned (Slurm lost track of jobid={job.task_id})"
-                        )
+        try:
+            while outstanding:
+                for sid, job in list(outstanding.items()):
+                    ctx.runner.status(job)
+                    if job.status.is_terminal():
                         outstanding.pop(sid)
-                else:
-                    unknown_counts[sid] = 0
-            if outstanding:
-                time.sleep(ctx.poll_interval)
+                        continue
+                    if job.status is JobStatus.UNKNOWN:
+                        unknown_counts[sid] = unknown_counts.get(sid, 0) + 1
+                        if (
+                            ctx.orphan_threshold > 0
+                            and unknown_counts[sid] >= ctx.orphan_threshold
+                        ):
+                            log.warning(
+                                "sample %s: jobid %s orphaned after %d UNKNOWN polls",
+                                sid,
+                                job.task_id,
+                                unknown_counts[sid],
+                            )
+                            job.status = JobStatus.FAILED
+                            job.message = (
+                                f"job orphaned (Slurm lost track of jobid={job.task_id})"
+                            )
+                            outstanding.pop(sid)
+                    else:
+                        unknown_counts[sid] = 0
+                if outstanding:
+                    time.sleep(ctx.poll_interval)
+        except KeyboardInterrupt:
+            log.warning(
+                "KeyboardInterrupt — cancelling %d in-flight job(s) before exit",
+                len(outstanding),
+            )
+            self._cancel_outstanding(samples, jobs, outstanding)
+            raise
 
         # 3) Collect metrics
         for sample in samples:
