@@ -98,6 +98,7 @@ class PolarisSimulator(Simulator):
         scenario_file: str,
         output_db_filename: str,
         num_threads: str = "1",
+        num_iterations: int = 1,
         output_dir_key: tuple[str, str] | list[str] | None = None,
         transfer: dict[str, Any] | None = None,
     ) -> None:
@@ -106,6 +107,11 @@ class PolarisSimulator(Simulator):
         self.scenario_file = scenario_file
         self.output_db_filename = output_db_filename
         self.num_threads = str(num_threads)
+        if num_iterations < 1:
+            raise SimulatorError(
+                f"num_iterations must be >= 1, got {num_iterations}"
+            )
+        self.num_iterations = int(num_iterations)
         self.output_dir_key: tuple[str, str] = (
             tuple(output_dir_key)  # type: ignore[assignment]
             if output_dir_key is not None
@@ -141,13 +147,26 @@ class PolarisSimulator(Simulator):
                 f"scenario file missing after staging: {scenario_path}"
             )
 
-        command = " ".join(
+        single_invocation = " ".join(
             [
                 shlex.quote(str(self.binary)),
                 shlex.quote(str(scenario_path)),
                 self.num_threads,
             ]
         )
+        if self.num_iterations == 1:
+            command = single_invocation
+        else:
+            # Bash for-loop. POLARIS handles iteration numbering itself —
+            # the second run reads the first run's <output>_iteration_1
+            # outputs as warm-starts and writes <output>_iteration_2.
+            command = (
+                f"set -e\n"
+                f"for i in $(seq 1 {self.num_iterations}); do\n"
+                f"    echo \"[polarisopt] iteration $i of {self.num_iterations}\"\n"
+                f"    {single_invocation}\n"
+                f"done\n"
+            )
         return JobSpec(
             name=f"polaris-sample-{sample.id or 'unsaved'}",
             command=command,
@@ -177,7 +196,7 @@ class PolarisSimulator(Simulator):
                 f"output dir key {self.output_dir_key!r} not in scenario JSON"
             ) from exc
 
-        output_dir = sample.folder / output_dirname
+        output_dir = self._resolve_output_dir(sample.folder, output_dirname)
         result_path = output_dir / self.output_db_filename
         if not result_path.exists():
             raise SimulatorError(f"POLARIS result file missing: {result_path}")
@@ -185,4 +204,45 @@ class PolarisSimulator(Simulator):
             "result_path": str(result_path),
             "output_dir": str(output_dir),
             "scenario_path": str(scenario_path),
+            "iteration": _iteration_of(output_dir),
         }
+
+    def _resolve_output_dir(self, workspace: Path, output_dirname: str) -> Path:
+        """Pick the right output directory.
+
+        For ``num_iterations == 1`` POLARIS may use either
+        ``<output_dirname>`` or ``<output_dirname>_iteration_1`` (deployment-
+        dependent). For ``num_iterations > 1``, the highest-numbered
+        ``_iteration_N`` directory is the final one. We look for both
+        patterns and pick the most recent existing one.
+        """
+        candidates: list[tuple[int, Path]] = []
+        base = workspace / output_dirname
+        if base.exists():
+            candidates.append((0, base))
+        for it_dir in workspace.glob(f"{output_dirname}_iteration_*"):
+            if not it_dir.is_dir():
+                continue
+            try:
+                n = int(it_dir.name.rsplit("_iteration_", 1)[-1])
+            except ValueError:
+                continue
+            candidates.append((n, it_dir))
+        if not candidates:
+            raise SimulatorError(
+                f"no output directory found for {output_dirname!r} under {workspace}"
+            )
+        # Highest iteration wins; ties fall back to the non-iteration base.
+        _, best = max(candidates, key=lambda kv: kv[0])
+        return best
+
+
+def _iteration_of(output_dir: Path) -> int | None:
+    """Extract the iteration number from a path like ``foo_iteration_3``."""
+    name = output_dir.name
+    if "_iteration_" not in name:
+        return None
+    try:
+        return int(name.rsplit("_iteration_", 1)[-1])
+    except ValueError:
+        return None
