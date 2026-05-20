@@ -186,7 +186,10 @@ class SlurmRunner(Runner):
     def _render_script(self, spec: JobSpec, resources: SlurmResources) -> str:
         directives = resources.to_directives(job_name=spec.name, stdout=spec.stdout, stderr=spec.stderr)
         env_lines = [f"export {k}={shlex.quote(v)}" for k, v in spec.env.items()]
-        lines = ["#!/bin/bash", "set -euo pipefail", *directives, ""]
+        # All #SBATCH directives MUST precede the first executable line — slurm
+        # stops parsing directives at the first non-comment line.  Keep
+        # `set -euo pipefail` after the directive block.
+        lines = ["#!/bin/bash", *directives, "", "set -euo pipefail", ""]
         if env_lines:
             lines.extend(env_lines)
             lines.append("")

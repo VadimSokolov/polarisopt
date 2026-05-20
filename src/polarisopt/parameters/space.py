@@ -8,7 +8,13 @@ that should receive the value. A ``ParameterSpace`` is a collection.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from enum import StrEnum
+try:
+    from enum import StrEnum
+except ImportError:  # Python <3.11
+    from enum import Enum
+    class StrEnum(str, Enum):
+        def __str__(self) -> str:
+            return str.__str__(self)
 from typing import Any
 
 import numpy as np

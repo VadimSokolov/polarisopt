@@ -8,7 +8,7 @@ version = "0.1.0.dev0"
 description = "Modular design-of-experiments and Bayesian optimization for POLARIS"
 readme = "README.md"
 license = { file = "License.txt" }
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 authors = [
     { name = "Vadim Sokolov", email = "vsokolov@anl.gov" },
 ]
@@ -17,6 +17,7 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: BSD License",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering",

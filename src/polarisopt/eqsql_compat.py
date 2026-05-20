@@ -42,8 +42,15 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
-from enum import StrEnum
+from datetime import datetime, timezone
+UTC = timezone.utc
+try:
+    from enum import StrEnum
+except ImportError:  # Python <3.11
+    from enum import Enum
+    class StrEnum(str, Enum):
+        def __str__(self) -> str:
+            return str.__str__(self)
 from pathlib import Path
 from typing import Any
 

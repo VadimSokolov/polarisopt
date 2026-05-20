@@ -16,7 +16,8 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from datetime import UTC, datetime
+from datetime import datetime, timezone
+UTC = timezone.utc
 from pathlib import Path
 
 import numpy as np

@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from enum import StrEnum
+try:
+    from enum import StrEnum
+except ImportError:  # Python <3.11
+    from enum import Enum
+    class StrEnum(str, Enum):
+        def __str__(self) -> str:
+            return str.__str__(self)
 from pathlib import Path
 from typing import Any
 
