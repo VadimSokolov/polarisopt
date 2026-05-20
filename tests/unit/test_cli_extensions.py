@@ -94,3 +94,86 @@ def test_logs_subcommand_prints_files(tmp_path: Path) -> None:
     assert res.exit_code == 0, res.output
     assert "hello stdout" in res.output
     assert "hello stderr" in res.output
+
+
+def test_logs_binary_flag_finds_progress_log(tmp_path: Path) -> None:
+    """``polarisopt logs --binary`` surfaces ``log/polaris_progress.log``
+    instead of the wrapper logs.
+    """
+    cfg_path, sid = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    sample = store.get(sid)
+    sample.folder = workspace / "experiments" / "sim-0001"
+    sample.folder.mkdir(parents=True)
+    (sample.folder / "polaris.stdout.log").write_text("wrapper noise")
+    # polarislib-style nested progress log:
+    log_dir = sample.folder / "DFW_01_abm_init_iteration_2" / "log"
+    log_dir.mkdir(parents=True)
+    (log_dir / "polaris_progress.log").write_text("sim hour 12 of 24\n")
+    sample.status = SampleStatus.RUNNING
+    store.update(sample)
+
+    res = CliRunner().invoke(cli, ["logs", str(cfg_path), str(sid), "--binary"])
+    assert res.exit_code == 0, res.output
+    assert "sim hour 12 of 24" in res.output
+    assert "wrapper noise" not in res.output
+
+
+def test_logs_binary_flag_errors_when_missing(tmp_path: Path) -> None:
+    cfg_path, sid = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    sample = store.get(sid)
+    sample.folder = workspace / "experiments" / "sim-0001"
+    sample.folder.mkdir(parents=True)
+    store.update(sample)
+
+    res = CliRunner().invoke(cli, ["logs", str(cfg_path), str(sid), "--binary"])
+    assert res.exit_code != 0
+    assert "polaris_progress.log" in res.output
+
+
+def test_status_verbose_shows_per_sample_rows(tmp_path: Path) -> None:
+    cfg_path, sid = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    sample = store.get(sid)
+    sample.status = SampleStatus.RUNNING
+    sample.runner_task_id = "12345678"
+    sample.folder = workspace / "experiments" / "sim-0001"
+    sample.folder.mkdir(parents=True)
+    (sample.folder / "polaris.stdout.log").write_text("last interesting line\n")
+    store.update(sample)
+
+    res = CliRunner().invoke(cli, ["status", str(cfg_path), "--verbose"])
+    assert res.exit_code == 0, res.output
+    assert "12345678" in res.output
+    assert "running" in res.output
+    assert "last interesting line" in res.output
+
+
+def test_status_verbose_status_filter(tmp_path: Path) -> None:
+    cfg_path, sid = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    # Add a second sample so we have something to filter against.
+    other = store.add(Sample(phase="p", inputs=np.array([0.7])))
+    other.status = SampleStatus.FINISHED
+    other.metric = np.array([0.49])
+    store.update(other)
+
+    res = CliRunner().invoke(
+        cli, ["status", str(cfg_path), "--verbose", "--status", "finished"]
+    )
+    assert res.exit_code == 0, res.output
+    assert "finished" in res.output
+    # The PENDING-only sample from _seed should be filtered out.
+    rows_for_other = [ln for ln in res.output.splitlines() if str(other.id) in ln]
+    assert len(rows_for_other) >= 1
+    rows_for_sid = [ln for ln in res.output.splitlines() if ln.lstrip().startswith(str(sid)) and " pending " in ln]
+    assert not rows_for_sid

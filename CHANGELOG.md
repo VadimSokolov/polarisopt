@@ -2,6 +2,57 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.7.0 — 2026-05-19
+
+Second pass of feedback from the live DFW calibration. All UX/operability,
+no design pivots.
+
+### Added
+
+- **Periodic poll-loop heartbeat.** `StudyContext.heartbeat_interval`
+  (default 300s) emits an INFO line summarizing every outstanding
+  sample. Closes the silent gap between submit and the next state
+  transition on long-running batches. Set to 0 to disable. Configurable
+  per study via `runner.options.heartbeat_interval`.
+- **`polarisopt status --verbose`** — one row per sample with id, phase,
+  status, jobid, runtime, folder, and the last line of the most-recent
+  log file. `--status` flag filters by sample state.
+- **`polarisopt logs --binary`** — tails
+  `<workspace>/*/log/polaris_progress.log` (POLARIS's per-iteration
+  progress log) instead of the polarisopt wrapper logs. This is what
+  tells you what sim-hour the run is in.
+- **Config-drift detection on `retry-failed`.** Every sample now records
+  a 16-char fingerprint of the simulator+runner config at submit time
+  (`sample.extra["config_fingerprint"]`). `retry_failed` refuses with
+  `ConfigDriftError` if the YAML has changed since the failed samples
+  ran. `--force` overrides for the genuine "retry under new config"
+  case. Orchestrator knobs (`poll_interval`, `orphan_threshold`,
+  `heartbeat_interval`) are excluded from the fingerprint.
+- **`runner_options` soft whitelist.** `PolarisConvergenceSimulator`
+  exposes `KNOWN_RUNNER_OPTIONS` (the polarislib `ConvergenceConfig`
+  fields we know about). `polarisopt plan` surfaces unknown keys as
+  warnings — catches `population_scal_factor`-style typos in <1s
+  instead of after a 30s staging round-trip. Branch-specific knobs
+  still pass through; this is a soft check, not a hard schema.
+- **`progress_log_path` in `collect_output()`** — the polarislib
+  binary's per-iteration progress log is now in the simulator's output
+  dict (or `None` if it doesn't exist yet), so downstream metrics /
+  notebooks don't need to find for it.
+
+### Changed
+
+- **`PolarisConvergenceSimulator.DEFAULT_OUTPUT_DIR_KEY`** is now
+  `("Output controls", "output_dir_name")`. polarislib scenarios use
+  `output_dir_name`; the base-class default `output_directory` was
+  never right for `polaris_convergence`. YAMLs that spelled out
+  `output_dir_key` continue to work — this only affects users who
+  relied on the default.
+- **`PolarisConvergenceSimulator` docstring** now documents that
+  `abm_init` runs a full 24-hour traffic simulation regardless of
+  `num_dta_runs`. `num_dta_runs=0` means "no extra DTA passes," not
+  "no traffic." For cheap calibration: drop `population_scale_factor`
+  to 0.01 or use a different `iteration_type`.
+
 ## 0.6.0 — 2026-05-16
 
 First release driven by feedback from a real POLARIS calibration run.

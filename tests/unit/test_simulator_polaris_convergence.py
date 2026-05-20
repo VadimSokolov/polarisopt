@@ -230,3 +230,76 @@ def test_make_simulator_factory(tmp_path: Path, runner_script: Path) -> None:
         }
     )
     assert isinstance(sim, PolarisConvergenceSimulator)
+
+
+def test_default_output_dir_key_is_polarislib_correct(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    """polarislib scenarios use ``output_dir_name`` not ``output_directory``."""
+    model = _build_fake_model(tmp_path / "m2")
+    sim = PolarisConvergenceSimulator(
+        runner_script=str(runner_script),
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="DFW-Demand.sqlite",
+    )
+    assert sim.output_dir_key == ("Output controls", "output_dir_name")
+
+
+def test_collect_output_exposes_progress_log_path(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    sim = _make_sim(tmp_path, runner_script, iteration_type="abm_init")
+    sample = Sample(id=77, inputs=np.array([0.3]))
+    workspace = tmp_path / "sim-77"
+    sim.prepare(sample, space, workspace)
+    out_dir = workspace / "DFW_01_abm_init_iteration_3"
+    out_dir.mkdir(parents=True)
+    with h5py.File(out_dir / "DFW-Demand.sqlite", "w") as f:
+        f.create_group("anything")
+    log_dir = out_dir / "log"
+    log_dir.mkdir()
+    progress = log_dir / "polaris_progress.log"
+    progress.write_text("sim hour 10\n")
+    sample.folder = workspace
+
+    out = sim.collect_output(sample)
+    assert out["progress_log_path"] == str(progress)
+
+
+def test_collect_output_progress_log_path_is_none_when_missing(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    sim = _make_sim(tmp_path, runner_script, iteration_type="abm_init")
+    sample = Sample(id=88, inputs=np.array([0.3]))
+    workspace = tmp_path / "sim-88"
+    sim.prepare(sample, space, workspace)
+    out_dir = workspace / "DFW_01_abm_init_iteration_1"
+    out_dir.mkdir(parents=True)
+    with h5py.File(out_dir / "DFW-Demand.sqlite", "w") as f:
+        f.create_group("anything")
+    sample.folder = workspace
+
+    out = sim.collect_output(sample)
+    assert out["progress_log_path"] is None
+
+
+def test_unknown_runner_options_flags_typos(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    sim = _make_sim(
+        tmp_path,
+        runner_script,
+        runner_options={
+            "population_scale_factor": 0.05,   # known
+            "num_abm_runs": 1,                  # known
+            "population_scal_factor": 0.05,    # typo!
+            "completely_made_up_knob": "foo",  # branch-specific or invented
+        },
+    )
+    unknown = sim.unknown_runner_options()
+    assert "population_scal_factor" in unknown
+    assert "completely_made_up_knob" in unknown
+    assert "population_scale_factor" not in unknown
+    assert "num_abm_runs" not in unknown

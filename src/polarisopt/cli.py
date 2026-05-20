@@ -11,10 +11,11 @@ import click
 from polarisopt import __version__
 from polarisopt.config import load_study_config
 from polarisopt.examples import example_path, list_examples, read_example
-from polarisopt.samples.sample import SampleStatus
+from polarisopt.samples.sample import Sample, SampleStatus
 from polarisopt.samples.store import SampleStore
 from polarisopt.studies.diff import diff_studies
 from polarisopt.studies.ops import (
+    ConfigDriftError,
     abort_study,
     cancel_sample,
     open_store,
@@ -111,8 +112,17 @@ def plan(config: Path, workspace: Path | None) -> None:
 
 @cli.command()
 @click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-def status(config: Path) -> None:
-    """Show per-phase counts of samples in the store referenced by CONFIG."""
+@click.option(
+    "--verbose", "-v", is_flag=True,
+    help="One row per sample: id, phase, status, jobid, runtime, folder, last log line.",
+)
+@click.option(
+    "--status", "status_filter", default=None,
+    type=click.Choice([s.value for s in SampleStatus], case_sensitive=False),
+    help="(--verbose only) restrict to samples in this status.",
+)
+def status(config: Path, verbose: bool, status_filter: str | None) -> None:
+    """Show sample counts (or a verbose per-sample table with -v)."""
     cfg = load_study_config(config)
     layout = workspace_layout(cfg.workspace)
     if not layout["db"].exists():
@@ -123,12 +133,98 @@ def status(config: Path) -> None:
     if not rows:
         click.echo("(no samples)")
         return
-    by_phase: dict[str, dict[str, int]] = {}
+    if not verbose:
+        by_phase: dict[str, dict[str, int]] = {}
+        for s in rows:
+            by_phase.setdefault(s.phase, {}).setdefault(s.status.value, 0)
+            by_phase[s.phase][s.status.value] = by_phase[s.phase].get(s.status.value, 0) + 1
+        for phase, counts in by_phase.items():
+            click.echo(f"{phase}: {counts}")
+        return
+    if status_filter:
+        wanted = SampleStatus(status_filter.lower())
+        rows = [s for s in rows if s.status is wanted]
+    if not rows:
+        click.echo("(no samples match)")
+        return
+    rows.sort(key=lambda s: (s.id or 0))
+    header = f"{'id':>4} {'phase':<14} {'status':<9} {'jobid':<14} {'runtime':>10}  folder / last log line"
+    click.echo(header)
+    click.echo("-" * len(header))
     for s in rows:
-        by_phase.setdefault(s.phase, {}).setdefault(s.status.value, 0)
-        by_phase[s.phase][s.status.value] = by_phase[s.phase].get(s.status.value, 0) + 1
-    for phase, counts in by_phase.items():
-        click.echo(f"{phase}: {counts}")
+        rt = _fmt_runtime(s)
+        folder = str(s.folder) if s.folder else "-"
+        last_line = _last_log_line(s.folder) if s.folder else ""
+        click.echo(
+            f"{(s.id or 0):>4} {s.phase[:14]:<14} {s.status.value:<9} "
+            f"{(s.runner_task_id or '-')[:14]:<14} {rt:>10}  {folder}"
+        )
+        if last_line:
+            click.echo(f"     └─ {last_line}")
+
+
+def _fmt_runtime(sample: Sample) -> str:
+    if sample.runtime_s is not None:
+        return _fmt_seconds(sample.runtime_s)
+    if sample.status is SampleStatus.RUNNING and sample.updated_at is not None:
+        from datetime import datetime
+
+        from polarisopt.utils._compat import UTC
+
+        # store rows may be naive in older DBs; treat naive as UTC.
+        updated = sample.updated_at
+        if updated.tzinfo is None:
+            updated = updated.replace(tzinfo=UTC)
+        delta = (datetime.now(UTC) - updated).total_seconds()
+        return f"{_fmt_seconds(delta)}+"
+    return "-"
+
+
+def _fmt_seconds(secs: float) -> str:
+    if secs < 60:
+        return f"{secs:.0f}s"
+    if secs < 3600:
+        return f"{secs / 60:.1f}m"
+    return f"{secs / 3600:.1f}h"
+
+
+def _find_binary_progress_log(folder: Path | None) -> Path | None:
+    """Locate the POLARIS binary's ``log/polaris_progress.log`` under ``folder``.
+
+    polarislib writes the progress log to
+    ``<folder>/<output_dirname>_<iter_str>[_<N>]/log/polaris_progress.log``.
+    We search for any ``polaris_progress.log`` 2 levels deep so we don't
+    need to know which iteration_type / output_dirname the sample used.
+    """
+    if folder is None or not folder.exists():
+        return None
+    matches = list(folder.glob("*/log/polaris_progress.log"))
+    if not matches:
+        return None
+    return max(matches, key=lambda p: p.stat().st_mtime)
+
+
+def _last_log_line(folder: Path | None, max_chars: int = 200) -> str:
+    if folder is None or not folder.exists():
+        return ""
+    files = []
+    for pat in ("*.log", "*.out", "*.err"):
+        files.extend(folder.glob(pat))
+    files = [p for p in files if p.is_file() and p.stat().st_size > 0]
+    if not files:
+        return ""
+    target = max(files, key=lambda p: p.stat().st_mtime)
+    try:
+        text = target.read_text(errors="replace")
+    except OSError:
+        return ""
+    for line in reversed(text.splitlines()):
+        line = line.rstrip()
+        if line:
+            if len(line) > max_chars:
+                line = line[:max_chars] + "..."
+            return f"{target.name}: {line}"
+    return ""
 
 
 @cli.command()
@@ -173,11 +269,21 @@ def resume(config: Path, skip_reconcile: bool) -> None:
     default=False,
     help="After flipping FAILED → PENDING, immediately re-run the study to evaluate them.",
 )
-def retry_failed_cmd(config: Path, ids: tuple[int, ...], run: bool) -> None:
+@click.option(
+    "--force", is_flag=True,
+    help=(
+        "Retry even if the simulator/runner config has drifted since "
+        "the failed samples ran. Without this, retry-failed refuses to "
+        "mix runs across edited YAMLs in one SampleStore."
+    ),
+)
+def retry_failed_cmd(config: Path, ids: tuple[int, ...], run: bool, force: bool) -> None:
     """Flip FAILED samples back to PENDING (and optionally re-run the study)."""
     cfg = load_study_config(config)
     try:
-        retried = retry_failed(cfg, sample_ids=list(ids) if ids else None)
+        retried = retry_failed(cfg, sample_ids=list(ids) if ids else None, force=force)
+    except ConfigDriftError as exc:
+        raise click.ClickException(f"{exc}\n(use --force to override)") from exc
     except (FileNotFoundError, ValueError) as exc:
         raise click.ClickException(str(exc)) from exc
     if not retried:
@@ -223,7 +329,16 @@ def abort(config: Path) -> None:
 @click.argument("sample_id", type=int)
 @click.option("--follow", "-f", is_flag=True, help="Stream new log lines (like tail -f).")
 @click.option("--lines", "-n", type=int, default=0, help="Print last N lines first (default: all).")
-def logs(config: Path, sample_id: int, follow: bool, lines: int) -> None:
+@click.option(
+    "--binary", is_flag=True,
+    help=(
+        "Show the POLARIS binary's per-iteration progress log "
+        "(``<output_dir>/log/polaris_progress.log``) instead of the "
+        "polarisopt wrapper logs. This is what tells you what sim-hour "
+        "the run is in. polaris_convergence simulators only."
+    ),
+)
+def logs(config: Path, sample_id: int, follow: bool, lines: int, binary: bool) -> None:
     """Print stdout / stderr / *.log files for a sample."""
     cfg = load_study_config(config)
     try:
@@ -232,7 +347,16 @@ def logs(config: Path, sample_id: int, follow: bool, lines: int) -> None:
     except (FileNotFoundError, KeyError) as exc:
         raise click.ClickException(str(exc)) from exc
 
-    files = sample_log_paths(sample)
+    if binary:
+        progress = _find_binary_progress_log(sample.folder)
+        if progress is None:
+            raise click.ClickException(
+                f"no polaris_progress.log found under {sample.folder} "
+                f"(binary may not have started writing yet)"
+            )
+        files = [progress]
+    else:
+        files = sample_log_paths(sample)
     if not files:
         raise click.ClickException(f"no log files in {sample.folder}")
 

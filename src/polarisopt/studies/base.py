@@ -26,6 +26,14 @@ from polarisopt.utils.logging import get_logger
 log = get_logger(__name__)
 
 
+def _fmt_elapsed(secs: float) -> str:
+    if secs < 60:
+        return f"{secs:.0f}s"
+    if secs < 3600:
+        return f"{secs / 60:.1f}m"
+    return f"{secs / 3600:.1f}h"
+
+
 class StudyError(RuntimeError):
     """Study-level orchestration failure (not a per-sample simulation error)."""
 
@@ -62,6 +70,18 @@ class StudyContext:
         is force-marked FAILED. Catches Slurm jobs that disappear without
         a finished sentinel. Default 3. Set to 0 to disable orphan
         detection (legacy behavior — poll forever).
+    heartbeat_interval :
+        Seconds between INFO-level "still running" log lines summarizing
+        every in-flight sample. Default 300s (5 min). Set to 0 to disable
+        heartbeats (the log only fires on state transitions, legacy
+        behavior). The first heartbeat fires one ``heartbeat_interval``
+        after submission, not immediately.
+    config_fingerprint :
+        Short hash of the simulator/runner config (see
+        :func:`polarisopt.studies.ops.simulator_config_fingerprint`).
+        Recorded on every sample at submit so
+        :func:`polarisopt.studies.ops.retry_failed` can refuse to mix
+        runs across edited configs. ``None`` to skip recording.
     """
 
     name: str
@@ -74,6 +94,8 @@ class StudyContext:
     rng: np.random.Generator
     poll_interval: float = 5.0
     orphan_threshold: int = 3
+    heartbeat_interval: float = 300.0
+    config_fingerprint: str | None = None
 
 
 class Study(ABC):
@@ -93,6 +115,29 @@ class Study(ABC):
         d = self.ctx.workspace / "experiments"
         d.mkdir(parents=True, exist_ok=True)
         return d
+
+    def _log_heartbeat(self, outstanding: dict[int, Job], batch_started: float) -> None:
+        """INFO-log a one-line summary of every still-running sample.
+
+        Fires periodically inside :meth:`_evaluate_batch`'s poll loop so
+        that long-running batches don't go silent between state
+        transitions (a poll cycle on a 24h ABM run might only log on
+        submit + finish, leaving the user blind in between).
+        """
+        elapsed_total = time.monotonic() - batch_started
+        # Cluster samples by status so 100-sample batches stay readable.
+        by_status: dict[str, list[int]] = {}
+        for sid, job in outstanding.items():
+            by_status.setdefault(job.status.name, []).append(sid)
+        summary = ", ".join(
+            f"{status}={len(sids)}" for status, sids in sorted(by_status.items())
+        )
+        log.info(
+            "[heartbeat] %d sample(s) outstanding after %s — %s",
+            len(outstanding),
+            _fmt_elapsed(elapsed_total),
+            summary,
+        )
 
     def _cancel_outstanding(
         self,
@@ -133,6 +178,11 @@ class Study(ABC):
         # 1) Submit
         for sample in samples:
             sample.folder = self._experiments_dir() / f"sim-{sample.id:06d}"
+            if ctx.config_fingerprint is not None:
+                # Record the config the sample was run under so a later
+                # retry-failed can refuse if the user edits the YAML.
+                from polarisopt.studies.ops import EXTRA_FINGERPRINT_KEY
+                sample.extra[EXTRA_FINGERPRINT_KEY] = ctx.config_fingerprint
             spec = ctx.simulator.prepare(sample, ctx.space, sample.folder)
             try:
                 job = ctx.runner.submit(spec)
@@ -154,6 +204,8 @@ class Study(ABC):
         # jobs and re-raises so the orchestrator can shut down.
         outstanding = dict(jobs)
         unknown_counts: dict[int, int] = {sid: 0 for sid in outstanding}
+        batch_started = time.monotonic()
+        last_heartbeat = batch_started
         try:
             while outstanding:
                 for sid, job in list(outstanding.items()):
@@ -181,6 +233,13 @@ class Study(ABC):
                     else:
                         unknown_counts[sid] = 0
                 if outstanding:
+                    now = time.monotonic()
+                    if (
+                        ctx.heartbeat_interval > 0
+                        and now - last_heartbeat >= ctx.heartbeat_interval
+                    ):
+                        self._log_heartbeat(outstanding, batch_started)
+                        last_heartbeat = now
                     time.sleep(ctx.poll_interval)
         except KeyboardInterrupt:
             log.warning(

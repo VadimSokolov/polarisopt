@@ -32,6 +32,28 @@ runner via ``runner_options``. They're passed on the command line as
 
 A canonical runner script lives at ``run_scripts/polarisopt_runner.py``
 in the calibration project; copy it as a starting point.
+
+Runtime budget — important
+--------------------------
+
+polarislib's ``abm_init`` iteration runs a **full 24-hour network
+simulation** regardless of ``num_dta_runs``. ``num_dta_runs=0`` does
+**not** mean "ABM only / no traffic" — it means "no additional DTA
+re-runs after the abm_init pass."
+
+For choice-model calibration you usually want the cheapest credible
+budget. Two ways to cap it:
+
+- ``population_scale_factor: 0.01`` (1%) — full network, scaled
+  population. ~5–20 min for DFW depending on hardware.
+- ``do_skim: false`` — skip the LOS skimming pass if your scenario
+  already has fresh skims.
+
+If you truly want "choice models only, no traffic at all," ask whether
+polarislib's ``pop_synth`` iteration_type fits — it stops after
+population synthesis and choice-model evaluation without dispatching to
+the C++ traffic simulator. That's a different ``iteration_type``, not
+a knob.
 """
 
 from __future__ import annotations
@@ -134,6 +156,47 @@ class PolarisConvergenceSimulator(PolarisSimulator):
             num_threads: "16"
     """
 
+    # polarislib scenarios use ``output_dir_name``, not the base class's
+    # ``output_directory``. Override so YAML doesn't need to spell it out
+    # for every polaris_convergence study.
+    DEFAULT_OUTPUT_DIR_KEY: tuple[str, str] = ("Output controls", "output_dir_name")
+
+    # Soft whitelist of ``runner_options`` keys polarisopt knows polarislib
+    # understands. Used by ``polarisopt plan`` to warn (not error) on
+    # likely typos like ``population_scal_factor``. Add to this set when
+    # polarislib gains new ``ConvergenceConfig`` fields. Branch-specific
+    # knobs that aren't on this list still pass through fine.
+    KNOWN_RUNNER_OPTIONS: frozenset[str] = frozenset({
+        "population_scale_factor",
+        "num_abm_runs",
+        "num_dta_runs",
+        "do_skim",
+        "do_warm_start",
+        "do_calibration",
+        "do_dta",
+        "do_abm",
+        "do_pop_synth",
+        "do_init",
+        "current_iteration",
+        "start_iteration_from",
+        "archive_dir",
+        "db_name",
+        "output_dir_name",
+        "polaris_exe",
+        "fixed_demand",
+        "fixed_supply",
+        "max_concurrent",
+    })
+
+    def unknown_runner_options(self) -> list[str]:
+        """Return ``runner_options`` keys not in :attr:`KNOWN_RUNNER_OPTIONS`.
+
+        Used by ``polarisopt plan`` to surface likely typos before a
+        compute allocation is burned. The whitelist is *soft* — branch-
+        specific polarislib knobs that aren't listed still pass through.
+        """
+        return sorted(set(self.runner_options) - self.KNOWN_RUNNER_OPTIONS)
+
     def __init__(
         self,
         *,
@@ -204,13 +267,22 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         )
 
     def collect_output(self, sample: Sample) -> dict[str, Any]:
-        """Extend base class output dict with a ``demand_db`` alias.
+        """Extend base class output dict with polarislib-specific paths.
 
-        Choice-share-style metrics expect ``demand_db``; expose it
-        alongside the base class's ``result_path``.
+        Adds:
+
+        - ``demand_db`` — alias for ``result_path``; choice-share metrics
+          expect this key.
+        - ``progress_log_path`` — absolute path to the POLARIS binary's
+          per-iteration ``log/polaris_progress.log``, if present. This
+          is what you tail to see "are we at sim-hour 10 or sim-hour
+          20" inside a running iteration. The polarisopt-side wrapper
+          log (``polaris.stdout.log``) is a different, coarser thing.
         """
         out = super().collect_output(sample)
         out["demand_db"] = out["result_path"]
+        progress = Path(out["output_dir"]) / "log" / "polaris_progress.log"
+        out["progress_log_path"] = str(progress) if progress.exists() else None
         return out
 
     def _resolve_output_dir(self, workspace: Path, output_dirname: str) -> Path:

@@ -179,6 +179,18 @@ def plan_study(
         report.errors.append(f"simulator construction: {exc}")
         return report
 
+    # Soft-validate runner_options against the simulator's known set. Only
+    # warn — branch-specific polarislib knobs may legitimately not be on
+    # the whitelist.
+    unknown_method = getattr(simulator, "unknown_runner_options", None)
+    if callable(unknown_method):
+        unknown = unknown_method()
+        if unknown:
+            report.warnings.append(
+                f"runner_options keys not in {type(simulator).__name__}.KNOWN_RUNNER_OPTIONS "
+                f"(possible typos?): {unknown}"
+            )
+
     try:
         inputs = _first_sample_inputs(cfg, space)
     except Exception as exc:  # noqa: BLE001

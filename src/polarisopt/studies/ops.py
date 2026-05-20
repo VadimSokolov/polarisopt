@@ -13,6 +13,8 @@ a no-op; aborting an empty store does nothing.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from pathlib import Path
 
 from polarisopt.config.schema import StudyConfig
@@ -22,6 +24,42 @@ from polarisopt.samples.sample import Sample, SampleStatus
 from polarisopt.samples.store import SampleStore
 from polarisopt.utils.logging import get_logger
 from polarisopt.utils.paths import workspace_layout
+
+EXTRA_FINGERPRINT_KEY = "config_fingerprint"
+
+# Runner options that affect orchestrator behavior (polling cadence, log
+# verbosity) but not simulation outcomes. Excluded from the fingerprint so
+# tweaking these doesn't trigger a spurious drift error on retry-failed.
+_ORCHESTRATOR_RUNNER_OPTIONS = frozenset(
+    {"poll_interval", "orphan_threshold", "heartbeat_interval"}
+)
+
+
+def simulator_config_fingerprint(config: StudyConfig) -> str:
+    """Short stable hash of the bits that affect simulation outcome.
+
+    Used by :func:`retry_failed` to detect that the user edited the
+    simulator/runner config between the original run and the retry —
+    silently mixing outputs at different parameter scales inside one
+    SampleStore has burned users in practice.
+
+    Includes ``simulator`` and ``runner`` blocks (type + options) except
+    orchestrator-only knobs (``poll_interval``, ``orphan_threshold``,
+    ``heartbeat_interval``). Excludes things that don't change what the
+    binary does: ``name``, ``workspace``, ``seed`` (different seed = a
+    different next sample, not stale-result contamination), ``phases``,
+    ``parameters``, ``metric``.
+    """
+    runner_opts = {
+        k: v for k, v in config.runner.options.items()
+        if k not in _ORCHESTRATOR_RUNNER_OPTIONS
+    }
+    payload = {
+        "simulator": {"type": config.simulator.type, "options": config.simulator.options},
+        "runner": {"type": config.runner.type, "options": runner_opts},
+    }
+    blob = json.dumps(payload, sort_keys=True, default=str).encode()
+    return hashlib.sha256(blob).hexdigest()[:16]
 
 log = get_logger(__name__)
 
@@ -106,11 +144,23 @@ def abort_study(config: StudyConfig, *, store: SampleStore | None = None) -> lis
     return cancelled
 
 
+class ConfigDriftError(RuntimeError):
+    """Raised when retrying a sample whose recorded simulator/runner config
+    differs from the current YAML.
+
+    Mixing samples evaluated at different parameter scales in one
+    SampleStore silently corrupts downstream analysis — refuse instead
+    of letting it through. The CLI surfaces a ``--force`` flag for the
+    case where the user genuinely means "retry under the new config."
+    """
+
+
 def retry_failed(
     config: StudyConfig,
     *,
     sample_ids: list[int] | None = None,
     store: SampleStore | None = None,
+    force: bool = False,
 ) -> list[Sample]:
     """Flip FAILED samples back to PENDING so a subsequent :func:`run_study`
     or ``polarisopt resume`` re-evaluates them.
@@ -124,11 +174,22 @@ def retry_failed(
         currently FAILED). If ``None``, retry every FAILED sample.
     store : SampleStore or None
         Optional pre-opened store; otherwise opened from ``config``.
+    force : bool
+        Skip the simulator/runner config-drift check. Use when the user
+        genuinely wants to retry under an edited YAML — the new samples
+        will land in the same store and ``polarisopt diff`` won't help
+        because there's only one store. Default ``False``.
 
     Returns
     -------
     list of Sample
         The samples that were transitioned FAILED → PENDING.
+
+    Raises
+    ------
+    ConfigDriftError
+        If any candidate sample's recorded ``config_fingerprint`` differs
+        from the current config's fingerprint and ``force`` is False.
 
     Notes
     -----
@@ -148,6 +209,25 @@ def retry_failed(
             )
     else:
         candidates = store.list(status=SampleStatus.FAILED)
+
+    if not force:
+        current_fp = simulator_config_fingerprint(config)
+        drifted = [
+            s for s in candidates
+            if (recorded := s.extra.get(EXTRA_FINGERPRINT_KEY)) is not None
+            and recorded != current_fp
+        ]
+        if drifted:
+            recorded_set = sorted({
+                s.extra.get(EXTRA_FINGERPRINT_KEY) for s in drifted
+            })
+            raise ConfigDriftError(
+                f"simulator/runner config has changed since {len(drifted)} of "
+                f"{len(candidates)} failed sample(s) ran (recorded fingerprints: "
+                f"{recorded_set}; current: {current_fp!r}). "
+                f"Pass force=True (CLI: --force) to retry under the new config, "
+                f"or start a fresh workspace to keep the run history clean."
+            )
 
     retried: list[Sample] = []
     for sample in candidates:

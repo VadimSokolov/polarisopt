@@ -23,6 +23,7 @@ from polarisopt.samples.store import SampleStore
 from polarisopt.simulator.base import make_simulator
 from polarisopt.stop.base import make_stop
 from polarisopt.studies.base import StudyContext, StudyError
+from polarisopt.studies.ops import simulator_config_fingerprint
 from polarisopt.studies.sequential import SequentialDesignStudy, SequentialPhase
 from polarisopt.studies.static import StaticDesignStudy
 from polarisopt.utils.logging import get_logger
@@ -58,7 +59,9 @@ class StudyRunner:
         runner_options = dict(config.runner.options)
         self.poll_interval: float = float(runner_options.pop("poll_interval", 5.0))
         self.orphan_threshold: int = int(runner_options.pop("orphan_threshold", 3))
+        self.heartbeat_interval: float = float(runner_options.pop("heartbeat_interval", 300.0))
         self.runner = make_runner({"type": config.runner.type, "options": runner_options})
+        self.config_fingerprint: str = simulator_config_fingerprint(config)
         self.simulator = make_simulator({"type": config.simulator.type, "options": config.simulator.options})
         self.metric = make_metric({"type": config.metric.type, "options": config.metric.options})
 
@@ -80,6 +83,8 @@ class StudyRunner:
                 rng=self.rng,
                 poll_interval=self.poll_interval,
                 orphan_threshold=self.orphan_threshold,
+                heartbeat_interval=self.heartbeat_interval,
+                config_fingerprint=self.config_fingerprint,
             )
             if isinstance(phase, StaticPhaseConfig):
                 design = make_design({"type": phase.design.type, "options": phase.design.options})
