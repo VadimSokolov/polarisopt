@@ -13,10 +13,23 @@ def ensure_dir(path: Path | str) -> Path:
 
 
 def workspace_layout(workspace: Path | str) -> dict[str, Path]:
-    """Standard subdirectories under a study workspace.
+    """Return the standard sub-paths under a study workspace.
 
-    Returns paths only — does not create them. Call ``ensure_dir`` per entry
-    as needed.
+    Returns paths only — does not create them. Caller mkdir's what it
+    actually uses. ``StudyRunner`` only auto-creates ``experiments/``.
+
+    Keys
+    ----
+    root         The workspace directory itself.
+    experiments  Per-sample directories (``sim-NNNNNN``) live here.
+    logs         **Reserved** for application-level master logs — empty
+                 unless the user writes there. polarisopt's per-sample
+                 logs are inside ``experiments/sim-NNN/`` (e.g.
+                 ``polaris.stdout.log``), not here.
+    scripts      **Reserved** for auxiliary scripts (e.g. the EQSQL
+                 compat shim's sbatch scripts). Empty unless a backend
+                 uses it.
+    db           The SQLite SampleStore path.
     """
     root = Path(workspace).resolve()
     return {

@@ -4,17 +4,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-try:
-    from enum import StrEnum
-except ImportError:  # Python <3.11
-    from enum import Enum
-    class StrEnum(str, Enum):
-        def __str__(self) -> str:
-            return str.__str__(self)
 from pathlib import Path
 from typing import Any
 
 import numpy as np
+
+from polarisopt.utils._compat import StrEnum
 
 
 class SampleStatus(StrEnum):

@@ -16,8 +16,7 @@ from __future__ import annotations
 import json
 from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
-from datetime import datetime, timezone
-UTC = timezone.utc
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
@@ -40,6 +39,7 @@ from sqlalchemy import (
 from sqlalchemy.engine import Engine
 
 from polarisopt.samples.sample import Sample, SampleStatus
+from polarisopt.utils._compat import UTC
 from polarisopt.utils.logging import get_logger
 
 log = get_logger(__name__)

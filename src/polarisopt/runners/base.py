@@ -10,15 +10,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-try:
-    from enum import StrEnum
-except ImportError:  # Python <3.11
-    from enum import Enum
-    class StrEnum(str, Enum):
-        def __str__(self) -> str:
-            return str.__str__(self)
 from pathlib import Path
 
+from polarisopt.utils._compat import StrEnum
 from polarisopt.utils.registry import Registry
 
 

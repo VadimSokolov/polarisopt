@@ -46,8 +46,9 @@ class StudyRunner:
         self.layout = workspace_layout(config.workspace)
         self.layout["root"].mkdir(parents=True, exist_ok=True)
         self.layout["experiments"].mkdir(parents=True, exist_ok=True)
-        self.layout["logs"].mkdir(parents=True, exist_ok=True)
-        self.layout["scripts"].mkdir(parents=True, exist_ok=True)
+        # logs/ and scripts/ are *available* paths (see workspace_layout)
+        # for callers that need them; we don't pre-create them since
+        # polarisopt's own per-sample logs live inside experiments/sim-NNN/.
 
         self.store = store or SampleStore.open(self.layout["db"], config.name)
         self.space = _build_space(config.parameters)

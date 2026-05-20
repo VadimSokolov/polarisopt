@@ -103,6 +103,8 @@ ignore = ["E501"]
 "src/polarisopt/stop/*.py" = ["N803", "N806"]
 "src/polarisopt/studies/*.py" = ["N803", "N806"]
 "src/polarisopt/samples/*.py" = ["N803", "N806"]
+# _compat.py intentionally has a version-conditional StrEnum block.
+"src/polarisopt/utils/_compat.py" = ["UP036"]
 # Tests use math notation; tests/integration/* and tests/unit/test_acquisition.py
 # importorskip torch before importing torch-dependent modules — that's intentional.
 "tests/**/*.py" = ["N803", "N806", "E402"]

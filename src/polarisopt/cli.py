@@ -22,6 +22,7 @@ from polarisopt.studies.ops import (
     retry_failed,
     sample_log_paths,
 )
+from polarisopt.studies.plan import plan_study
 from polarisopt.studies.runner import StudyRunner
 from polarisopt.studies.validate import validate_study
 from polarisopt.utils.logging import configure
@@ -63,11 +64,48 @@ def run(config: Path) -> None:
     is_flag=True,
     help="Treat warnings as errors (exit nonzero if any warning fires).",
 )
-def validate(config: Path, warnings_as_errors: bool) -> None:
+@click.option(
+    "--deep",
+    is_flag=True,
+    help=(
+        "Also stage sample 0 and render its JobSpec (catches missing modules, "
+        "wrong scenario keys, runner-script typos). Slower but more thorough."
+    ),
+)
+def validate(config: Path, warnings_as_errors: bool, deep: bool) -> None:
     """Pre-flight validation. Exits 0 if the study is ready to run."""
     report = validate_study(config)
     click.echo(report.render())
     if not report.ok or (warnings_as_errors and report.warnings):
+        raise click.exceptions.Exit(1)
+    if deep:
+        click.echo("---")
+        click.echo("running deep validation (staging sample 0)...")
+        plan = plan_study(config)
+        click.echo(plan.render())
+        if not plan.ok:
+            raise click.exceptions.Exit(1)
+
+
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--workspace",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Override the per-sample workspace dir (default: <study workspace>/experiments/plan-sample).",
+)
+def plan(config: Path, workspace: Path | None) -> None:
+    """Dry-run: stage sample 0, render its JobSpec, stop before sbatch.
+
+    The staged folder is left intact so you can inspect what would have
+    been submitted. Catches the operational failures that schema-only
+    validate misses (missing modules, scenario JSON key typos, runner
+    script paths, parameter file relpaths, ...).
+    """
+    report = plan_study(config, workspace_override=workspace)
+    click.echo(report.render())
+    if not report.ok:
         raise click.exceptions.Exit(1)
 
 

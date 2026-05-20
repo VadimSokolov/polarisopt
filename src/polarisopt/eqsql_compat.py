@@ -42,15 +42,7 @@ import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
-UTC = timezone.utc
-try:
-    from enum import StrEnum
-except ImportError:  # Python <3.11
-    from enum import Enum
-    class StrEnum(str, Enum):
-        def __str__(self) -> str:
-            return str.__str__(self)
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +60,7 @@ from sqlalchemy.engine import Engine
 
 from polarisopt.runners.base import JobSpec, JobStatus
 from polarisopt.runners.slurm import SlurmResources, SlurmRunner
+from polarisopt.utils._compat import UTC, StrEnum
 from polarisopt.utils.logging import get_logger
 
 log = get_logger(__name__)

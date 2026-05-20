@@ -8,16 +8,11 @@ that should receive the value. A ``ParameterSpace`` is a collection.
 from __future__ import annotations
 
 from dataclasses import dataclass
-try:
-    from enum import StrEnum
-except ImportError:  # Python <3.11
-    from enum import Enum
-    class StrEnum(str, Enum):
-        def __str__(self) -> str:
-            return str.__str__(self)
 from typing import Any
 
 import numpy as np
+
+from polarisopt.utils._compat import StrEnum
 
 
 class ParameterType(StrEnum):
@@ -34,7 +29,10 @@ class Parameter:
     name : str
         Variable name as it appears in the POLARIS JSON file.
     file : str
-        Relative path of the POLARIS JSON that owns this variable.
+        Path of the POLARIS JSON that owns this variable, **relative to
+        the staged model directory**. Subdirectories are supported:
+        e.g. ``config/choice_models/DestinationChoice.json``. Use forward
+        slashes; the path is resolved against each sample's workspace.
         ``ParameterSpace.by_file`` groups parameters by this field.
     low : float
         Lower bound, inclusive.

@@ -1,12 +1,21 @@
-# A POLARIS calibration on a real Slurm cluster.
+# A POLARIS calibration on a real Slurm cluster (LCRC Crossover / TPS).
 #
 # Copy this file, then set POLARIS_BIN / POLARIS_MODEL / POLARIS_TARGET_H5
 # environment variables before running.
 #
-#   export POLARIS_BIN=/lcrc/project/POLARIS/.../polaris_exe/Integrated_Model.sif
+#   export POLARIS_BIN=/lcrc/project/POLARIS/.../polaris_exe/polaris.sif
 #   export POLARIS_MODEL=/lcrc/project/POLARIS/.../DFW_2050_20251028
 #   export POLARIS_TARGET_H5=/lcrc/project/POLARIS/.../baseline/DFW-Result.h5
 #   polarisopt run polaris-slurm.yaml
+#
+# Notes
+# -----
+# - ``parameters[].file`` is a path relative to the staged model directory.
+#   You can use subdirectories (e.g. ``config/choice_models/DestinationChoice.json``).
+# - ``output_dir_key`` overrides the default ``["Output controls", "output_directory"]``.
+#   DFW-style models use ``output_dir_name`` instead — that's set below.
+# - ``setup_commands`` on the Slurm runner loads ``module``s before any
+#   simulator command runs.  Required on TPS for ``apptainer`` etc.
 
 name: polaris-calibration
 workspace: /lcrc/project/POLARIS/{{ env.USER }}/runs/calib-{{ now('%Y%m%dT%H%M%SZ') }}
@@ -19,6 +28,7 @@ simulator:
     model_source: "{{ env.POLARIS_MODEL }}"
     scenario_file: scenario_abm.json
     output_db_filename: DFW-Result.h5
+    output_dir_key: ["Output controls", "output_dir_name"]   # DFW convention
     num_threads: "16"
     transfer:
       type: local      # change to "anl" for VMS-backed model_source
@@ -27,12 +37,15 @@ runner:
   type: slurm
   options:
     default_resources:
-      partition: bdwall
-      account: POLARIS
+      partition: TPS          # LCRC Crossover TPS nodes
+      account: TPS
       time: "04:00:00"
       nodes: 1
       cpus_per_task: 16
       mem: 64G
+      setup_commands:
+        - "module purge"
+        - "module load gcc/10.4 hdf5/1.12 libspatialite singularity"
     poll_interval: 30
     orphan_threshold: 5
 

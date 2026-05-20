@@ -11,12 +11,14 @@ from polarisopt.studies.ops import (
     retry_failed,
     sample_log_paths,
 )
+from polarisopt.studies.plan import PlanReport, plan_study
 from polarisopt.studies.runner import StudyRunner, run_study
 from polarisopt.studies.sequential import SequentialDesignStudy, SequentialPhase
 from polarisopt.studies.static import StaticDesignStudy
 from polarisopt.studies.validate import ValidationReport, validate_study
 
 __all__ = [
+    "PlanReport",
     "SequentialDesignStudy",
     "SequentialPhase",
     "StaticDesignStudy",
@@ -30,6 +32,7 @@ __all__ = [
     "cancel_sample",
     "diff_studies",
     "open_store",
+    "plan_study",
     "reconcile_running",
     "retry_failed",
     "run_study",

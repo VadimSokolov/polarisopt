@@ -2,6 +2,66 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.6.0 — 2026-05-16
+
+First release driven by feedback from a real POLARIS calibration run.
+
+### Bug fixes
+
+- **Slurm `#SBATCH` directive ordering.** `_render_script` emitted
+  `set -euo pipefail` before the directives, which made Slurm silently
+  ignore every directive after that ("No partition specified" even
+  though one was set in YAML). Directives now precede any executable
+  line.
+- **Shell-escape `runner_options` values** in
+  `PolarisConvergenceSimulator`. Spaces / shell metacharacters in
+  user-supplied runner options would previously corrupt the rendered
+  command. (CodeRabbit finding.)
+
+### Added
+
+- **`PolarisConvergenceSimulator`** (`type: polaris_convergence`) —
+  first-class simulator that hands a sample to polarislib's
+  convergence loop via a user-supplied runner script. Master process
+  still never imports polarislib. Forwards arbitrary `run_config`
+  knobs (`population_scale_factor`, `num_abm_runs`, `do_skim`, …) to
+  the runner as CLI flags. Handles polarislib's
+  `<db_name>_<iter_str>[_N]` output-directory naming (both numbered
+  and unnumbered).
+- **`SlurmResources.setup_commands`** — list of bash lines run after
+  `#SBATCH` directives but before the user command. Module loads,
+  `source ~/.bashrc`, etc. Cleaner than baking them into every
+  simulator's command string.
+- **`ConstantMetric`** (`type: constant`, alias `null_metric`) —
+  fixed value for studies that produce artifacts, not objectives.
+  Documents intent.
+- **`polarisopt plan <study.yaml>`** — dry-run: stage sample 0,
+  render its `JobSpec`, optionally render the sbatch script, **don't**
+  submit. Catches operational failures (missing modules, scenario
+  JSON key typos, runner script paths, parameter file relpaths)
+  before burning a Slurm allocation.
+- **`polarisopt validate --deep`** — extends `validate` with the same
+  staging + JobSpec rendering as `plan`.
+- **`utils/_compat.py`** — consolidates the 3.10 backport shims
+  (`datetime.UTC`, `enum.StrEnum`) so each module imports from one
+  place instead of repeating the try/except block.
+
+### Changed
+
+- **Python 3.10 support.** `requires-python = ">=3.10"` (was 3.11).
+  The codebase uses no 3.11-only syntax; only `datetime.UTC` and
+  `enum.StrEnum` needed shims.
+- **Workspace layout.** `StudyRunner` no longer auto-creates `logs/`
+  and `scripts/` — they were never populated by polarisopt itself
+  (per-sample logs live in `experiments/sim-NNN/`).
+  `workspace_layout()` still returns them as available paths for
+  backends that want them.
+- **Example `polaris-slurm.yaml`** — partition/account corrected to
+  `TPS` (Crossover convention), `setup_commands` for module loading
+  added, `output_dir_key` annotated.
+- **Parameter `file:` docstring** now documents that the relpath
+  supports subdirectories (e.g. `config/choice_models/Foo.json`).
+
 ## 0.5.0 — 2026-05-16
 
 ### Added

@@ -35,6 +35,11 @@ class SlurmResources:
 
     Anything you'd put after ``#SBATCH``. Use the dataclass for common knobs
     and ``extra_directives`` for the long tail (``--qos``, ``--mail-user`` ...).
+
+    ``setup_commands`` is a list of shell commands run **after** the
+    directives but **before** the user command. Useful for ``module load``,
+    activating a virtualenv, sourcing env files, etc. — anything that
+    can't be cleanly represented as a static env dict.
     """
 
     partition: str | None = None
@@ -45,6 +50,7 @@ class SlurmResources:
     cpus_per_task: int | None = None
     mem: str | None = None
     extra_directives: list[str] = field(default_factory=list)
+    setup_commands: list[str] = field(default_factory=list)
 
     def to_directives(self, *, job_name: str, stdout: Path | None, stderr: Path | None) -> list[str]:
         lines: list[str] = [f"#SBATCH --job-name={job_name}"]
@@ -192,6 +198,9 @@ class SlurmRunner(Runner):
         lines = ["#!/bin/bash", *directives, "", "set -euo pipefail", ""]
         if env_lines:
             lines.extend(env_lines)
+            lines.append("")
+        if resources.setup_commands:
+            lines.extend(resources.setup_commands)
             lines.append("")
         lines.append(f"cd {shlex.quote(str(spec.cwd))}")
         lines.append(spec.command)

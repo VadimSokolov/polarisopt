@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
-UTC = timezone.utc
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +11,7 @@ import yaml
 from jinja2 import Environment, StrictUndefined
 
 from polarisopt.config.schema import StudyConfig
+from polarisopt.utils._compat import UTC
 
 
 def _make_env() -> Environment:
