@@ -23,6 +23,11 @@ from polarisopt.config.schema import (
 from polarisopt.parameters import ParameterSpace, load_parameter_file
 from polarisopt.parameters.space import parameter_space_from_records
 
+# Orchestrator-side keys that live in runner.options but are popped by
+# StudyRunner before the runner is constructed. Single source of truth
+# in studies/ops.py so plan/validate/run stay in sync.
+from polarisopt.studies.ops import _ORCHESTRATOR_RUNNER_OPTIONS as _RUNNER_ORCHESTRATOR_KEYS
+
 
 @dataclass
 class ValidationReport:
@@ -192,12 +197,6 @@ def _check_one_plugin_options(
         report.warnings.append(msg + " (class accepts **kwargs — may be forwarded)")
     else:
         report.errors.append(msg)
-
-
-# Orchestrator-side keys that live in runner.options but are popped by
-# StudyRunner before the runner is constructed. Kept in sync with
-# studies/runner.py:StudyRunner.__init__.
-_RUNNER_ORCHESTRATOR_KEYS = {"poll_interval", "orphan_threshold", "heartbeat_interval"}
 
 
 def _check_plugin_options(cfg: StudyConfig, report: ValidationReport) -> None:

@@ -101,6 +101,83 @@ def test_plan_slurm_runner_writes_script(tmp_path: Path) -> None:
     assert "module load singularity" in text
 
 
+def test_plan_strips_orchestrator_knobs_before_runner_construction(
+    tmp_path: Path,
+) -> None:
+    """``poll_interval`` / ``orphan_threshold`` / ``heartbeat_interval`` live
+    in ``runner.options`` (YAML-side) but are consumed by ``StudyRunner``,
+    not by the runner constructor. ``plan_study`` must strip them too —
+    otherwise it errors on every YAML that ``polarisopt run`` accepts.
+
+    Regression for the bundled ``polaris-slurm.yaml`` example which sets
+    these and was failing ``polarisopt plan`` as shipped.
+    """
+    yaml_text = _good_yaml(tmp_path / "ws").replace(
+        "runner: { type: local, options: {} }",
+        dedent(
+            """\
+            runner:
+              type: slurm
+              options:
+                default_resources:
+                  partition: bdwall
+                  account: POLARIS
+                  time: "00:30:00"
+                  cpus_per_task: 4
+                poll_interval: 30
+                orphan_threshold: 5
+                heartbeat_interval: 60
+            """
+        ).strip(),
+    )
+    p = tmp_path / "slurm-with-knobs.yaml"
+    p.write_text(yaml_text)
+    report = plan_study(p)
+    assert report.ok, report.render()
+    assert report.script_path is not None
+
+
+def test_plan_works_on_bundled_polaris_slurm_example(tmp_path: Path) -> None:
+    """Regression: the example shipped under src/polarisopt/examples/ must
+    pass ``polarisopt plan`` so users who follow the docs aren't stuck."""
+    from polarisopt.examples import read_example
+
+    yaml_text = read_example("polaris-slurm")
+    # The example uses Jinja env() lookups + a workspace path under /lcrc/
+    # that doesn't exist on CI. Patch a writable workspace and stub the
+    # env vars enough to render.
+    yaml_text = yaml_text.replace(
+        "/lcrc/project/POLARIS/{{ env.USER }}/runs/calib-{{ now('%Y%m%dT%H%M%SZ') }}",
+        str(tmp_path / "ws"),
+    )
+    fake_bin = tmp_path / "polaris.sif"
+    fake_bin.touch()
+    fake_model = tmp_path / "model"
+    fake_model.mkdir()
+    (fake_model / "scenario_abm.json").write_text(
+        '{"Output controls": {"output_dir_name": "out"}, '
+        '"General simulation controls": {"database_name": "T"}}'
+    )
+    (fake_model / "DestinationChoice.json").write_text(
+        '{"_": {"trip_threshold": 0.0, "gravity_alpha": 0.0}}'
+    )
+    (fake_model / "ActivityChoice.json").write_text('{"_": {"walk_max": 0}}')
+    fake_target = tmp_path / "target.h5"
+    fake_target.touch()
+    yaml_text = (
+        yaml_text
+        .replace("{{ env.POLARIS_BIN }}", str(fake_bin))
+        .replace("{{ env.POLARIS_MODEL }}", str(fake_model))
+        .replace("{{ env.POLARIS_TARGET_H5 }}", str(fake_target))
+    )
+    p = tmp_path / "polaris-slurm.yaml"
+    p.write_text(yaml_text)
+    report = plan_study(p)
+    # The example may produce warnings (e.g. unknown runner_options for
+    # branch-specific knobs) but must not error.
+    assert report.ok, report.render()
+
+
 def test_cli_plan(tmp_path: Path) -> None:
     p = tmp_path / "good.yaml"
     p.write_text(_good_yaml(tmp_path / "ws"))

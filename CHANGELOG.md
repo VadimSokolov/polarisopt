@@ -2,6 +2,35 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.9.2 — 2026-06-11
+
+Bug-fix release. Both bugs flagged by a third agent doing a polarisopt
+port (the taxidemo emukit demo).
+
+### Bug fixes
+
+- **`polarisopt plan` no longer fails on YAMLs that set
+  `poll_interval` / `orphan_threshold` / `heartbeat_interval` under
+  `runner.options`.** These are valid YAML — `StudyRunner` pops them
+  before constructing the runner — but `plan_study` was passing them
+  straight through to `make_runner`, which made `SlurmRunner.__init__`
+  reject them. The bundled `polaris-slurm.yaml` example was unrunnable
+  through `polarisopt plan` for this reason. `plan_study` now mirrors
+  `StudyRunner`'s strip step. Regression test covers both the synthetic
+  case and the bundled example by name.
+- **Bundled `polaris-slurm.yaml`: `account: TPS` → `account: tps`.**
+  Crossover's Slurm account is lowercase; uppercase was rejected by
+  the controller. Partition stays `TPS` (which it actually wants).
+
+### Internal
+
+- **Single source of truth for the orchestrator-knob set.** Previously
+  `_ORCHESTRATOR_RUNNER_OPTIONS` (in `studies/ops.py`) and
+  `_RUNNER_ORCHESTRATOR_KEYS` (in `studies/validate.py`) drifted as two
+  copies of the same constant. Consolidated into one in `ops.py`;
+  `validate.py` and `plan.py` now import it. Future additions to the
+  orchestrator-knob set only need to land in one place.
+
 ## 0.9.1 — 2026-05-23
 
 Docs-only release. Closes the notebook-usability documentation gap —

@@ -33,6 +33,7 @@ from polarisopt.runners.factory import make_runner
 from polarisopt.runners.slurm import SlurmRunner
 from polarisopt.samples.sample import Sample
 from polarisopt.simulator.base import make_simulator
+from polarisopt.studies.ops import _ORCHESTRATOR_RUNNER_OPTIONS
 from polarisopt.utils.logging import get_logger
 from polarisopt.utils.paths import workspace_layout
 
@@ -214,9 +215,17 @@ def plan_study(
 
     # If the runner is Slurm, render the sbatch script (don't submit).
     if cfg.runner.type == "slurm":
+        # Mirror StudyRunner: strip orchestrator-only knobs before passing
+        # options to the runner constructor. Without this, plan_study fails
+        # on every YAML that sets poll_interval / orphan_threshold /
+        # heartbeat_interval, even though `polarisopt run` accepts them.
+        runner_options = {
+            k: v for k, v in cfg.runner.options.items()
+            if k not in _ORCHESTRATOR_RUNNER_OPTIONS
+        }
         try:
             runner = make_runner(
-                {"type": cfg.runner.type, "options": cfg.runner.options}
+                {"type": cfg.runner.type, "options": runner_options}
             )
         except Exception as exc:  # noqa: BLE001
             report.errors.append(f"runner construction: {exc}")
