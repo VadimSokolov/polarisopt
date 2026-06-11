@@ -28,8 +28,8 @@ usual suspects:
 
 | File | Source | Look for |
 |---|---|---|
-| `polaris.stdout.log` | POLARIS C++ output | progress lines, "iteration N of M" |
-| `polaris.stderr.log` | POLARIS C++ errors | segfaults, "file not found", schema errors |
+| `polaris.stdout.log` | polarisopt wrapper (Python runner) | runner Python tracebacks, missing-module errors |
+| `polaris.stderr.log` | wrapper stderr | "file not found", schema errors at init |
 | `slurm-<jobid>.out` | sbatch wrapper | OOM, time-limit |
 | `<jobname>.slurm` | the generated sbatch script | resource directives that look wrong |
 
@@ -38,6 +38,22 @@ For long files, page or tail:
 ```bash
 polarisopt logs study.yaml 42 -n 200       # last 200 lines per file
 polarisopt logs study.yaml 42 --follow      # stream live
+```
+
+For `polaris_convergence` simulators, the wrapper logs above are only
+the Python runner's view. The POLARIS C++ binary writes its own
+progress log to `<output_dir>/log/polaris_progress.log` — that's the
+one that tells you what sim-hour the run is in:
+
+```bash
+polarisopt logs study.yaml 42 --binary --follow
+```
+
+If the sample produced multiple iteration dirs (e.g. `abm_init` + a
+`normal_iteration_1`), pin the tail to one:
+
+```bash
+polarisopt logs study.yaml 42 --binary --iteration=abm_init
 ```
 
 ## 3. Common failure signatures
@@ -117,24 +133,48 @@ prefix the binary with `strace`/`ltrace`/`gdb`.
 
 ## 5. Retry just the failed samples
 
-There's no "retry-failed" subcommand in v0.2 (it's planned). Workaround:
-manually flip FAILED → PENDING in the store, then resume:
-
-```python
-from polarisopt.samples.sample import SampleStatus
-from polarisopt.samples.store import SampleStore
-from polarisopt.utils.paths import workspace_layout
-
-store = SampleStore.open(workspace_layout("/path/to/ws")["db"], "study-name")
-for s in store.list(status=SampleStatus.FAILED):
-    s.status = SampleStatus.PENDING
-    s.message = (s.message or "") + " | retry"
-    store.update(s)
+```bash
+polarisopt retry-failed study.yaml --run
 ```
+
+Flips every FAILED → PENDING in the store and immediately re-runs the
+phase to evaluate them. Target specific samples with `--id`:
 
 ```bash
-polarisopt resume study.yaml
+polarisopt retry-failed study.yaml --id 42 --id 51 --run
 ```
+
+Without `--run`, the command only flips the status — useful if you
+want to inspect the store first or queue them for a later
+`polarisopt resume`.
+
+### Config drift on retry
+
+`retry-failed` records a 16-char fingerprint of the simulator+runner
+config on every sample at submit time. If you've edited `simulator.*`
+or `runner.*` in the YAML since the failed samples ran, retry refuses:
+
+```text
+ConfigDriftError: simulator/runner config has changed since 3 of 5
+failed sample(s) ran (recorded fingerprints: ['a1b2c3d4...']; current:
+'5e6f7a8b...'). Pass force=True (CLI: --force) to retry under the new
+config, or start a fresh workspace to keep the run history clean.
+```
+
+This is intentional — mixing results from different `population_scale_factor`
+or `num_threads` settings in one SampleStore silently corrupts downstream
+analysis. Two options:
+
+- **`--force`** if you genuinely want to retry under the new config
+  (and accept that the store now contains heterogeneous samples).
+- **Fresh workspace** if you're tuning the YAML — change `workspace:`
+  to a distinct path. Convention: tag the path with the scale or
+  variant, e.g. `polarisopt-runs/<study>-1pc/` vs
+  `polarisopt-runs/<study>-5pc/`.
+
+Orchestrator knobs (`poll_interval`, `orphan_threshold`,
+`heartbeat_interval`) are excluded from the fingerprint, so tweaking
+those doesn't trigger drift.
 
 ## See also
 

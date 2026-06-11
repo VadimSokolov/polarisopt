@@ -10,3 +10,4 @@ one focused "how do I X?" question.
 - [Use Globus for file transfer](use-globus.md) — the `anl` Transfer backend
 - [Migrate from EQSQL](migrate-from-eqsql.md) — drop-in compat shim + new API
 - [Debug failed samples](debug-failed-samples.md) — logs, store queries, common failure modes
+- [Common mistakes](common-mistakes.md) — option typos and the `validate` / `plan` workflow that catches them

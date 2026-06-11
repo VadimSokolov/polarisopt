@@ -80,6 +80,24 @@ The biggest mental shift: **no long-lived workers**. Each sample is a
 fresh sbatch job. For DFW-class iterations (30+ min each), per-job
 startup overhead is negligible.
 
+### Why per-user worker pinning drops out
+
+If your EQSQL pipeline has a `my_workers_regex()` helper or similar
+worker-id filter (the demand-DOE workflow does), you do **not** need to
+port it. Under EQSQL the queue is shared across users — every worker
+sees every task — so without an `worker_id` regex on `insert_task`
+your designs can land on someone else's account, run with their env,
+and OOM their node. Worker pinning is contamination defense.
+
+polarisopt's `SlurmRunner` submits directly via `sbatch`. The Slurm job
+runs under *your* uid in *your* account, with the resources *your*
+YAML declared. There's no shared queue between users to contaminate.
+The contamination-defense pattern is unnecessary by construction.
+
+What this means in practice: drop the `worker_id` regex from migrated
+code. The `eqsql_compat.open_queue()` shim still accepts it for API
+parity, but it's not used.
+
 ## See also
 
 - [EQSQL compatibility reference](../eqsql-compat.md)

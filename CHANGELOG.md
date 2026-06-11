@@ -2,6 +2,34 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.8.1 — 2026-05-22
+
+Docs-only release. Refreshes the how-to guides that fell behind v0.6–v0.8
+work and ships the v0.8 typo-class lessons learned from the live
+calibration agent.
+
+### Documentation
+
+- **`docs/how-to/debug-failed-samples.md`** — §5 rewritten. The "no
+  retry-failed in v0.2 (it's planned)" workaround is gone; replaced
+  with the actual v0.7 `retry-failed --run` workflow plus a Config
+  drift on retry section covering the v0.8 fingerprint check and the
+  ``--force`` escape. §2 now documents `--binary` / `--iteration` for
+  tailing POLARIS's per-iteration progress log.
+- **`docs/how-to/migrate-from-eqsql.md`** — new Why per-user worker
+  pinning drops out paragraph explaining that the contamination-defense
+  pattern from EQSQL (`my_workers_regex()` and friends) is unnecessary
+  under `SlurmRunner` because there's no shared queue to contaminate.
+- **`docs/getting-started.md`** — Python version corrected (3.10+, was
+  3.11+; stale since v0.6). `polaris_convergence` simulator and
+  `setup_commands` on `default_resources` are now mentioned in "Use
+  with POLARIS." New Workspace path convention and Validate before
+  submitting sections.
+- **`docs/how-to/common-mistakes.md`** — new how-to covering the typo
+  class (`distance`/`aggregation`, `sim_key`/`source_key`, etc.) that
+  v0.8's plugin-option signature check catches. Documents the
+  `validate` → `plan` workflow as the daily-edit cadence.
+
 ## 0.8.0 — 2026-05-21
 
 Third pass of calibration-agent feedback. All five items in the v0.8
