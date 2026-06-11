@@ -90,6 +90,7 @@ nav:
       - "04 · Restart": tutorials/04-restart.md
       - "05 · First POLARIS run": tutorials/05-first-polaris.md
       - "06 · Writing a plugin": tutorials/06-write-a-plugin.md
+      - "Taxi demo": taxidemo.md
   - How-to guides:
       - how-to/index.md
       - Add a new design: how-to/add-design.md

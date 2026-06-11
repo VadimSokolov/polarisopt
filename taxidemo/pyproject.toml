@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling>=1.21"]
+build-backend = "hatchling.build"
+
+[project]
+name = "polarisopt-taxidemo"
+version = "0.1.0"
+description = "Emukit-playground taxi simulator as a polarisopt demo problem"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Vadim Sokolov", email = "vsokolov@anl.gov" },
+]
+keywords = ["polaris", "polarisopt", "demo", "bayesian-optimization", "taxi"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering",
+]
+# The simulator itself is stdlib-only; the plugin needs polarisopt.
+dependencies = [
+    "polarisopt>=0.8",
+]
+
+[project.optional-dependencies]
+notebooks = [
+    "jupyter",
+    "matplotlib>=3.8",
+    "pandas>=2.1",
+]
+
+# polarisopt discovers this on import: `simulator: {type: taxi}` in any study YAML.
+[project.entry-points."polarisopt.simulators"]
+taxi = "taxidemo.plugin"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/taxidemo"]
+
+[tool.black]
+line-length = 120
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["B", "C", "E", "F", "W"]
+ignore = ["E501"]
