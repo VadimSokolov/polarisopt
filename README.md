@@ -2,7 +2,11 @@
 
 Modular design-of-experiments and Bayesian optimization for [POLARIS](https://polaris.taps.anl.gov/).
 
-> **Status: 0.1.0 development.** API surface is in flux. Not yet ready for production use.
+> **Status: 0.9.x.** Pre-1.0 but battle-tested on live POLARIS calibration
+> work since v0.6 (May 2026). The plugin / YAML / SampleStore surface has
+> been additive across releases — no breaking changes since v0.6. 1.0
+> will lock the surface once the choice-model calibration workflow lands
+> its second production run.
 
 ## What it does
 
@@ -15,6 +19,8 @@ Studies are configured in YAML and executed via the `polarisopt` CLI or programm
 
 ## Install
 
+Python 3.10+.
+
 ```bash
 pip install polarisopt              # core
 pip install polarisopt[bo]          # + Bayesian opt (BoTorch + GPyTorch)
@@ -25,10 +31,18 @@ pip install polarisopt[dev]         # + dev tooling
 ## Quick start
 
 ```bash
-polarisopt run study.yaml
-polarisopt status study.yaml
-polarisopt resume study.yaml
+polarisopt validate study.yaml        # schema + plugin-option signature check
+polarisopt plan     study.yaml        # stage sample 0, render sbatch script, don't submit
+polarisopt run      study.yaml        # submit + poll
+polarisopt status   study.yaml -v     # per-sample table: jobid, runtime, last log line
+polarisopt logs     study.yaml 42 --binary --iteration=abm_init
+polarisopt resume   study.yaml        # pick up an interrupted run
+polarisopt retry-failed study.yaml --run
 ```
+
+See [docs/getting-started.md](docs/getting-started.md) for a worked
+example and [docs/how-to/common-mistakes.md](docs/how-to/common-mistakes.md)
+for the typo class `validate` catches in <1s.
 
 ## Architecture
 
@@ -40,32 +54,39 @@ polarisopt/
 ├── samples/           # Sample, SQLite-backed SampleStore (single source of truth)
 ├── config/            # pydantic study config + Jinja2 templating
 ├── design/            # Static DOE: LHS, Morris, Sobol, manual
-├── surrogates/        # GP (BoTorch), ...
-├── acquisition/       # EI, qEI, qEHVI, ...
+├── surrogates/        # GP (BoTorch), MultiTaskGP, ...
+├── acquisition/       # LogEI, qLogEI, qLogEHVI, ...
 ├── generators/        # SampleGenerator strategies (batch-first)
-├── stop/              # Stopping criteria
-├── metrics/           # Metric ABC — scalar or vector outputs
-├── simulator/         # Simulator ABC + MockSimulator + PolarisSimulator
-├── runners/           # Runner ABC — local + slurm
-├── studies/           # Orchestrators: static, sequential, pipeline
-├── compat/            # Compatibility shims (e.g. EQSQL-shaped API over Slurm)
-└── cli/
+├── stop/              # Stopping criteria (max_iter, epsilon, plateau, hypervolume)
+├── metrics/           # Metric ABC — identity, link_moe, choice_share, constant
+├── simulator/         # Simulator ABC + MockSimulator + PolarisSimulator + PolarisConvergenceSimulator
+├── runners/           # Runner ABC — LocalRunner + SlurmRunner (direct sbatch)
+├── transfer/          # File staging — LocalTransfer + AnlTransfer + GlobusTransfer
+├── studies/           # Orchestrators: static, sequential + StudyRunner
+├── utils/             # Logging, paths, plugin discovery, _compat shims
+├── cli.py             # Click entry point: validate, plan, run, status, resume, retry-failed, ...
+└── eqsql_compat.py    # Drop-in shim for polaris.hpc.eqsql
 ```
 
 ## EQSQL compatibility
 
-Argonne users coming from `polaris.hpc.eqsql` can use `polarisopt.eqsql_compat` as a drop-in replacement. The wrapper offers the same `insert_task` / `Task.from_id` / `Task.cancel` surface but delegates to plain `sbatch`/`squeue`/`scancel` underneath — no Postgres, no worker pool.
+Argonne users coming from `polaris.hpc.eqsql` can use `polarisopt.eqsql_compat` as a drop-in replacement. It offers the same `insert_task` / `Task.from_id` / `Task.cancel` surface but routes everything through plain `sbatch`/`squeue`/`scancel` — no Postgres, no worker pool, no cross-user contamination by construction.
 
 ```python
 from polarisopt import eqsql_compat
 
-result = eqsql_compat.insert_task(
-    definition={"task-type": "bash-script", "command": "/path/to/run.sh"},
-    exp_id="my-experiment",
-)
-task = result.value
-# task.task_id, task.status, task.get_logs(), task.cancel()
+with eqsql_compat.open_queue("/path/to/workspace") as queue:
+    result = queue.insert_task(
+        definition={"task-type": "bash-script", "command": "/path/to/run.sh"},
+        exp_id="my-experiment",
+    )
+    task = result.value
+    # task.task_id, task.status, task.get_logs(), task.cancel()
 ```
+
+See [docs/how-to/migrate-from-eqsql.md](docs/how-to/migrate-from-eqsql.md)
+for the full migration table and why per-user worker pinning drops out
+under the SlurmRunner model.
 
 ## License
 
