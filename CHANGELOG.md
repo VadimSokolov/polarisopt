@@ -2,6 +2,36 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.9.0 — 2026-05-23
+
+Fixes the bug a second calibration agent hit on its first end-to-end
+smoke run: SIF binaries on Crossover/TPS were invoked bare instead of
+under `apptainer run -B …`, so the container's default mount namespace
+couldn't see `/lcrc/` and every sample failed in ~3 s.
+
+### Bug fixes
+
+- **`PolarisSimulator` now wraps SIF binaries with `apptainer run`.**
+  When `binary` ends in `.sif`, the rendered command is
+  `apptainer run -B <workspace> -B <binary_parent> [-B <user_binds>] <SIF> [<entrypoint>] <scenario> <threads>`
+  instead of the historical bare-exec. Native binaries are unchanged.
+  Closes "10/10 samples failed with `No such scenario config file`
+  inside the container" from the demand-DOE port.
+
+### Added
+
+- **`PolarisSimulator(apptainer_binary="apptainer")`** — defaults to
+  `apptainer`; set `"singularity"` on older clusters.
+- **`PolarisSimulator(singularity_binds=[...])`** — extra `-B` specs
+  for paths the scenario JSON references outside the workspace + SIF
+  parent (e.g. shared skim caches). Each entry is a host path or a
+  `host:container` mapping. Auto-bind dedups user entries that
+  duplicate the defaults.
+- **`PolarisSimulator(sif_entrypoint="Integrated_Model")`** — for the
+  newer POLARIS SIF format where the runscript dispatches by executable
+  name, this string becomes the first positional arg after the SIF.
+  Default `None` (historical bare invocation).
+
 ## 0.8.1 — 2026-05-22
 
 Docs-only release. Refreshes the how-to guides that fell behind v0.6–v0.8

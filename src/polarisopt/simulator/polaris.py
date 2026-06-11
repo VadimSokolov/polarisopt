@@ -68,6 +68,23 @@ class PolarisSimulator(Simulator):
         :class:`~polarisopt.transfer.base.Transfer` for staging. Defaults
         to ``{"type": "local"}``. Use ``{"type": "anl"}`` for Globus on
         VMS-backed paths (requires ``polarisopt[anl]``).
+    apptainer_binary : str, optional
+        Runtime to use when ``binary`` ends in ``.sif``. Default
+        ``"apptainer"``. Override to ``"singularity"`` on older clusters.
+        Ignored when the binary is native (no ``.sif`` extension).
+    singularity_binds : list of str, optional
+        Extra ``-B`` bind specs forwarded to ``apptainer run`` when the
+        binary is a SIF. The per-sample workspace and the SIF's parent
+        directory are bound automatically; add extras here for paths
+        the scenario JSON references outside those trees (e.g. shared
+        skim caches, scratch dirs). Each entry is a host path (``/lcrc/...``)
+        or a ``host:container`` mapping. Default: empty list.
+    sif_entrypoint : str or None
+        For the newer POLARIS SIF format where the runscript dispatches
+        by executable name, this string is inserted as the first
+        positional arg (e.g. ``"Integrated_Model"`` produces
+        ``apptainer run ... polaris.sif Integrated_Model <scenario> <threads>``).
+        Default ``None`` (historical bare invocation).
 
     Raises
     ------
@@ -101,6 +118,9 @@ class PolarisSimulator(Simulator):
         num_iterations: int = 1,
         output_dir_key: tuple[str, str] | list[str] | None = None,
         transfer: dict[str, Any] | None = None,
+        apptainer_binary: str = "apptainer",
+        singularity_binds: list[str] | None = None,
+        sif_entrypoint: str | None = None,
     ) -> None:
         self.binary = Path(binary)
         self.model_source = Path(model_source)
@@ -122,6 +142,9 @@ class PolarisSimulator(Simulator):
                 f"output_dir_key must be (category, key); got {self.output_dir_key!r}"
             )
         self._transfer: Transfer = make_transfer(transfer)
+        self.apptainer_binary: str = apptainer_binary
+        self.singularity_binds: list[str] = list(singularity_binds or [])
+        self.sif_entrypoint: str | None = sif_entrypoint
 
     # ----- staging -----
 
@@ -147,13 +170,7 @@ class PolarisSimulator(Simulator):
                 f"scenario file missing after staging: {scenario_path}"
             )
 
-        single_invocation = " ".join(
-            [
-                shlex.quote(str(self.binary)),
-                shlex.quote(str(scenario_path)),
-                self.num_threads,
-            ]
-        )
+        single_invocation = self._build_invocation(scenario_path, workspace)
         if self.num_iterations == 1:
             command = single_invocation
         else:
@@ -175,6 +192,59 @@ class PolarisSimulator(Simulator):
             stderr=workspace / "polaris.stderr.log",
             env={"POLARIS_NUM_THREADS": self.num_threads},
         )
+
+    # ----- command construction -----
+
+    def _is_sif(self) -> bool:
+        """True when ``binary`` is a SIF (Apptainer/Singularity image)."""
+        return self.binary.suffix.lower() == ".sif"
+
+    def _auto_bind_paths(self, workspace: Path) -> list[str]:
+        """Bind defaults: per-sample workspace + the SIF's parent dir.
+
+        Workspace bind is the critical one — every staged file (scenario
+        JSON, model SQLite copies, output paths) lives under it, and the
+        Apptainer default mount namespace doesn't include ``/lcrc/`` on
+        ANL clusters. SIF's parent is bound so things like sibling
+        ``.params`` files alongside the image are visible if POLARIS
+        expects them.
+        """
+        return [str(workspace.resolve()), str(self.binary.parent.resolve())]
+
+    def _build_invocation(self, scenario_path: Path, workspace: Path) -> str:
+        """Render the full single-invocation command.
+
+        Native binary: ``<binary> <scenario> <threads>``.
+
+        SIF binary: ``<apptainer> run -B <auto-binds> [-B <user-binds>]
+        <binary> [<sif_entrypoint>] <scenario> <threads>``.
+        """
+        if not self._is_sif():
+            return " ".join([
+                shlex.quote(str(self.binary)),
+                shlex.quote(str(scenario_path)),
+                shlex.quote(self.num_threads),
+            ])
+        bind_specs: list[str] = []
+        seen: set[str] = set()
+        for spec in [*self._auto_bind_paths(workspace), *self.singularity_binds]:
+            if spec not in seen:
+                seen.add(spec)
+                bind_specs.append(spec)
+        bind_args: list[str] = []
+        for spec in bind_specs:
+            bind_args.extend(("-B", shlex.quote(spec)))
+        parts = [
+            shlex.quote(self.apptainer_binary),
+            "run",
+            *bind_args,
+            shlex.quote(str(self.binary)),
+        ]
+        if self.sif_entrypoint:
+            parts.append(shlex.quote(self.sif_entrypoint))
+        parts.append(shlex.quote(str(scenario_path)))
+        parts.append(shlex.quote(self.num_threads))
+        return " ".join(parts)
 
     # ----- collection -----
 

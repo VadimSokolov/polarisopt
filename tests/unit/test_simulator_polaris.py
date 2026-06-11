@@ -133,6 +133,150 @@ def test_collect_output_missing_h5_in_existing_dir_raises(
         sim.collect_output(sample)
 
 
+def test_native_binary_not_wrapped_with_apptainer(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """Native (non-SIF) binaries are invoked bare — no apptainer wrapping."""
+    sim = _make_sim(tmp_path)  # binary = /usr/bin/echo
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    spec = sim.prepare(sample, space, workspace)
+    # Compare the first token; pytest dirs may contain "apptainer" literally.
+    assert spec.command.split()[0] == "/usr/bin/echo"
+    assert " run " not in spec.command  # no apptainer/singularity sub-cmd
+    assert " -B " not in spec.command
+
+
+def test_sif_binary_wrapped_with_apptainer_run(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """When binary is a .sif, prepare wraps with `apptainer run -B <workspace>`."""
+    model = _build_fake_model(tmp_path / "src_model")
+    sif_dir = tmp_path / "polaris_exe"
+    sif_dir.mkdir()
+    sif_path = sif_dir / "Integrated_Model.sif"
+    sif_path.touch()
+    sim = PolarisSimulator(
+        binary=str(sif_path),
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="TestModel-Result.h5",
+        num_threads="16",
+    )
+    sample = Sample(id=42, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-42"
+    spec = sim.prepare(sample, space, workspace)
+    assert spec.command.startswith("apptainer run ")
+    # Workspace + SIF parent are auto-bound.
+    assert f"-B {workspace.resolve()}" in spec.command
+    assert f"-B {sif_dir.resolve()}" in spec.command
+    scenario_path = workspace / "scenario_abm.json"
+    # SIF path appears after the binds and before the scenario.
+    sif_pos = spec.command.index(str(sif_path))
+    scenario_pos = spec.command.index(str(scenario_path))
+    assert sif_pos < scenario_pos
+    # No sif_entrypoint set → no extra positional arg between SIF and scenario.
+    between = spec.command[sif_pos + len(str(sif_path)) : scenario_pos].strip()
+    assert between == ""
+
+
+def test_sif_entrypoint_inserted_before_scenario(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """sif_entrypoint='Integrated_Model' adds the new-format dispatch arg."""
+    model = _build_fake_model(tmp_path / "src_model")
+    sif_path = tmp_path / "polaris_exe" / "polaris.sif"
+    sif_path.parent.mkdir()
+    sif_path.touch()
+    sim = PolarisSimulator(
+        binary=str(sif_path),
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        num_threads="8",
+        sif_entrypoint="Integrated_Model",
+    )
+    sample = Sample(id=7, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-7"
+    spec = sim.prepare(sample, space, workspace)
+    scenario_path = workspace / "scenario_abm.json"
+    # Order: ... <sif> Integrated_Model <scenario> <threads>
+    sif_pos = spec.command.index(str(sif_path))
+    entry_pos = spec.command.index("Integrated_Model", sif_pos)
+    scenario_pos = spec.command.index(str(scenario_path))
+    assert sif_pos < entry_pos < scenario_pos
+
+
+def test_singularity_binds_appended_after_auto_binds(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    model = _build_fake_model(tmp_path / "src_model")
+    sif_path = tmp_path / "polaris_exe" / "Integrated_Model.sif"
+    sif_path.parent.mkdir()
+    sif_path.touch()
+    sim = PolarisSimulator(
+        binary=str(sif_path),
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        singularity_binds=["/lcrc/project/POLARIS/shared", "/scratch:/scratch"],
+    )
+    sample = Sample(id=9, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-9"
+    spec = sim.prepare(sample, space, workspace)
+    assert "-B /lcrc/project/POLARIS/shared" in spec.command
+    assert "-B /scratch:/scratch" in spec.command
+
+
+def test_singularity_binds_deduped_with_auto_binds(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """If user passes the same path the auto-bind already covers, don't repeat it."""
+    model = _build_fake_model(tmp_path / "src_model")
+    sif_path = tmp_path / "polaris_exe" / "Integrated_Model.sif"
+    sif_path.parent.mkdir()
+    sif_path.touch()
+    workspace = tmp_path / "experiments" / "sim-1"
+    workspace.mkdir(parents=True)
+    sim = PolarisSimulator(
+        binary=str(sif_path),
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        # User-supplied bind that duplicates the workspace auto-bind:
+        singularity_binds=[str(workspace.resolve())],
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    spec = sim.prepare(sample, space, workspace)
+    # The bind appears exactly once.
+    assert spec.command.count(f"-B {workspace.resolve()}") == 1
+
+
+def test_apptainer_binary_override_to_singularity(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """Older clusters use `singularity` instead of `apptainer`."""
+    model = _build_fake_model(tmp_path / "src_model")
+    sif_path = tmp_path / "polaris_exe" / "polaris.sif"
+    sif_path.parent.mkdir()
+    sif_path.touch()
+    sim = PolarisSimulator(
+        binary=str(sif_path),
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        apptainer_binary="singularity",
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    spec = sim.prepare(sample, space, workspace)
+    assert spec.command.startswith("singularity run ")
+    # tmp_path may contain the literal substring "apptainer" (pytest
+    # interpolates the test name into the dir), so compare the first
+    # token rather than substring-matching.
+    assert spec.command.split()[0] == "singularity"
+
+
 def test_make_simulator_polaris(tmp_path: Path) -> None:
     model = _build_fake_model(tmp_path / "m")
     sim = make_simulator(
