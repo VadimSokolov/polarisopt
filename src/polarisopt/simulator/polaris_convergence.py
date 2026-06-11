@@ -68,7 +68,7 @@ from polarisopt.parameters.injection import inject_values
 from polarisopt.runners.base import JobSpec
 from polarisopt.samples.sample import Sample
 from polarisopt.simulator.base import SimulatorError, simulator_registry
-from polarisopt.simulator.polaris import PolarisSimulator
+from polarisopt.simulator.polaris import PolarisSimulator, _arg_value
 from polarisopt.utils.logging import get_logger
 
 # polarislib's iteration types — see polaris/runs/convergence/convergence_iteration.py
@@ -408,8 +408,3 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         )
 
 
-def _arg_value(value: Any) -> str:
-    """Render a runner_options value as a CLI arg."""
-    if isinstance(value, bool):
-        return "true" if value else "false"
-    return str(value)

@@ -21,6 +21,7 @@ features (Globus transfer) flow through that dependency.
 from __future__ import annotations
 
 import shlex
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -68,6 +69,23 @@ class PolarisSimulator(Simulator):
         :class:`~polarisopt.transfer.base.Transfer` for staging. Defaults
         to ``{"type": "local"}``. Use ``{"type": "anl"}`` for Globus on
         VMS-backed paths (requires ``polarisopt[anl]``).
+    pre_script : path or None
+        Optional Python script to run **before** the POLARIS binary.
+        Invoked as
+        ``<pre_script_interpreter> <pre_script> <workspace>
+        --<param-name-dashified>=<value> …`` with every parameter in
+        the sample's input vector forwarded as a CLI flag (dashified:
+        ``am_sigma`` → ``--am-sigma``). Booleans render as
+        ``true``/``false``. Use for parameter-driven pre-processing
+        that can't be expressed as JSON field injection — e.g.
+        regenerating a demand DB, materializing skim tables,
+        transforming model files in shape-dependent ways. The script
+        runs in the staged workspace; failures abort the sample
+        (``set -e`` is emitted in the rendered command). Default
+        ``None`` (no pre-step).
+    pre_script_interpreter : str or None
+        Path to the Python interpreter for ``pre_script``. Default
+        ``sys.executable``. Ignored when ``pre_script`` is ``None``.
     apptainer_binary : str, optional
         Runtime to use when ``binary`` ends in ``.sif``. Default
         ``"apptainer"``. Override to ``"singularity"`` on older clusters.
@@ -121,6 +139,8 @@ class PolarisSimulator(Simulator):
         apptainer_binary: str = "apptainer",
         singularity_binds: list[str] | None = None,
         sif_entrypoint: str | None = None,
+        pre_script: str | None = None,
+        pre_script_interpreter: str | None = None,
     ) -> None:
         self.binary = Path(binary)
         self.model_source = Path(model_source)
@@ -145,6 +165,12 @@ class PolarisSimulator(Simulator):
         self.apptainer_binary: str = apptainer_binary
         self.singularity_binds: list[str] = list(singularity_binds or [])
         self.sif_entrypoint: str | None = sif_entrypoint
+        self.pre_script: Path | None = Path(pre_script) if pre_script else None
+        if self.pre_script is not None and not self.pre_script.exists():
+            raise SimulatorError(f"pre_script not found: {self.pre_script}")
+        # Resolved lazily — sys.executable inside __init__ might differ
+        # from what's available at runtime in some envs; keep the string.
+        self.pre_script_interpreter: str = pre_script_interpreter or sys.executable
 
     # ----- staging -----
 
@@ -171,19 +197,30 @@ class PolarisSimulator(Simulator):
             )
 
         single_invocation = self._build_invocation(scenario_path, workspace)
-        if self.num_iterations == 1:
+        pre_invocation = self._build_pre_script_invocation(sample, space, workspace)
+        if self.num_iterations == 1 and pre_invocation is None:
             command = single_invocation
         else:
-            # Bash for-loop. POLARIS handles iteration numbering itself —
-            # the second run reads the first run's <output>_iteration_1
-            # outputs as warm-starts and writes <output>_iteration_2.
-            command = (
-                f"set -e\n"
-                f"for i in $(seq 1 {self.num_iterations}); do\n"
-                f"    echo \"[polarisopt] iteration $i of {self.num_iterations}\"\n"
-                f"    {single_invocation}\n"
-                f"done\n"
-            )
+            # Bash sequence. ``set -e`` ensures we bail on pre_script
+            # failure before the binary runs (otherwise stale demand DB
+            # would silently feed POLARIS). The for-loop wraps multi-
+            # iteration native-POLARIS runs; pre_script only runs once.
+            lines = ["set -e"]
+            if pre_invocation is not None:
+                lines.append(pre_invocation)
+            if self.num_iterations == 1:
+                lines.append(single_invocation)
+            else:
+                # POLARIS handles iteration numbering itself — the second
+                # run reads the first run's <output>_iteration_1 outputs
+                # as warm-starts and writes <output>_iteration_2.
+                lines.append(f"for i in $(seq 1 {self.num_iterations}); do")
+                lines.append(
+                    f'    echo "[polarisopt] iteration $i of {self.num_iterations}"'
+                )
+                lines.append(f"    {single_invocation}")
+                lines.append("done")
+            command = "\n".join(lines) + "\n"
         return JobSpec(
             name=f"polaris-sample-{sample.id or 'unsaved'}",
             command=command,
@@ -210,6 +247,31 @@ class PolarisSimulator(Simulator):
         expects them.
         """
         return [str(workspace.resolve()), str(self.binary.parent.resolve())]
+
+    def _build_pre_script_invocation(
+        self, sample: Sample, space: ParameterSpace, workspace: Path
+    ) -> str | None:
+        """Render the pre-binary Python invocation, or None if disabled.
+
+        Forwards every sample parameter as
+        ``--<dashified-name>=<value>``, matching the convention used by
+        :class:`PolarisConvergenceSimulator` for ``runner_options``.
+        Booleans render as ``true``/``false``; everything else falls
+        through to ``str()``. Values are :func:`shlex.quote`-d so
+        spaces or shell metacharacters in numeric formatting can't
+        break the command.
+        """
+        if self.pre_script is None:
+            return None
+        argv = [
+            shlex.quote(self.pre_script_interpreter),
+            shlex.quote(str(self.pre_script)),
+            shlex.quote(str(workspace)),
+        ]
+        for name, value in zip(space.names, sample.inputs, strict=True):
+            flag = "--" + name.replace("_", "-")
+            argv.append(f"{flag}={shlex.quote(_arg_value(value))}")
+        return " ".join(argv)
 
     def _build_invocation(self, scenario_path: Path, workspace: Path) -> str:
         """Render the full single-invocation command.
@@ -316,3 +378,16 @@ def _iteration_of(output_dir: Path) -> int | None:
         return int(name.rsplit("_iteration_", 1)[-1])
     except ValueError:
         return None
+
+
+def _arg_value(value: Any) -> str:
+    """Render a Python value as a single CLI arg token.
+
+    Booleans become ``"true"`` / ``"false"`` (POLARIS / polarislib
+    convention); everything else falls through to ``str()``. Used both
+    by ``PolarisSimulator.pre_script`` arg forwarding and by
+    ``PolarisConvergenceSimulator`` ``runner_options`` forwarding.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    return str(value)

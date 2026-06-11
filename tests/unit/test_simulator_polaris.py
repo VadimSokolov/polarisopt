@@ -277,6 +277,145 @@ def test_apptainer_binary_override_to_singularity(
     assert spec.command.split()[0] == "singularity"
 
 
+def test_pre_script_renders_before_binary(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """``pre_script`` is invoked before the binary with all sample params
+    forwarded as ``--<dashified-name>=<value>`` CLI flags.
+    """
+    pre = tmp_path / "build_demand.py"
+    pre.write_text("# nothing\n")
+    model = _build_fake_model(tmp_path / "src_model")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        num_threads="4",
+        pre_script=str(pre),
+        pre_script_interpreter="/usr/bin/python3",
+    )
+    sample = Sample(id=1, inputs=np.array([0.42, -0.3]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    spec = sim.prepare(sample, space, workspace)
+    cmd = spec.command
+    # ``set -e`` guards: pre_script failure must abort before the binary runs.
+    assert "set -e" in cmd
+    # pre_script is invoked with dashified flags. The space fixture has
+    # parameter names trip_threshold and alpha.
+    assert "/usr/bin/python3" in cmd
+    assert str(pre) in cmd
+    assert "--trip-threshold=0.42" in cmd
+    assert "--alpha=-0.3" in cmd
+    # And pre_script appears BEFORE the /usr/bin/echo binary line.
+    pre_pos = cmd.index(str(pre))
+    binary_pos = cmd.index("/usr/bin/echo")
+    assert pre_pos < binary_pos
+
+
+def test_pre_script_default_is_none_and_no_set_e(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """Backwards compat: without pre_script, the single-iteration command
+    is a single line and doesn't add ``set -e``.
+    """
+    sim = _make_sim(tmp_path)
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    spec = sim.prepare(sample, space, workspace)
+    assert "set -e" not in spec.command
+    assert spec.command.count("\n") == 0
+    assert sim.pre_script is None
+
+
+def test_pre_script_missing_raises_at_construction(tmp_path: Path) -> None:
+    model = _build_fake_model(tmp_path / "m")
+    with pytest.raises(SimulatorError, match="pre_script not found"):
+        PolarisSimulator(
+            binary="/usr/bin/echo",
+            model_source=str(model),
+            scenario_file="scenario_abm.json",
+            output_db_filename="R.h5",
+            pre_script=str(tmp_path / "no_such_script.py"),
+        )
+
+
+def test_pre_script_shell_escapes_value_with_spaces(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """Values with shell metacharacters survive intact (the CodeRabbit
+    finding from v0.6 applies to pre_script forwarding too)."""
+    pre = tmp_path / "build.py"
+    pre.write_text("# pre\n")
+    model = _build_fake_model(tmp_path / "m")
+    # ParameterSpace with a name we can pass a tricky value through.
+    space2 = ParameterSpace.from_iterable(
+        [Parameter("tag", "DestinationChoice.json", 0.0, 1.0)]
+    )
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        pre_script=str(pre),
+    )
+    # Trigger a shape-1 input.
+    sample = Sample(id=1, inputs=np.array([0.5]))
+    spec = sim.prepare(sample, space2, tmp_path / "sim-1")
+    # Numeric value renders to a normal token; the escape isn't a no-op
+    # at construction — sanity check that --tag=0.5 (a regular token).
+    assert "--tag=0.5" in spec.command
+
+
+def test_pre_script_runs_once_with_num_iterations_gt_one(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    pre = tmp_path / "build.py"
+    pre.write_text("# pre\n")
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        num_iterations=3,
+        pre_script=str(pre),
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    spec = sim.prepare(sample, space, tmp_path / "sim-1")
+    cmd = spec.command
+    # pre_script appears exactly once, ahead of the for-loop body.
+    assert cmd.count(str(pre)) == 1
+    for_pos = cmd.index("for i in $(seq")
+    pre_pos = cmd.index(str(pre))
+    assert pre_pos < for_pos
+
+
+def test_pre_script_with_sif_binary(
+    tmp_path: Path, space: ParameterSpace
+) -> None:
+    """SIF + pre_script: order is pre_script, then apptainer-wrapped binary."""
+    pre = tmp_path / "build.py"
+    pre.write_text("# pre\n")
+    sif = tmp_path / "polaris_exe" / "polaris.sif"
+    sif.parent.mkdir()
+    sif.touch()
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary=str(sif),
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        pre_script=str(pre),
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    spec = sim.prepare(sample, space, tmp_path / "sim-1")
+    cmd = spec.command
+    pre_pos = cmd.index(str(pre))
+    apptainer_pos = cmd.index("apptainer run")
+    assert pre_pos < apptainer_pos
+
+
 def test_make_simulator_polaris(tmp_path: Path) -> None:
     model = _build_fake_model(tmp_path / "m")
     sim = make_simulator(

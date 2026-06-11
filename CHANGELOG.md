@@ -2,6 +2,39 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.10.0 — 2026-06-11
+
+New simulator capability flagged by the DFW DOE agent after their
+end-to-end smoke wrapped: parameters that drive a Python pre-processing
+step (build a demand DB, materialize skim tables, transform model
+files) rather than landing in scenario JSON. Today's
+`Parameter.file: <some>.json` injection only handles the latter.
+
+### Added
+
+- **`PolarisSimulator(pre_script=...)`** — optional Python script
+  invoked before the POLARIS binary, with every sample parameter
+  forwarded as `--<dashified-name>=<value>` (`am_sigma` →
+  `--am-sigma`). Booleans render as `true`/`false`, mirroring the
+  `polaris_convergence` `runner_options` forwarding convention.
+  Values are shell-escaped. `set -e` is emitted in the rendered
+  command so a pre-step failure aborts the sample before the binary
+  runs (no silent feeding-stale-demand-into-POLARIS).
+  Use case: `am_sigma` / `pm_sigma` (and other parameters that drive
+  `build_demand.py`-style pre-processing).
+- **`PolarisSimulator(pre_script_interpreter=...)`** — Python
+  interpreter for `pre_script`. Defaults to `sys.executable`.
+
+Backwards compatible — both default to `None`, and YAMLs that don't
+mention them get the exact same rendered command as v0.9.x.
+
+### Internal
+
+- **`_arg_value` helper moved to `simulator/polaris.py`**, since both
+  `PolarisSimulator.pre_script` and
+  `PolarisConvergenceSimulator.runner_options` use the same
+  rendering convention. `polaris_convergence` now imports it.
+
 ## 0.9.3 — 2026-06-11
 
 Operational gotcha flagged by the DFW DOE agent: on Crossover, the
