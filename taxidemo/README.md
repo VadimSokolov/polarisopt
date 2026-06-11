@@ -15,6 +15,7 @@ Three workflows, in increasing order of machinery:
 | 2 | Latin-hypercube screening | local | Jupyter — [`notebooks/02_lhs_local.ipynb`](notebooks/02_lhs_local.ipynb) |
 | 2b | Morris sensitivity screening | local | Jupyter — [`notebooks/04_morris_screening.ipynb`](notebooks/04_morris_screening.ipynb) |
 | 3 | LHS warm-up + Bayesian optimization | LCRC Crossover (Slurm) | **CLI**, then [`notebooks/03_bo_crossover.ipynb`](notebooks/03_bo_crossover.ipynb) for analysis |
+| 4 | Calibration — recover parameters from observed data | local | Jupyter — [`notebooks/05_calibration.ipynb`](notebooks/05_calibration.ipynb) |
 
 Workflow 2 is shown through the Python API in a notebook (interactive plots,
 SampleStore right in the session); workflow 3 is shown through the CLI because
@@ -146,6 +147,27 @@ point: warm-up + acquisition explores efficiently, and the stop criteria keep
 you from paying for evaluations that aren't helping. With a per-evaluation
 cost of hours instead of seconds, that is real money.
 
+## Workflow 4 — calibration by parameter recovery
+
+The workflows above *optimize* an objective; calibration is the inverse
+problem polarisopt was built for — match **observed data**. Where DFW matches
+link counts through the `link_moe` metric, taxidemo matches three taxi-system
+observables (journeys completed, mean pick-up time, missed customers) through
+its own [`output_match`](src/taxidemo/metrics.py) metric — a custom `Metric`
+plugin registered via the `polarisopt.metrics` entry point, demonstrating the
+second plugin family after the simulator itself.
+
+[`studies/calibrate-local.yaml`](studies/calibrate-local.yaml) runs the same
+GP + qEI loop as workflow 3 but *minimizes* the mean squared relative error
+against a targets file, with an `epsilon` stop once the data is matched to
+within noise. [`notebooks/05_calibration.ipynb`](notebooks/05_calibration.ipynb)
+stages the full parameter-recovery test: simulate synthetic field data from
+hidden "true" parameters (seeds the calibration never sees), calibrate against
+that data alone, then compare — first in data space (does the calibrated model
+reproduce the observations at held-out seeds?), then in parameter space (how
+close to the truth, and what the 3-observables-vs-4-knobs identifiability gap
+means for real network calibration).
+
 ## Layout
 
 ```
@@ -153,12 +175,14 @@ taxidemo/
 ├── src/taxidemo/
 │   ├── simulator.py      # the taxi simulator (stdlib-only, seedable)
 │   ├── runner.py         # slave entry point: python -m taxidemo.runner in.json out.json
-│   └── plugin.py         # polarisopt Simulator plugin (type: taxi)
+│   ├── plugin.py         # polarisopt Simulator plugin (type: taxi)
+│   └── metrics.py        # polarisopt Metric plugin (type: output_match)
 ├── studies/
-│   ├── lhs-local.yaml    # workflow 2
-│   ├── morris-local.yaml # workflow 2b
-│   └── bo-crossover.yaml # workflow 3
-├── notebooks/            # workflows 1–3, in order
+│   ├── lhs-local.yaml       # workflow 2
+│   ├── morris-local.yaml    # workflow 2b
+│   ├── bo-crossover.yaml    # workflow 3
+│   └── calibrate-local.yaml # workflow 4
+├── notebooks/            # workflows 1–4, in order
 └── tests/                # simulator unit tests + plugin round-trip tests
 ```
 

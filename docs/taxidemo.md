@@ -10,8 +10,9 @@ as a POLARIS calibration — a stochastic black-box simulator behind a
 on a laptop and on a Slurm cluster.
 
 It is also a worked example of **plugin packaging**: `pip install -e
-./taxidemo` registers `simulator: {type: taxi}` through the
-`polarisopt.simulators` entry-point group — no polarisopt changes, no import
+./taxidemo` registers `simulator: {type: taxi}` and
+`metric: {type: output_match}` through the `polarisopt.simulators` /
+`polarisopt.metrics` entry-point groups — no polarisopt changes, no import
 boilerplate (see [Plugin authoring](plugins.md)).
 
 | Workflow | Where | Interface |
@@ -20,6 +21,7 @@ boilerplate (see [Plugin authoring](plugins.md)).
 | LHS screening | local | notebook `02_lhs_local.ipynb` (Python API) |
 | Morris screening | local | notebook `04_morris_screening.ipynb` |
 | LHS + Bayesian optimization | LCRC Crossover | CLI, analysis in `03_bo_crossover.ipynb` |
+| Calibration (parameter recovery) | local | notebook `05_calibration.ipynb` |
 
 Quick start:
 

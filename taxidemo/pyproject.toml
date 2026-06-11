@@ -32,9 +32,13 @@ notebooks = [
     "pandas>=2.1",
 ]
 
-# polarisopt discovers this on import: `simulator: {type: taxi}` in any study YAML.
+# polarisopt discovers these on import: `simulator: {type: taxi}` and
+# `metric: {type: output_match}` in any study YAML.
 [project.entry-points."polarisopt.simulators"]
 taxi = "taxidemo.plugin"
+
+[project.entry-points."polarisopt.metrics"]
+output_match = "taxidemo.metrics"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/taxidemo"]

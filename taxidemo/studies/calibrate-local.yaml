@@ -1,0 +1,75 @@
+# Workflow 4 — calibration by parameter recovery, on the local machine.
+# The toy analog of a DFW link-count calibration: given observed "field
+# data" (journeys completed, mean pick-up time, missed customers), find
+# simulator inputs that reproduce it. The custom `output_match` metric —
+# taxidemo's stand-in for link_moe — scores each sample by mean squared
+# relative error against the targets; the sequential phase minimizes it.
+#
+# Generate the synthetic field data first (true params: taxi_count=40,
+# base_fare=7.5, cost_per_tile=8, max_multiplier=1.5; seeds disjoint from
+# the study's):
+#
+#   python -c "
+#   import json, pathlib
+#   from taxidemo.runner import evaluate
+#   obs = evaluate(dict(taxi_count=40, base_fare=7.5, cost_per_tile=8.0,
+#                       max_multiplier=1.5), seed=2026, n_repeats=5)
+#   keys = ['journeys_completed', 'pick_up_time', 'missed']
+#   path = pathlib.Path.home() / 'taxidemo-runs' / 'calibration-targets.json'
+#   path.parent.mkdir(parents=True, exist_ok=True)
+#   path.write_text(json.dumps({k: obs[k] for k in keys}, indent=2))
+#   print(path.read_text())"
+#
+#   polarisopt run studies/calibrate-local.yaml
+#
+# Analysis (which also generates the targets): notebooks/05_calibration.ipynb
+
+name: taxi-calibrate
+workspace: "{{ env.HOME }}/taxidemo-runs/calibrate-local"
+seed: 42
+
+simulator:
+  type: taxi
+  options:
+    n_repeats: 3
+    base_seed: 42
+    max_steps: 1000
+    grid_size: 5
+    journey_frequency: 50
+
+runner:
+  type: local
+  options: {}
+
+parameters:
+  inline:
+    - { name: taxi_count,     file: inputs.json, min: 1, max: 100, type: int }
+    - { name: base_fare,      file: inputs.json, min: 0, max: 15 }
+    - { name: cost_per_tile,  file: inputs.json, min: 1, max: 20 }
+    - { name: max_multiplier, file: inputs.json, min: 1, max: 3 }
+
+# Discrepancy vs the observed data; 0 = perfect match.
+metric:
+  type: output_match
+  options:
+    targets_file: "{{ env.HOME }}/taxidemo-runs/calibration-targets.json"
+
+phases:
+  - name: calibrate
+    type: sequential
+    minimize: true
+    warm_up:
+      type: lhs
+      options:
+        n: 16
+    generator:
+      type: acquisition
+      options:
+        surrogate:   { type: gp,  options: {} }
+        acquisition: { type: qei, options: { mc_samples: 256 } }
+    batch_size: 4
+    stop:
+      type: any
+      criteria:
+        - { type: max_iter, options: { n: 12 } }
+        - { type: epsilon,  options: { epsilon: 0.02 } }   # stop once discrepancy < 0.02
