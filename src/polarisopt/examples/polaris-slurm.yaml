@@ -43,6 +43,10 @@ runner:
       nodes: 1
       cpus_per_task: 16
       mem: 64G
+      exclusive: true         # one sample per node — avoid OOM-via-co-location
+                              # on memory-hungry POLARIS runs. If you tune mem
+                              # to the node's full RAM you can drop this, but
+                              # exclusive is safer.
       setup_commands:
         - "module purge"
         - "module load gcc/10.4 hdf5/1.12 libspatialite singularity"

@@ -2,6 +2,23 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.9.3 — 2026-06-11
+
+Operational gotcha flagged by the DFW DOE agent: on Crossover, the
+bundled `polaris-slurm.yaml` example let Slurm co-locate four
+polarisopt samples on one node, and the kernel OOM-killed one when
+their combined working set exceeded 256 GB — even though each
+per-job `--mem` was within its own limit.
+
+### Added
+
+- **`SlurmResources(exclusive=True)`** — renders `#SBATCH --exclusive`
+  so the sample gets a whole node to itself. Default `False`
+  (matches prior behavior — backwards compatible).
+- **Bundled `polaris-slurm.yaml`** now sets `exclusive: true` with an
+  explanatory comment so users following the docs don't hit the same
+  OOM-via-co-location trap.
+
 ## 0.9.2 — 2026-06-11
 
 Bug-fix release. Both bugs flagged by a third agent doing a polarisopt

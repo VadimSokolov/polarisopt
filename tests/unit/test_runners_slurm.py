@@ -44,6 +44,37 @@ def test_submit_parses_jobid_and_writes_script(tmp_path: Path, fake_shell) -> No
     assert fake_shell.calls[0][0] == "sbatch"
 
 
+def test_exclusive_flag_renders_sbatch_directive(tmp_path: Path, fake_shell) -> None:
+    """``exclusive: true`` on SlurmResources must emit ``#SBATCH --exclusive``.
+
+    Without this, polarisopt samples co-locate on the same node and the
+    kernel OOM-kills them when their combined working set exceeds
+    physical RAM — even when each per-job ``--mem`` is within its own
+    limit. Crossover/TPS hit this on the DFW DTA smoke run.
+    """
+    fake_shell.responses.append(_ok(stdout="Submitted batch job 5050\n"))
+    runner = SlurmRunner(
+        default_resources=SlurmResources(
+            partition="TPS", account="tps", exclusive=True, mem="64G",
+        ),
+        shell_runner=fake_shell,
+    )
+    spec = JobSpec(name="exclu", command="echo hi", cwd=tmp_path / "run")
+    job = runner.submit(spec)
+    script = job.script_path.read_text()
+    assert "#SBATCH --exclusive" in script
+    # And exclusive=False (default) doesn't emit it.
+    fake_shell.responses.append(_ok(stdout="Submitted batch job 5051\n"))
+    runner2 = SlurmRunner(
+        default_resources=SlurmResources(partition="TPS", mem="64G"),
+        shell_runner=fake_shell,
+    )
+    job2 = runner2.submit(
+        JobSpec(name="shared", command="echo hi", cwd=tmp_path / "run2")
+    )
+    assert "#SBATCH --exclusive" not in job2.script_path.read_text()
+
+
 def test_submit_raises_on_sbatch_failure(tmp_path: Path, fake_shell) -> None:
     fake_shell.responses.append(_ok(rc=1, stderr="QOSGrpJobsLimit"))
     runner = SlurmRunner(shell_runner=fake_shell)

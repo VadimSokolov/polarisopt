@@ -40,6 +40,15 @@ class SlurmResources:
     directives but **before** the user command. Useful for ``module load``,
     activating a virtualenv, sourcing env files, etc. — anything that
     can't be cleanly represented as a static env dict.
+
+    Set ``exclusive: true`` to render ``#SBATCH --exclusive`` so the job
+    gets a whole node to itself. Important for memory-hungry workloads
+    on shared partitions: without it, Slurm can co-locate several
+    polarisopt samples on the same node and the kernel OOM-kills one
+    when their combined working set exceeds the physical RAM (each
+    individual job's ``--mem`` is fine on its own). The alternative is
+    sizing ``mem`` to the node's full memory, which has the same
+    effective scheduling consequence.
     """
 
     partition: str | None = None
@@ -49,6 +58,7 @@ class SlurmResources:
     ntasks: int | None = None
     cpus_per_task: int | None = None
     mem: str | None = None
+    exclusive: bool = False
     extra_directives: list[str] = field(default_factory=list)
     setup_commands: list[str] = field(default_factory=list)
 
@@ -68,6 +78,8 @@ class SlurmResources:
             lines.append(f"#SBATCH --cpus-per-task={self.cpus_per_task}")
         if self.mem:
             lines.append(f"#SBATCH --mem={self.mem}")
+        if self.exclusive:
+            lines.append("#SBATCH --exclusive")
         if stdout:
             lines.append(f"#SBATCH --output={stdout}")
         if stderr:
