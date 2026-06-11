@@ -2,6 +2,34 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.9.1 — 2026-05-23
+
+Docs-only release. Closes the notebook-usability documentation gap —
+analysis was well-documented but driving polarisopt from a notebook
+(and the full `SampleStore` analysis surface beyond `to_dataframe`)
+wasn't.
+
+### Documentation
+
+- **New `docs/how-to/use-from-notebook.md`** — covers:
+  - Programmatic API mirror of every CLI subcommand (`validate_study`,
+    `plan_study`, `StudyRunner`, `cancel_sample`, `abort_study`,
+    `retry_failed`, `reconcile_running`, etc.) — none of which had
+    narrative docs before.
+  - Full `SampleStore` analysis surface (`finished_samples`,
+    `metric_matrix`, `best_so_far`, `pareto_front`) with signatures
+    and a "drop into matplotlib/seaborn" framing. Only `to_dataframe`
+    was previously shown in any prose doc.
+  - The "read while a study is still running" pattern — the SQLite
+    WAL mode makes concurrent notebook reads safe alongside the CLI
+    writer; this property was used in production but never written
+    down.
+  - Recommended workflow: drive long runs via CLI in a terminal,
+    drive validate/plan + analysis from the notebook.
+- **`docs/how-to/index.md`** — adds the new how-to to the index.
+- **`docs/getting-started.md`** — the SampleStore snippet now points
+  readers at the new how-to for the deeper analysis API.
+
 ## 0.9.0 — 2026-05-23
 
 Fixes the bug a second calibration agent hit on its first end-to-end

@@ -92,6 +92,12 @@ df = store.to_dataframe()
 df.head()
 ```
 
+See [Use polarisopt from a notebook](how-to/use-from-notebook.md) for
+the full programmatic API (validate / plan / run / cancel / abort /
+retry-failed all importable), the SampleStore analysis helpers
+(`pareto_front`, `best_so_far`, `metric_matrix`, `finished_samples`),
+and how to attach a notebook to a study that's still running.
+
 ## Use with POLARIS
 
 See [Study YAML reference](yaml-reference.md) for the full schema and the
