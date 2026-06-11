@@ -122,6 +122,49 @@ def test_cli_validate_bad_exits_nonzero(tmp_path: Path) -> None:
     assert "nope" in res.output
 
 
+def test_validate_catches_typo_in_metric_options(tmp_path: Path) -> None:
+    """A typo in metric.options should error at validate time, not run time.
+
+    Mock validation: replace ``keys`` (the real IdentityMetric arg) with
+    a typo. The current __init__ accepts ``keys``; ``key`` (no s) is
+    unknown and should be flagged.
+    """
+    text = _good_yaml(tmp_path / "ws").replace(
+        "options: { keys: value }",
+        "options: { key: value }",  # typo
+    )
+    p = tmp_path / "bad.yaml"
+    p.write_text(text)
+    report = validate_study(p)
+    assert not report.ok
+    joined = "\n".join(report.errors)
+    assert "metric 'identity'" in joined
+    assert "['key']" in joined
+
+
+def test_validate_accepts_known_metric_option_keys(tmp_path: Path) -> None:
+    """Sanity check the positive: the real IdentityMetric kwarg passes."""
+    p = tmp_path / "good.yaml"
+    p.write_text(_good_yaml(tmp_path / "ws"))
+    report = validate_study(p)
+    # If signature-checking is over-zealous we'd see a metric error here.
+    assert not any("metric 'identity'" in e for e in report.errors)
+
+
+def test_validate_doesnt_flag_runner_orchestrator_options(tmp_path: Path) -> None:
+    """poll_interval / orphan_threshold / heartbeat_interval are valid YAML
+    keys consumed by StudyRunner before the runner is built.
+    """
+    text = _good_yaml(tmp_path / "ws").replace(
+        "runner: { type: local, options: {} }",
+        "runner: { type: local, options: { poll_interval: 1.0, heartbeat_interval: 60.0, orphan_threshold: 5 } }",
+    )
+    p = tmp_path / "ws-options.yaml"
+    p.write_text(text)
+    report = validate_study(p)
+    assert not any("runner 'local'" in e for e in report.errors)
+
+
 def test_cli_validate_warnings_as_errors(tmp_path: Path) -> None:
     """Warnings-as-errors flag should turn a successful warning into a nonzero exit."""
     yaml = _good_yaml(tmp_path / "ws").replace(

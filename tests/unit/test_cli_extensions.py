@@ -121,6 +121,52 @@ def test_logs_binary_flag_finds_progress_log(tmp_path: Path) -> None:
     assert "wrapper noise" not in res.output
 
 
+def test_logs_binary_iteration_filter_picks_matching_dir(tmp_path: Path) -> None:
+    """When a sample produced abm_init AND normal_iteration dirs, the
+    --iteration filter picks the right one.
+    """
+    cfg_path, sid = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    sample = store.get(sid)
+    sample.folder = workspace / "experiments" / "sim-0001"
+    sample.folder.mkdir(parents=True)
+    abm = sample.folder / "DFW_01_abm_init_iteration" / "log"
+    abm.mkdir(parents=True)
+    (abm / "polaris_progress.log").write_text("abm_init sim hour 12\n")
+    # Normal iteration dir, mtime'd LATER so plain --binary picks it.
+    normal = sample.folder / "DFW_dta_iteration_1" / "log"
+    normal.mkdir(parents=True)
+    (normal / "polaris_progress.log").write_text("normal iter sim hour 8\n")
+    import os
+    os.utime(normal / "polaris_progress.log", (10_000_000, 10_000_000))
+    os.utime(abm / "polaris_progress.log", (9_000_000, 9_000_000))
+    store.update(sample)
+
+    # Without filter: picks the latest mtime (normal iter).
+    res = CliRunner().invoke(cli, ["logs", str(cfg_path), str(sid), "--binary"])
+    assert res.exit_code == 0, res.output
+    assert "normal iter sim hour 8" in res.output
+
+    # With --iteration=abm_init: pinned to abm_init dir.
+    res_filt = CliRunner().invoke(
+        cli, ["logs", str(cfg_path), str(sid), "--binary", "--iteration", "abm_init"]
+    )
+    assert res_filt.exit_code == 0, res_filt.output
+    assert "abm_init sim hour 12" in res_filt.output
+    assert "normal iter sim hour 8" not in res_filt.output
+
+
+def test_logs_iteration_without_binary_errors(tmp_path: Path) -> None:
+    cfg_path, sid = _seed(tmp_path)
+    res = CliRunner().invoke(
+        cli, ["logs", str(cfg_path), str(sid), "--iteration", "abm_init"]
+    )
+    assert res.exit_code != 0
+    assert "--iteration only applies with --binary" in res.output
+
+
 def test_logs_binary_flag_errors_when_missing(tmp_path: Path) -> None:
     cfg_path, sid = _seed(tmp_path)
     workspace = tmp_path / "ws"

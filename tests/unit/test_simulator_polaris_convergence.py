@@ -172,7 +172,9 @@ def test_resolve_output_dir_unnumbered_polarislib_naming(
         f.create_group("anything")
     sample.folder = workspace
     out = sim.collect_output(sample)
-    assert out["iteration"] is None
+    # Unsuffixed = baseline = iteration 0 (so IdentityMetric on iteration
+    # works on baselines without special-casing None).
+    assert out["iteration"] == 0
     assert out["output_dir"].endswith("DFW_01_abm_init_iteration")
 
 
@@ -283,6 +285,102 @@ def test_collect_output_progress_log_path_is_none_when_missing(
 
     out = sim.collect_output(sample)
     assert out["progress_log_path"] is None
+
+
+def test_single_iteration_injects_zero_runs(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    sim = _make_sim(tmp_path, runner_script, single_iteration=True)
+    assert sim.single_iteration is True
+    assert sim.runner_options["num_abm_runs"] == 0
+    assert sim.runner_options["num_dta_runs"] == 0
+
+
+def test_single_iteration_rejects_conflicting_runner_options(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    with pytest.raises(SimulatorError, match="single_iteration=True forces"):
+        _make_sim(
+            tmp_path,
+            runner_script,
+            single_iteration=True,
+            runner_options={"num_abm_runs": 3},
+        )
+
+
+def test_single_iteration_accepts_explicit_zero(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    """Setting num_abm_runs=0 explicitly with single_iteration=True is fine."""
+    sim = _make_sim(
+        tmp_path,
+        runner_script,
+        single_iteration=True,
+        runner_options={"num_abm_runs": 0, "num_dta_runs": 0, "population_scale_factor": 0.05},
+    )
+    assert sim.runner_options["num_abm_runs"] == 0
+    assert sim.runner_options["population_scale_factor"] == 0.05
+
+
+def test_single_iteration_assertion_catches_extra_iteration_dir(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """If a normal_iteration dir slips past, collect_output should raise."""
+    sim = _make_sim(
+        tmp_path, runner_script, iteration_type="abm_init", single_iteration=True,
+    )
+    sample = Sample(id=99, inputs=np.array([0.3]))
+    workspace = tmp_path / "sim-99"
+    sim.prepare(sample, space, workspace)
+    # Expected abm_init dir + UNexpected dta iteration dir.
+    abm = workspace / "DFW_01_abm_init_iteration_0"
+    abm.mkdir()
+    with h5py.File(abm / "DFW-Demand.sqlite", "w") as f:
+        f.create_group("anything")
+    extra = workspace / "DFW_dta_iteration_1"
+    extra.mkdir()
+    sample.folder = workspace
+
+    with pytest.raises(SimulatorError, match="extra iteration dir"):
+        sim.collect_output(sample)
+
+
+def test_disable_async_callback_default_on(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    """Default is True (preserve per-iteration artifacts)."""
+    sim = _make_sim(tmp_path, runner_script)
+    assert sim.disable_async_callback is True
+    assert sim.runner_options["disable_async_callback"] is True
+
+
+def test_disable_async_callback_can_be_overridden(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    sim = _make_sim(tmp_path, runner_script, disable_async_callback=False)
+    assert sim.disable_async_callback is False
+    assert sim.runner_options["disable_async_callback"] is False
+
+
+def test_disable_async_callback_in_runner_options_wins(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    """Explicit runner_options entry overrides the kwarg default."""
+    sim = _make_sim(
+        tmp_path, runner_script,
+        runner_options={"disable_async_callback": False},
+    )
+    # The kwarg defaults to True but the explicit runner_options entry wins.
+    assert sim.runner_options["disable_async_callback"] is False
+
+
+def test_disable_async_callback_in_known_runner_options(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    sim = _make_sim(tmp_path, runner_script)
+    assert "disable_async_callback" in sim.KNOWN_RUNNER_OPTIONS
+    # And so it's never flagged as unknown:
+    assert "disable_async_callback" not in sim.unknown_runner_options()
 
 
 def test_unknown_runner_options_flags_typos(

@@ -120,6 +120,22 @@ class PolarisConvergenceSimulator(PolarisSimulator):
     env : dict[str, str], optional
         Extra environment variables for the JobSpec. Stacked with
         ``POLARIS_NUM_THREADS``.
+    single_iteration : bool, optional
+        Sugar for the choice-model calibration use case: forces
+        ``num_abm_runs=0`` and ``num_dta_runs=0`` into ``runner_options``
+        so polarislib only runs the configured ``iteration_type`` once,
+        with no follow-up ``normal_iteration``. Roughly halves wall
+        time. Raises if these keys are already set to non-zero values.
+        :meth:`collect_output` enforces by failing if any other
+        iteration_type's directory turns up. Default ``False``.
+    disable_async_callback : bool, optional
+        Forwarded as ``--disable-async-callback=true|false``. When true,
+        the runner script is expected to pass a no-op for polarislib's
+        ``async_end_of_loop_fn`` so per-iteration DBs are not tarballed
+        out from under metrics that need to read them. Default
+        ``True`` — "preserve artifacts" is the right stance for the
+        calibration use case. Explicit
+        ``runner_options.disable_async_callback`` overrides.
     Other parameters inherited from :class:`PolarisSimulator`.
 
     Notes
@@ -186,6 +202,7 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         "fixed_demand",
         "fixed_supply",
         "max_concurrent",
+        "disable_async_callback",
     })
 
     def unknown_runner_options(self) -> list[str]:
@@ -206,6 +223,8 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         runner_options: dict[str, Any] | None = None,
         setup_commands: list[str] | None = None,
         env: dict[str, str] | None = None,
+        single_iteration: bool = False,
+        disable_async_callback: bool = True,
         **kw: Any,
     ) -> None:
         super().__init__(**kw)
@@ -221,6 +240,29 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         self.runner_options: dict[str, Any] = dict(runner_options or {})
         self.setup_commands: list[str] = list(setup_commands or [])
         self.extra_env: dict[str, str] = dict(env or {})
+        self.single_iteration: bool = bool(single_iteration)
+        if self.single_iteration:
+            # The "ABM-only / choice-models-only" mode for calibration:
+            # polarislib runs abm_init then stops, no follow-up
+            # normal_iteration that would double wall-time. Reject conflicts
+            # so users don't silently get the un-shortcut'd run.
+            for forced_key in ("num_abm_runs", "num_dta_runs"):
+                if self.runner_options.get(forced_key) not in (None, 0):
+                    raise SimulatorError(
+                        f"single_iteration=True forces {forced_key}=0; "
+                        f"runner_options conflict: {forced_key}="
+                        f"{self.runner_options[forced_key]!r}. Pick one."
+                    )
+                self.runner_options[forced_key] = 0
+        # Default to preserving per-iteration artifacts. polarislib's stock
+        # async_end_of_loop_fn tarballs the iteration DBs, which breaks
+        # any metric that needs to open them. Runner scripts are expected
+        # to honor ``--disable-async-callback=true`` by passing a no-op
+        # for ``async_end_of_loop_fn`` to ``Polaris.run()``. Explicit
+        # ``runner_options.disable_async_callback`` wins.
+        self.disable_async_callback: bool = bool(disable_async_callback)
+        if "disable_async_callback" not in self.runner_options:
+            self.runner_options["disable_async_callback"] = self.disable_async_callback
 
     def prepare(self, sample: Sample, space: ParameterSpace, workspace: Path) -> JobSpec:
         if sample.inputs.shape != (space.ndim,):
@@ -278,12 +320,49 @@ class PolarisConvergenceSimulator(PolarisSimulator):
           is what you tail to see "are we at sim-hour 10 or sim-hour
           20" inside a running iteration. The polarisopt-side wrapper
           log (``polaris.stdout.log``) is a different, coarser thing.
+
+        Normalizes ``iteration``: the base class returns ``None`` for
+        polarislib's unsuffixed ``<db>_<iter_str>`` directory
+        (``iteration_number is None`` case), which crashes downstream
+        metrics that expect an integer. We map "unsuffixed = baseline"
+        to ``iteration: 0`` so a single number-line works uniformly.
         """
         out = super().collect_output(sample)
         out["demand_db"] = out["result_path"]
         progress = Path(out["output_dir"]) / "log" / "polaris_progress.log"
         out["progress_log_path"] = str(progress) if progress.exists() else None
+        if out.get("iteration") is None:
+            out["iteration"] = 0
+        if self.single_iteration:
+            self._assert_no_extra_iteration_dirs(sample)
         return out
+
+    def _assert_no_extra_iteration_dirs(self, sample: Sample) -> None:
+        """When ``single_iteration=True``, fail loudly if other iteration_type
+        dirs slipped past the polarislib config — that means the runner
+        script didn't honor the forced ``num_abm_runs=0/num_dta_runs=0``
+        and the wall-time savings didn't actually happen.
+        """
+        if sample.folder is None:
+            return
+        expected_base = ITER_TYPE_TO_BASE[self.iteration_type]
+        unexpected: list[str] = []
+        for d in sample.folder.iterdir():
+            if not d.is_dir():
+                continue
+            for other_iter, other_base in ITER_TYPE_TO_BASE.items():
+                if other_iter == self.iteration_type:
+                    continue
+                # Match polarislib's <db>_<iter_str>[_<N>] convention.
+                if other_base in d.name and expected_base not in d.name:
+                    unexpected.append(d.name)
+                    break
+        if unexpected:
+            raise SimulatorError(
+                f"single_iteration=True but found extra iteration dir(s) "
+                f"in {sample.folder}: {unexpected}. The runner script likely "
+                f"ignored --num-abm-runs=0 / --num-dta-runs=0."
+            )
 
     def _resolve_output_dir(self, workspace: Path, output_dirname: str) -> Path:
         """Find polarislib's iteration directory under ``workspace``.

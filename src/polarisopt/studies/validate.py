@@ -10,6 +10,7 @@ users don't waste a Slurm allocation on a typo.
 
 from __future__ import annotations
 
+import inspect
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -105,9 +106,131 @@ def validate_study(path: Path | str) -> ValidationReport:
 
     _check_parameters(cfg, report)
     _check_plugins(cfg, report)
+    _check_plugin_options(cfg, report)
     _check_phases(cfg, report)
     _check_paths(cfg, report)
     return report
+
+
+def _accepted_init_kwargs(cls: type) -> tuple[set[str], bool]:
+    """Collect every keyword name ``cls.__init__`` (and its supers) accept.
+
+    Walks ``cls.__mro__`` so subclasses that ``super().__init__(**kw)`` are
+    handled correctly — the cumulative accepted set is the union over the
+    chain.
+
+    Returns
+    -------
+    (accepted, has_var_keyword)
+        ``accepted`` is the set of named keyword params anywhere in the
+        chain (excluding ``self`` / ``*args`` / ``**kwargs``).
+        ``has_var_keyword`` is ``True`` if **any** class in the chain has
+        a ``**kwargs`` parameter — when true, unknown options *might* be
+        legitimately forwarded somewhere we can't see, so callers should
+        downgrade unknown-option errors to warnings.
+    """
+    accepted: set[str] = set()
+    has_var_keyword = False
+    for klass in cls.__mro__:
+        if klass is object:
+            break
+        init = klass.__dict__.get("__init__")
+        if init is None:
+            continue
+        try:
+            sig = inspect.signature(init)
+        except (TypeError, ValueError):
+            continue
+        for name, param in sig.parameters.items():
+            if name in ("self", "cls"):
+                continue
+            if param.kind is inspect.Parameter.VAR_KEYWORD:
+                has_var_keyword = True
+                continue
+            if param.kind is inspect.Parameter.VAR_POSITIONAL:
+                continue
+            accepted.add(name)
+    return accepted, has_var_keyword
+
+
+def _check_one_plugin_options(
+    family: str,
+    registry,
+    name: str,
+    options: dict | None,
+    report: ValidationReport,
+    *,
+    extra_allowed: set[str] | None = None,
+) -> None:
+    """For one plugin spec, error on options keys not accepted by its __init__.
+
+    Skipped silently if the plugin isn't registered (already flagged by
+    :func:`_check_plugins`). When the class chain has ``**kwargs``, unknown
+    keys are downgraded to a warning since they might be forwarded.
+
+    ``extra_allowed`` is for orchestrator-side YAML keys that don't show
+    up in the plugin's signature (e.g. runner ``poll_interval``,
+    ``orphan_threshold``, ``heartbeat_interval`` get popped by
+    :class:`StudyRunner` before reaching the runner constructor).
+    """
+    if name not in registry:
+        return
+    cls = registry.get(name)
+    accepted, has_var_keyword = _accepted_init_kwargs(cls)
+    if not accepted and has_var_keyword:
+        return
+    if extra_allowed:
+        accepted = accepted | extra_allowed
+    unknown = sorted(set(options or {}) - accepted)
+    if not unknown:
+        return
+    msg = (
+        f"{family} '{name}': option(s) {unknown} not in __init__ signature. "
+        f"Accepted: {sorted(accepted)}"
+    )
+    if has_var_keyword:
+        report.warnings.append(msg + " (class accepts **kwargs — may be forwarded)")
+    else:
+        report.errors.append(msg)
+
+
+# Orchestrator-side keys that live in runner.options but are popped by
+# StudyRunner before the runner is constructed. Kept in sync with
+# studies/runner.py:StudyRunner.__init__.
+_RUNNER_ORCHESTRATOR_KEYS = {"poll_interval", "orphan_threshold", "heartbeat_interval"}
+
+
+def _check_plugin_options(cfg: StudyConfig, report: ValidationReport) -> None:
+    """Typecheck every ``options:`` block against its plugin's __init__.
+
+    Catches typos like ``distance: l1`` (real arg ``aggregation``) or
+    ``sim_key: demand_db`` (real arg ``source_key``) before a 30s
+    staging round-trip burns through.
+    """
+    from polarisopt.design.base import design_registry
+    from polarisopt.metrics.base import metric_registry
+    from polarisopt.runners.base import runner_registry
+    from polarisopt.simulator.base import simulator_registry
+
+    _check_one_plugin_options(
+        "simulator", simulator_registry, cfg.simulator.type,
+        cfg.simulator.options, report,
+    )
+    _check_one_plugin_options(
+        "runner", runner_registry, cfg.runner.type,
+        cfg.runner.options, report,
+        extra_allowed=_RUNNER_ORCHESTRATOR_KEYS,
+    )
+    _check_one_plugin_options(
+        "metric", metric_registry, cfg.metric.type,
+        cfg.metric.options, report,
+    )
+    for phase in cfg.phases:
+        if isinstance(phase, StaticPhaseConfig):
+            _check_one_plugin_options(
+                f"design (phase {phase.name})", design_registry,
+                phase.design.type, phase.design.options, report,
+            )
 
 
 def _check_parameters(cfg: StudyConfig, report: ValidationReport) -> None:

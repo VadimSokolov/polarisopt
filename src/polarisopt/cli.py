@@ -188,17 +188,31 @@ def _fmt_seconds(secs: float) -> str:
     return f"{secs / 3600:.1f}h"
 
 
-def _find_binary_progress_log(folder: Path | None) -> Path | None:
+def _find_binary_progress_log(
+    folder: Path | None, *, iteration_match: str | None = None
+) -> Path | None:
     """Locate the POLARIS binary's ``log/polaris_progress.log`` under ``folder``.
 
     polarislib writes the progress log to
     ``<folder>/<output_dirname>_<iter_str>[_<N>]/log/polaris_progress.log``.
     We search for any ``polaris_progress.log`` 2 levels deep so we don't
     need to know which iteration_type / output_dirname the sample used.
+
+    Parameters
+    ----------
+    folder :
+        Per-sample workspace folder.
+    iteration_match :
+        Substring filter on the iteration directory name (e.g. ``abm_init``).
+        When set, only matches under directories whose name contains this
+        string are considered. Use to disambiguate when a sample produced
+        both ``*_abm_init_iteration`` and ``*_normal_iteration_1`` dirs.
     """
     if folder is None or not folder.exists():
         return None
     matches = list(folder.glob("*/log/polaris_progress.log"))
+    if iteration_match is not None:
+        matches = [m for m in matches if iteration_match in m.parent.parent.name]
     if not matches:
         return None
     return max(matches, key=lambda p: p.stat().st_mtime)
@@ -338,7 +352,24 @@ def abort(config: Path) -> None:
         "the run is in. polaris_convergence simulators only."
     ),
 )
-def logs(config: Path, sample_id: int, follow: bool, lines: int, binary: bool) -> None:
+@click.option(
+    "--iteration",
+    default=None,
+    help=(
+        "(--binary only) restrict the search to dirs containing this "
+        "substring, e.g. ``abm_init``. Use when a sample produced "
+        "multiple iteration dirs (abm_init + normal_iteration) and the "
+        "default 'latest mtime' picks the wrong one."
+    ),
+)
+def logs(
+    config: Path,
+    sample_id: int,
+    follow: bool,
+    lines: int,
+    binary: bool,
+    iteration: str | None,
+) -> None:
     """Print stdout / stderr / *.log files for a sample."""
     cfg = load_study_config(config)
     try:
@@ -348,13 +379,16 @@ def logs(config: Path, sample_id: int, follow: bool, lines: int, binary: bool) -
         raise click.ClickException(str(exc)) from exc
 
     if binary:
-        progress = _find_binary_progress_log(sample.folder)
+        progress = _find_binary_progress_log(sample.folder, iteration_match=iteration)
         if progress is None:
+            hint = f" matching {iteration!r}" if iteration else ""
             raise click.ClickException(
-                f"no polaris_progress.log found under {sample.folder} "
+                f"no polaris_progress.log found under {sample.folder}{hint} "
                 f"(binary may not have started writing yet)"
             )
         files = [progress]
+    elif iteration is not None:
+        raise click.ClickException("--iteration only applies with --binary")
     else:
         files = sample_log_paths(sample)
     if not files:

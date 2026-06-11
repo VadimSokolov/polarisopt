@@ -2,6 +2,51 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.8.0 — 2026-05-21
+
+Third pass of calibration-agent feedback. All five items in the v0.8
+batch shipped; no design pivots.
+
+### Added
+
+- **`PolarisConvergenceSimulator(single_iteration=True)`** — sugar for
+  the choice-model calibration use case. Injects `num_abm_runs=0` and
+  `num_dta_runs=0` into `runner_options` so polarislib runs only the
+  configured `iteration_type` once with no follow-up `normal_iteration`
+  (roughly halves wall time). Conflicting explicit values raise.
+  `collect_output` asserts no other iteration_type dirs slipped past —
+  catches a misbehaving runner script before it's mistaken for the
+  sugar working.
+- **`PolarisConvergenceSimulator(disable_async_callback=True)`** — now
+  the default. Forwarded as `--disable-async-callback=true` so the
+  runner script can pass a no-op for polarislib's `async_end_of_loop_fn`
+  (which otherwise tarballs per-iteration DBs out from under metrics
+  that need them). Preserve-artifacts is the right default for the
+  calibration use case; explicit `runner_options.disable_async_callback`
+  wins.
+- **`polarisopt logs --binary --iteration=<substr>`** — when a sample
+  produced multiple iteration dirs (abm_init + normal_iteration), the
+  filter pins the tail to the matching one. Default still picks the
+  latest mtime.
+- **Plugin-option signature check in `polarisopt validate`** — every
+  `options:` block is now typechecked against its plugin's `__init__`
+  signature (walks the MRO so subclass `**kwargs` forwarding is handled).
+  Catches `distance: l1` (real arg `aggregation`) and `sim_key: demand_db`
+  (real arg `source_key`) at validate time instead of after a 30s
+  staging round-trip. Classes with `**kwargs` in their own `__init__`
+  downgrade unknown keys to warnings (might be legitimately forwarded).
+  Runner orchestrator keys (`poll_interval`, `orphan_threshold`,
+  `heartbeat_interval`) are allowlisted since `StudyRunner` pops them
+  before the runner is built.
+
+### Changed
+
+- **`PolarisConvergenceSimulator.collect_output`** now sets
+  `iteration: 0` (was `None`) when the resolved output dir is the
+  polarislib unsuffixed form (`<db>_<iter_str>` with no `_<N>`).
+  `IdentityMetric` and friends that read `iteration` no longer need a
+  `None`-special-case for baselines.
+
 ## 0.7.0 — 2026-05-19
 
 Second pass of feedback from the live DFW calibration. All UX/operability,
