@@ -55,6 +55,11 @@ coverage.xml
 # Docs
 site/
 
+# Quarto render output (decks are rebuilt from the .qmd via `quarto render`)
+.quarto/
+taxidemo/slides/*.html
+taxidemo/slides/*_files/
+
 # Workspace artifacts (study runs, polarisopt SampleStores, logs)
 .polarisopt/
 workspace/

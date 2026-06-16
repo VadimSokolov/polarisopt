@@ -368,10 +368,10 @@ phases:
 ### `notebooks/05_calibration.ipynb`
 
 ::: {.notes}
-DEMO (~8 min). Kernel = polaris_xover.
+DEMO (~8 min). Kernel = the taxidemo venv (python3).
 1. Generate synthetic field data from hidden true params (taxi_count=40, base_fare=7.5, ...).
 2. Show the study YAML.
-3. run_study(...) — resumes the finished store in ~1 min; narrate the master/slave loop while it runs.
+3. run_study(...) — workspace is pre-warmed, so it resumes the finished store in <1s (no wait); narrate the master/slave loop over the convergence plot, not during the run.
 4. Convergence plot: discrepancy drops below epsilon, plateau/epsilon stop fires.
 5. Two report cards: data-space match (held-out seeds) vs parameter-space recovery.
 6. Land the identifiability point — segue to next slide.
@@ -383,10 +383,10 @@ DEMO (~8 min). Kernel = polaris_xover.
 ::: {.column width="50%"}
 **The result**
 
-- 36 evaluations, **~105 s** total.
-- `epsilon` stop fired at iteration 5 — the loop *quit when the data was matched*.
-- Best discrepancy **0.0199**.
-- `taxi_count` recovered **exactly** (40).
+- 56 evaluations, **~105 s** total.
+- `epsilon` stop fired at iteration 10 — the loop *quit when the data was matched*.
+- Best discrepancy **0.0159**.
+- `taxi_count` recovered **almost exactly** (41 vs true 40).
 :::
 ::: {.column width="50%"}
 **The honest part**
@@ -501,12 +501,11 @@ no breaking changes through **v0.10**.
 ## Getting started
 
 ```bash
-pip install polarisopt[bo]            # core + BoTorch / GPyTorch
-
-# the taxi demo (this talk)
-git clone https://github.com/anl-polaris/polaris-hpc
-pip install -e 'polaris-hpc/taxidemo[notebooks]'
-polarisopt run polaris-hpc/taxidemo/studies/lhs-local.yaml
+git clone https://github.com/VadimSokolov/polarisopt
+cd polarisopt
+pip install -e '.[bo]'                 # core + BoTorch / GPyTorch
+pip install -e 'taxidemo[notebooks]'   # the taxi demo (this talk)
+polarisopt run taxidemo/studies/lhs-local.yaml
 ```
 
 ::: {.columns}
@@ -521,9 +520,9 @@ polarisopt run polaris-hpc/taxidemo/studies/lhs-local.yaml
 ::: {.column width="50%"}
 **Code**
 
-- `github.com/anl-polaris/polaris-hpc`
+- `github.com/VadimSokolov/polarisopt`
 - `taxidemo/` — five runnable workflows
-- `notebooks/05_calibration.ipynb`
+- `taxidemo/notebooks/05_calibration.ipynb`
 :::
 :::
 
@@ -540,5 +539,5 @@ polarisopt run polaris-hpc/taxidemo/studies/lhs-local.yaml
 
 ::: {.fragment}
 ### Thank you — questions?
-`github.com/anl-polaris/polaris-hpc`
+`github.com/VadimSokolov/polarisopt`
 :::

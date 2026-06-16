@@ -13,9 +13,9 @@ rendering needs only Quarto (no Python kernel, no polarisopt install).
 
 The live demo is driven separately from
 [`../notebooks/05_calibration.ipynb`](../notebooks/05_calibration.ipynb)
-(kernel: `polaris_xover`). Budget ~8 minutes for it; the `run_study` cell
-resumes the finished SampleStore in ~1 minute — narrate the master/slave loop
-while it runs.
+(kernel: the `taxidemo` venv, `python3`). Budget ~8 minutes for it; with the
+workspace pre-warmed the `run_study` cell resumes the finished SampleStore in
+under a second, so narrate the master/slave loop over the convergence plot.
 
 Files:
 
