@@ -1,0 +1,85 @@
+# Workflow 3 — LHS warm-up + sequential Bayesian optimization on the LCRC
+# Crossover cluster. Maximizes fleet profit over the four pricing/fleet
+# knobs; every sample runs as its own Slurm job.
+#
+# From a Crossover login node, with taxidemo installed in the same
+# environment as polarisopt (needs the [bo] extra for the GP/qEI stack):
+#
+#   polarisopt validate studies/bo-crossover.yaml
+#   polarisopt plan     studies/bo-crossover.yaml   # render sbatch, submit nothing
+#   polarisopt run      studies/bo-crossover.yaml
+#
+# Monitor / recover from a second shell:
+#
+#   polarisopt status studies/bo-crossover.yaml
+#   polarisopt logs   studies/bo-crossover.yaml <SAMPLE_ID>
+#   polarisopt retry-failed studies/bo-crossover.yaml --run
+#
+# Analysis: notebooks/03_bo_crossover.ipynb
+
+name: taxi-bo
+workspace: "/lcrc/project/POLARIS/{{ env.USER }}/polarisopt-runs/taxidemo-bo"
+seed: 42
+
+simulator:
+  type: taxi
+  options:
+    n_repeats: 3
+    base_seed: 42
+    max_steps: 1000
+    grid_size: 5
+    journey_frequency: 50
+
+# Each sample is a tiny single-core job; the master stays on the login
+# node fitting the GP and submitting batches of 4.
+runner:
+  type: slurm
+  options:
+    default_resources:
+      partition: TPS
+      account: tps
+      time: "00:30:00"
+      nodes: 1
+      ntasks: 1
+      cpus_per_task: 1
+      mem: 4G
+      # The slave command already uses the absolute python of the env the
+      # master runs in (shared filesystem), so no module loads are needed.
+      # Add conda activation here if your environment requires it, e.g.:
+      # setup_commands:
+      #   - "source ~/.bashrc && conda activate polaris_xover"
+    poll_interval: 15      # orchestrator knobs (polarisopt >= 0.9.2):
+    orphan_threshold: 5    # how often to poll Slurm, and how many missed polls = orphaned
+
+parameters:
+  inline:
+    - { name: taxi_count,     file: inputs.json, min: 1, max: 100, type: int }
+    - { name: base_fare,      file: inputs.json, min: 0, max: 15 }
+    - { name: cost_per_tile,  file: inputs.json, min: 1, max: 20 }
+    - { name: max_multiplier, file: inputs.json, min: 1, max: 3 }
+
+# Single objective for BO: profit (operating costs already subtracted).
+metric:
+  type: identity
+  options:
+    keys: profit
+
+phases:
+  - name: bo
+    type: sequential
+    minimize: false               # maximize profit
+    warm_up:
+      type: lhs
+      options:
+        n: 16
+    generator:
+      type: acquisition
+      options:
+        surrogate:   { type: gp,  options: {} }
+        acquisition: { type: qei, options: { mc_samples: 256 } }
+    batch_size: 4
+    stop:
+      type: any
+      criteria:
+        - { type: max_iter, options: { n: 10 } }          # <= 16 + 40 evaluations
+        - { type: plateau,  options: { tol: 50.0, window: 4 } }

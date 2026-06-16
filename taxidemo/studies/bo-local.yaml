@@ -1,0 +1,62 @@
+# Workflow 3 (local) — LHS warm-up + sequential Bayesian optimization on the
+# local machine. Identical to bo-crossover.yaml except the runner and the
+# workspace: maximizes fleet profit over the four pricing/fleet knobs, each
+# sample evaluated in a slave subprocess via the local runner. Use this to
+# demo workflow 3 on a laptop when Crossover is not available.
+#
+#   polarisopt validate studies/bo-local.yaml
+#   polarisopt run      studies/bo-local.yaml
+#   polarisopt status   studies/bo-local.yaml
+#
+# To scale up to Crossover, swap the runner/workspace for bo-crossover.yaml;
+# nothing else changes.
+
+name: taxi-bo
+workspace: "{{ env.HOME }}/taxidemo-runs/bo-local"
+seed: 42
+
+simulator:
+  type: taxi
+  options:
+    n_repeats: 3
+    base_seed: 42
+    max_steps: 1000
+    grid_size: 5
+    journey_frequency: 50
+
+runner:
+  type: local
+  options: {}
+
+parameters:
+  inline:
+    - { name: taxi_count,     file: inputs.json, min: 1, max: 100, type: int }
+    - { name: base_fare,      file: inputs.json, min: 0, max: 15 }
+    - { name: cost_per_tile,  file: inputs.json, min: 1, max: 20 }
+    - { name: max_multiplier, file: inputs.json, min: 1, max: 3 }
+
+# Single objective for BO: profit (operating costs already subtracted).
+metric:
+  type: identity
+  options:
+    keys: profit
+
+phases:
+  - name: bo
+    type: sequential
+    minimize: false               # maximize profit
+    warm_up:
+      type: lhs
+      options:
+        n: 16
+    generator:
+      type: acquisition
+      options:
+        surrogate:   { type: gp,  options: {} }
+        acquisition: { type: qei, options: { mc_samples: 256 } }
+    batch_size: 4
+    stop:
+      type: any
+      criteria:
+        - { type: max_iter, options: { n: 10 } }          # <= 16 + 40 evaluations
+        - { type: plateau,  options: { tol: 50.0, window: 4 } }
