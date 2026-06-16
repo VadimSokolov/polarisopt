@@ -1,0 +1,46 @@
+/*-- scss:defaults --*/
+// PolarisOpt / PUG 2026 — Argonne-flavored revealjs theme.
+
+$body-bg: #ffffff;
+$body-color: #222222;
+$link-color: #1a6fb5;
+
+$presentation-heading-color: #1a3a5c;
+$presentation-heading-font-weight: 600;
+$code-block-font-size: 0.62em;
+
+/*-- scss:rules --*/
+
+.reveal .slides section h1,
+.reveal .slides section h2 {
+  border-bottom: 2px solid #c9d6e3;
+  padding-bottom: 0.2em;
+}
+
+.reveal table {
+  font-size: 0.78em;
+}
+
+.reveal table th {
+  background: #eef3f8;
+  color: #1a3a5c;
+}
+
+.reveal blockquote {
+  border-left: 4px solid #1a6fb5;
+  background: #f4f8fb;
+  font-style: normal;
+}
+
+// Section-divider slides (background-color set in YAML) get light text.
+.reveal section[data-background-color] h1,
+.reveal section[data-background-color] h2,
+.reveal section[data-background-color] h3 {
+  color: #ffffff;
+  border-bottom: none;
+}
+
+.reveal .footer {
+  color: #88a;
+  font-size: 0.5em;
+}
