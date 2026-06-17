@@ -130,6 +130,7 @@ polarisopt plan     study.yaml     # stage sample 0, render the sbatch script, s
 polarisopt run      study.yaml     # submit + poll the whole study
 polarisopt status   study.yaml -v  # per-sample table: jobid, runtime, last log line
 polarisopt resume   study.yaml     # pick up an interrupted run
+polarisopt best     study.yaml     # winning sample's inputs + metric (--json to pipe)
 polarisopt retry-failed study.yaml --run
 ```
 
@@ -493,7 +494,7 @@ The toy hides none of the machinery that matters at full-region scale.
 
 ::: {.columns}
 ::: {.column width="50%"}
-- **Resume** — `Ctrl-C` the master, `polarisopt resume`; RNG + surrogate restored from the store.
+- **Resume** — `Ctrl-C` the master, `polarisopt resume`; RNG + surrogate restored, and on-disk results are harvested even if Slurm's status went stale (v0.11).
 - **retry-failed** — flip crashed samples back to PENDING, re-run.
 - **plan / validate** — catch errors before burning node-hours.
 :::
@@ -506,7 +507,7 @@ The toy hides none of the machinery that matters at full-region scale.
 
 ::: {.fragment}
 Battle-tested on live POLARIS calibration since **v0.6 (May 2026)**; additive,
-no breaking changes through **v0.10**.
+no breaking changes through **v0.11**.
 :::
 
 ## Getting started {.smaller}
