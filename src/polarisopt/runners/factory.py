@@ -17,10 +17,16 @@ def make_runner(spec: dict[str, Any]) -> Runner:
         raise ValueError(f"runner spec missing 'type': {spec!r}")
     cls = runner_registry.get(spec["type"])
     options = spec.get("options", {}) or {}
-    # SlurmResources lives inside the slurm runner; allow nested "default_resources" dict
+    # Per-scheduler resource dataclasses live inside their runner modules;
+    # allow nested "default_resources" dict to be hydrated transparently.
     if spec["type"] == "slurm" and "default_resources" in options:
         from polarisopt.runners.slurm import SlurmResources
 
         if isinstance(options["default_resources"], dict):
             options = {**options, "default_resources": SlurmResources(**options["default_resources"])}
+    elif spec["type"] == "pbs" and "default_resources" in options:
+        from polarisopt.runners.pbs import PBSResources
+
+        if isinstance(options["default_resources"], dict):
+            options = {**options, "default_resources": PBSResources(**options["default_resources"])}
     return cls(**options)

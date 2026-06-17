@@ -1,4 +1,4 @@
-"""Runner backends — local subprocess and Slurm sbatch."""
+"""Runner backends — local subprocess, Slurm sbatch, PBS Pro qsub."""
 
 from polarisopt.runners.base import (
     Job,
@@ -9,6 +9,7 @@ from polarisopt.runners.base import (
     runner_registry,
 )
 from polarisopt.runners.local import LocalRunner
+from polarisopt.runners.pbs import PBSJob, PBSResources, PBSRunner
 from polarisopt.runners.slurm import SlurmJob, SlurmResources, SlurmRunner
 
 __all__ = [
@@ -16,6 +17,9 @@ __all__ = [
     "JobSpec",
     "JobStatus",
     "LocalRunner",
+    "PBSJob",
+    "PBSResources",
+    "PBSRunner",
     "Runner",
     "RunnerError",
     "SlurmJob",

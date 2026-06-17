@@ -2,6 +2,52 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.13.0 — 2026-06-17
+
+Turns polarisopt from a single-cluster (Slurm) tool into the LCRC-wide
+choice for POLARIS calibration. LCRC users routinely move studies
+between Crossover (Slurm) and Improv / Bebop (PBS Pro); without a
+PBSRunner, polarisopt was scheduler-locked to one.
+
+### Added
+
+- **`runner.type: pbs`** — new `PBSRunner` plugin parallel to
+  `SlurmRunner`. Submits via `qsub`, polls via `qstat -fx`, cancels
+  via `qdel`. YAML usage is identical to Slurm; only the runner type
+  and resource field names change.
+- **`PBSResources` dataclass** — `queue`, `account`, `walltime`,
+  `select`, `ncpus`, `mpiprocs`, `mem` (lowercase units —
+  `96gb`, not `96GB`), `place` (`excl` / `shared` / `free` —
+  parallel to Slurm `--exclusive` / `--oversubscribe`),
+  `join_output`, plus the same `extra_directives` + `setup_commands`
+  carve-outs `SlurmResources` exposes.
+- **`exit_status`-aware FINISHED → FAILED promotion.** PBS marks a
+  job `F` whether the binary succeeded or seg-faulted; the runner
+  reads `exit_status` from `qstat -fx` and routes non-zero exits to
+  `FAILED` so the orchestrator doesn't treat crashes as successful
+  metric collections.
+- **Single-call status path.** `qstat -fx` covers both live and
+  historical jobs, so unlike Slurm there's no separate
+  squeue-then-sacct fallback. Cleaner code, fewer subprocess calls
+  per poll.
+- **Full PBS job-id preserved.** Job IDs come back as
+  `<number>.<hostname>` (e.g. `7609762.imgt1`); polarisopt stores
+  and forwards the full string — `qstat` / `qdel` reject the bare
+  number.
+- **`docs/how-to/run-on-pbs.md`** — new top-level how-to mirroring
+  `run-on-slurm.md`. Includes the full Slurm↔PBS translation table,
+  status-code mapping, LCRC Improv specifics (queues, account format,
+  module-load line matching `worker_loop_lcrc.sh`'s Improv branch),
+  and common failure modes with diagnostic recipes.
+
+### Internal
+
+- **`runners.factory.make_runner`** now hydrates `default_resources`
+  dicts for both Slurm (`SlurmResources`) and PBS (`PBSResources`)
+  using the same nested-dict pattern.
+- **`runners` package exports** `PBSJob` / `PBSResources` /
+  `PBSRunner` alongside their Slurm counterparts.
+
 ## 0.12.1 — 2026-06-17
 
 Workspace lock — closes the "two masters racing on the same
