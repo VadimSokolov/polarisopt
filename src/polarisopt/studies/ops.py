@@ -31,10 +31,11 @@ from polarisopt.utils.paths import workspace_layout
 EXTRA_FINGERPRINT_KEY = "config_fingerprint"
 
 # Runner options that affect orchestrator behavior (polling cadence, log
-# verbosity) but not simulation outcomes. Excluded from the fingerprint so
-# tweaking these doesn't trigger a spurious drift error on retry-failed.
+# verbosity, retry policy) but not simulation outcomes. Excluded from the
+# fingerprint so tweaking these doesn't trigger a spurious drift error on
+# retry-failed / resume.
 _ORCHESTRATOR_RUNNER_OPTIONS = frozenset(
-    {"poll_interval", "orphan_threshold", "heartbeat_interval"}
+    {"poll_interval", "orphan_threshold", "heartbeat_interval", "max_retries"}
 )
 
 

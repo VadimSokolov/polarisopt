@@ -5,6 +5,12 @@ this codebase, read this first. It's a condensed companion to the
 [full docs](https://anl-polaris.github.io/polaris-hpc/) tuned for the
 kind of context an LLM needs to be effective here.
 
+> **Driving polarisopt from another agent's session, not modifying it?**
+> Read [docs/operating-as-an-agent.md](docs/operating-as-an-agent.md)
+> instead. This file is for agents modifying polarisopt source; the
+> other file is for agents *using* polarisopt to drive POLARIS studies.
+> The two roles want different things.
+
 ## What is polarisopt
 
 polarisopt is a Python library for **design-of-experiments and Bayesian

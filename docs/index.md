@@ -116,3 +116,13 @@ The master never imports POLARIS. Slaves run the binary against a per-sample wor
 - [Architecture](architecture.md)
 - [Study YAML reference](yaml-reference.md)
 - [Plugin authoring](plugins.md)
+
+### For AI agents
+
+If you're an AI agent (Claude, Cursor, Copilot, etc.) working with
+this codebase:
+
+- [AGENTS.md](agents.md) — you're **modifying polarisopt source**
+  (adding plugins, fixing bugs, reviewing PRs).
+- [Operating polarisopt as an agent](operating-as-an-agent.md) — you're
+  **driving polarisopt** to run POLARIS studies for a user.

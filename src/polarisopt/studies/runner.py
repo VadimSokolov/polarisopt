@@ -60,6 +60,9 @@ class StudyRunner:
         self.poll_interval: float = float(runner_options.pop("poll_interval", 5.0))
         self.orphan_threshold: int = int(runner_options.pop("orphan_threshold", 3))
         self.heartbeat_interval: float = float(runner_options.pop("heartbeat_interval", 300.0))
+        self.max_retries: int = int(runner_options.pop("max_retries", 0))
+        if self.max_retries < 0:
+            raise StudyError(f"max_retries must be >= 0, got {self.max_retries}")
         self.runner = make_runner({"type": config.runner.type, "options": runner_options})
         self.config_fingerprint: str = simulator_config_fingerprint(config)
         self.simulator = make_simulator({"type": config.simulator.type, "options": config.simulator.options})
@@ -85,6 +88,7 @@ class StudyRunner:
                 orphan_threshold=self.orphan_threshold,
                 heartbeat_interval=self.heartbeat_interval,
                 config_fingerprint=self.config_fingerprint,
+                max_retries=self.max_retries,
             )
             if isinstance(phase, StaticPhaseConfig):
                 design = make_design({"type": phase.design.type, "options": phase.design.options})

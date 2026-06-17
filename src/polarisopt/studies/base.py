@@ -82,6 +82,15 @@ class StudyContext:
         Recorded on every sample at submit so
         :func:`polarisopt.studies.ops.retry_failed` can refuse to mix
         runs across edited configs. ``None`` to skip recording.
+    max_retries :
+        Number of automatic retries to attempt on a sample that hits a
+        FAILED transition (transient OOM, node failure, timeout, etc.).
+        Default 0 — no auto-retry, current behavior. Set to e.g. 2 and
+        a sample is allowed 3 total attempts before it stays FAILED.
+        Retry count is persisted to ``sample.extra["retry_count"]``
+        so ``polarisopt status -v`` can show "1× failed" vs "3× failed
+        → probably a real bug." Configurable per study via
+        ``runner.options.max_retries``.
     """
 
     name: str
@@ -96,6 +105,7 @@ class StudyContext:
     orphan_threshold: int = 3
     heartbeat_interval: float = 300.0
     config_fingerprint: str | None = None
+    max_retries: int = 0
 
 
 class Study(ABC):
@@ -282,4 +292,57 @@ class Study(ABC):
                     sample.runtime_s = float(output["runtime_s"])
             ctx.store.update(sample)
 
+        # 4) Auto-retry FAILED samples up to ctx.max_retries times. Catches
+        # transient failures (OOM on a contended node, node failure, time
+        # limit, sacct hiccup) without manual `retry-failed` intervention.
+        # Permanent failures still get rejected after exhausting the budget.
+        # The per-sample folder is reused — we trust the simulator to
+        # overwrite its outputs (POLARIS does).
+        if ctx.max_retries > 0:
+            retriable = self._collect_retriable(samples)
+            if retriable:
+                log.info(
+                    "[retry] re-submitting %d sample(s) after FAILED transition",
+                    len(retriable),
+                )
+                self._evaluate_batch(retriable)
+
         return samples
+
+    def _collect_retriable(self, samples: list[Sample]) -> list[Sample]:
+        """Flip eligible FAILED samples back to PENDING and return them.
+
+        A sample is eligible if it's currently FAILED and its recorded
+        retry_count (``sample.extra["retry_count"]``, 0 if unset) is
+        below ``ctx.max_retries``. The flip updates retry_count, clears
+        the stale runner_task_id, sets status to PENDING, and persists.
+        Returns the in-place-modified samples for the recursive
+        ``_evaluate_batch`` call.
+        """
+        ctx = self.ctx
+        retriable: list[Sample] = []
+        for sample in samples:
+            if sample.status is not SampleStatus.FAILED:
+                continue
+            attempts = int(sample.extra.get("retry_count", 0))
+            if attempts >= ctx.max_retries:
+                continue
+            # message gets overwritten by the next FAILED transition, so
+            # the audit trail lives in extra. Use sample.message to record
+            # the *current* attempt's failure reason; extra["retry_log"]
+            # to record what we've already burned through.
+            retry_log = list(sample.extra.get("retry_log", []))
+            retry_log.append(
+                {
+                    "attempt": attempts + 1,
+                    "max": ctx.max_retries,
+                    "prior_message": sample.message,
+                }
+            )
+            sample.extra["retry_log"] = retry_log
+            sample.extra["retry_count"] = attempts + 1
+            sample.status = SampleStatus.PENDING
+            sample.runner_task_id = None
+            ctx.store.update(sample)
+            retriable.append(sample)
+        return retriable

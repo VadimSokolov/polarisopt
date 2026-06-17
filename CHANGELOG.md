@@ -2,6 +2,48 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.12.0 — 2026-06-17
+
+Closes the third recovery path — automatic per-sample retries — and
+ships the agent-operating playbook that previous DOE / calibration
+agents had to assemble from scratch.
+
+### Added
+
+- **`runner.options.max_retries: N`** — automatic per-sample retry
+  budget inside `_evaluate_batch`. On each FAILED transition the
+  sample's `extra["retry_count"]` increments; the orchestrator
+  re-submits up to `max_retries` times before letting it stay
+  FAILED. Closes the manual `polarisopt retry-failed --run` loop for
+  the transient-failure case (occasional OOM, NODE_FAIL, time-limit
+  near the boundary). Default `0` — no auto-retry, same as v0.11.x.
+  Permanent failures still get rejected after exhausting the budget,
+  so this never burns infinite compute on a semantic bug.
+- **Retry audit trail.** Each retry appends to
+  `sample.extra["retry_log"]` with `{attempt, max, prior_message}`
+  so the `sample.message` field can still reflect the final/current
+  failure reason without losing history.
+- **`polarisopt status --verbose` shows a `retry` column.** Lets you
+  spot "this sample failed 3× → real bug" at a glance vs "1× →
+  probably transient."
+- **`docs/operating-as-an-agent.md`** — new top-level page for AI
+  agents *driving* polarisopt (as opposed to AI agents *modifying*
+  polarisopt — that's still `AGENTS.md`). Covers the canonical loop,
+  workspace conventions, the typo class, the three retry paths,
+  master-death recovery, heartbeat output, orchestrator knobs,
+  "don't edit polarisopt source," and the feedback format that's
+  driven v0.6–v0.11 evolution. Cross-linked from `docs/index.md`
+  and `AGENTS.md`.
+
+### Internal
+
+- **`max_retries` added to `_ORCHESTRATOR_RUNNER_OPTIONS`.** Joins
+  `poll_interval` / `orphan_threshold` / `heartbeat_interval` as a
+  YAML key that lives in `runner.options` but is consumed by the
+  orchestrator, not the runner constructor. Excluded from the
+  config-drift fingerprint so tweaking retry policy doesn't trip
+  `retry-failed` / `resume` drift checks.
+
 ## 0.11.0 — 2026-06-12
 
 Six items from the DFW DOE agent after a 25h study + recovery cycle.

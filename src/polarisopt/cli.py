@@ -159,15 +159,17 @@ def status(config: Path, verbose: bool, status_filter: str | None) -> None:
         click.echo("(no samples match)")
         return
     rows.sort(key=lambda s: (s.id or 0))
-    header = f"{'id':>4} {'phase':<14} {'status':<9} {'jobid':<14} {'runtime':>10}  folder / last log line"
+    header = f"{'id':>4} {'phase':<14} {'status':<9} {'retry':>5} {'jobid':<14} {'runtime':>10}  folder / last log line"
     click.echo(header)
     click.echo("-" * len(header))
     for s in rows:
         rt = _fmt_runtime(s)
         folder = str(s.folder) if s.folder else "-"
         last_line = _last_log_line(s.folder) if s.folder else ""
+        retry_count = s.extra.get("retry_count", 0)
+        retry_cell = str(retry_count) if retry_count else "-"
         click.echo(
-            f"{(s.id or 0):>4} {s.phase[:14]:<14} {s.status.value:<9} "
+            f"{(s.id or 0):>4} {s.phase[:14]:<14} {s.status.value:<9} {retry_cell:>5} "
             f"{(s.runner_task_id or '-')[:14]:<14} {rt:>10}  {folder}"
         )
         if last_line:
