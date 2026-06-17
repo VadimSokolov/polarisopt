@@ -97,6 +97,32 @@ mostly automatic — zombies whose outputs parse become FINISHED with
 the metric set, without you needing to know `recover-from-disk` exists
 as a separate verb.
 
+## Workspace lock (v0.12.1+)
+
+`polarisopt run` and `polarisopt resume` acquire an exclusive
+`flock(2)` on `<workspace>/.polarisopt.lock` for the duration of the
+master process. If another master already holds it, you get a
+fail-fast error pointing at the holder's PID, hostname, start time,
+and polarisopt version. This prevents two orchestrators from racing
+on the same SampleStore — the failure mode where one master submits
+sample N while the other is also submitting it, both call
+`collect_output`, and state thrashes.
+
+The lock is kernel-managed and auto-releases on process death — no
+stale-state cleanup needed. The metadata sidecar (`.polarisopt.lock.meta`)
+is best-effort cleaned on graceful exit; a stale metadata file
+alongside a free lock is benign.
+
+`--force` on `run` / `resume` bypasses the check. Use only when you
+knowingly accept the racing-masters consequences (or in rare
+filesystems where flock is unreliable — LCRC's GPFS is reliable; NFS
+varies).
+
+The short-lived mutators (`cancel`, `abort`, `retry-failed`,
+`recover-from-disk`) do **not** acquire the lock — they're typically
+operator interventions that should run anytime, including while a
+master is alive.
+
 ## Heartbeat output
 
 For studies that take more than ~5 minutes, the master emits a

@@ -30,6 +30,7 @@ from polarisopt.studies.validate import validate_study
 from polarisopt.utils.logging import configure
 from polarisopt.utils.paths import workspace_layout
 from polarisopt.utils.plugins import load_external_plugins
+from polarisopt.utils.workspace_lock import WorkspaceLockError, workspace_lock
 
 
 @click.group(name="polarisopt")
@@ -57,13 +58,25 @@ def cli(log_level: str) -> None:
         "by heartbeats. State transitions still log normally."
     ),
 )
-def run(config: Path, quiet_heartbeat: bool) -> None:
+@click.option(
+    "--force", is_flag=True,
+    help=(
+        "Bypass the workspace lock (don't refuse if another master is "
+        "already holding it). Use only when you knowingly accept the "
+        "racing-masters consequences (duplicate submissions, state thrash)."
+    ),
+)
+def run(config: Path, quiet_heartbeat: bool, force: bool) -> None:
     """Run all phases in CONFIG (a study YAML)."""
     cfg = load_study_config(config)
     if quiet_heartbeat:
         _silence_heartbeat()
-    runner = StudyRunner(cfg)
-    samples = runner.run()
+    try:
+        with workspace_lock(cfg.workspace, action="run", force=force):
+            runner = StudyRunner(cfg)
+            samples = runner.run()
+    except WorkspaceLockError as exc:
+        raise click.ClickException(str(exc)) from exc
     finished = sum(1 for s in samples if s.status is SampleStatus.FINISHED)
     failed = sum(1 for s in samples if s.status is SampleStatus.FAILED)
     click.echo(f"completed: {finished}/{len(samples)} samples (failed: {failed})")
@@ -264,8 +277,9 @@ def _last_log_line(folder: Path | None, max_chars: int = 200) -> str:
 @click.option(
     "--force", is_flag=True,
     help=(
-        "Resume even if the simulator/runner config has drifted since the "
-        "existing samples ran. Default: refuse to mix runs across edited YAMLs."
+        "Bypass safety checks: the config-drift check (refuses to mix runs "
+        "across edited YAMLs) AND the workspace lock (refuses if another "
+        "master is already running). Use deliberately."
     ),
 )
 @click.option(
@@ -283,12 +297,13 @@ def resume(
 
     Before running:
 
-    1. Optional config-drift check (skipped with --force) — refuses to
-       resume if the simulator/runner config has been edited since the
-       existing samples ran. Mirrors retry-failed's check.
-    2. reconcile_running — for each previously-RUNNING sample,
+    1. Workspace lock — refuses if another master is already running on
+       the same workspace (--force bypasses).
+    2. Config-drift check — refuses if simulator/runner config has been
+       edited since existing samples ran (--force bypasses).
+    3. reconcile_running — for each previously-RUNNING sample,
        runner.status + disk recovery (FINISHED if outputs parse).
-    3. recover_from_disk — sweeps any still-non-FINISHED samples for
+    4. recover_from_disk — sweeps any still-non-FINISHED samples for
        on-disk artifacts. Catches zombies that reconcile missed
        (runner.status raised, metric changed, etc.).
     """
@@ -304,16 +319,20 @@ def resume(
     if quiet_heartbeat:
         _silence_heartbeat()
 
-    if not skip_reconcile:
-        reconciled = reconcile_running(cfg, store=store)
-        if reconciled:
-            click.echo(f"reconciled {len(reconciled)} previously-RUNNING sample(s)")
-        recovered = recover_from_disk(cfg, store=store)
-        if recovered:
-            click.echo(f"recovered {len(recovered)} sample(s) from disk")
+    try:
+        with workspace_lock(cfg.workspace, action="resume", force=force):
+            if not skip_reconcile:
+                reconciled = reconcile_running(cfg, store=store)
+                if reconciled:
+                    click.echo(f"reconciled {len(reconciled)} previously-RUNNING sample(s)")
+                recovered = recover_from_disk(cfg, store=store)
+                if recovered:
+                    click.echo(f"recovered {len(recovered)} sample(s) from disk")
 
-    runner = StudyRunner(cfg, store=store)
-    samples = runner.run()
+            runner = StudyRunner(cfg, store=store)
+            samples = runner.run()
+    except WorkspaceLockError as exc:
+        raise click.ClickException(str(exc)) from exc
     click.echo(f"resume complete: {len(samples)} samples processed")
 
 

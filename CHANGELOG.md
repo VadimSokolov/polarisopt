@@ -2,6 +2,51 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.12.1 — 2026-06-17
+
+Workspace lock — closes the "two masters racing on the same
+SampleStore" footgun before it bit.
+
+### Added
+
+- **`flock(2)`-based workspace lock.** `polarisopt run` and
+  `polarisopt resume` acquire an exclusive lock on
+  `<workspace>/.polarisopt.lock` for the duration of the master
+  process. If another live master holds it, both commands fail fast
+  with a friendly error pointing at the holder's PID, hostname,
+  start time, polarisopt version, and the action it's running:
+  ```
+  another polarisopt master holds the workspace lock:
+    PID:      12345
+    host:     xover-login1
+    started:  2026-06-17T09:23:45+00:00
+    version:  0.12.0
+    action:   run
+    lock:     /lcrc/.../calibration-1pc/.polarisopt.lock
+  ```
+  The lock is kernel-managed (auto-releases on process death — no
+  stale-state cleanup). Metadata sidecar
+  (`.polarisopt.lock.meta`) is best-effort cleaned on graceful exit.
+- **`--force` on `polarisopt run`** to bypass the lock check.
+  (`resume`'s existing `--force` flag now also bypasses the lock in
+  addition to the drift check.) Use only when knowingly accepting
+  the racing-masters consequences.
+- **`docs/operating-as-an-agent.md`** — new "Workspace lock" section
+  documenting the guarantee and the short-mutator carve-outs
+  (`cancel` / `abort` / `retry-failed` / `recover-from-disk` skip the
+  lock check since they're operator interventions that should run
+  anytime).
+
+### Why it matters
+
+Submitting the master as a Slurm job (per
+`docs/how-to/run-on-slurm.md`) made it trivial to forget there's one
+already running and fire a second `polarisopt resume` from a login
+shell. Two orchestrators racing means: duplicate submissions,
+cancelled-but-still-alive jobs, recursive-retry doubling, state
+thrash on FINISHED/RUNNING transitions. WAL mode protected the
+SQLite layer but not the application-level decisions.
+
 ## 0.12.0 — 2026-06-17
 
 Closes the third recovery path — automatic per-sample retries — and
