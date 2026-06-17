@@ -26,6 +26,7 @@ BLUE = "#1a6fb5"
 BAND = "#1a6fb5"
 ACCENT = "#d1495b"   # warm accent for the acquisition / next-pick
 GRID = "#c9d6e3"
+MUTED = "#9aa7b5"    # muted slate for the random / baseline (warm-up) points
 
 plt.rcParams.update({
     "font.family": "sans-serif",
@@ -134,11 +135,13 @@ def fig_calibration_convergence() -> None:
     df = _conv_frame("~/taxidemo-runs/calibrate-local", "taxi-calibrate")
     evals = np.arange(1, len(df) + 1)
     n_warm = int((df["iteration"] == 0).sum())
+    warm = (df["iteration"] == 0).to_numpy()        # random warm-up vs model-guided BO
+    val = df["val"].to_numpy()
     fig, ax = plt.subplots(figsize=(8.2, 4.2))
     ax.plot(evals, df["val"].cummin(), drawstyle="steps-post", color=NAVY, lw=2.4, label="best so far")
-    sc = ax.scatter(evals, df["val"], c=df["iteration"], cmap="viridis", s=42, zorder=3)
+    ax.scatter(evals[warm], val[warm], color=MUTED, s=42, zorder=3, label="LHS warm-up (random)")
+    ax.scatter(evals[~warm], val[~warm], color=BLUE, s=42, zorder=3, label="BO (GP + qEI)")
     ax.axvline(n_warm + 0.5, ls="--", color=GRID, lw=1.5)
-    ax.text(n_warm / 2, ax.get_ylim()[1], "LHS warm-up", ha="center", va="top", color=NAVY, fontsize=10)
     ax.axhline(0.02, ls=":", color=ACCENT, lw=2, label="epsilon stop (0.02)")
     ax.set_yscale("log")
     ax.set_xlabel("evaluation")
@@ -146,8 +149,6 @@ def fig_calibration_convergence() -> None:
     ax.set_title("Calibration: discrepancy drops below epsilon, loop stops early",
                  color=NAVY, fontsize=14, pad=8)
     ax.legend(loc="upper right", frameon=False)
-    cb = fig.colorbar(sc, ax=ax, label="BO iteration")
-    cb.outline.set_edgecolor(GRID)
     fig.savefig(FIG / "calibration-convergence.png", bbox_inches="tight")
     plt.close(fig)
     print(f"wrote calibration-convergence.png  ({len(df)} evals, best={df['val'].min():.4f})")
