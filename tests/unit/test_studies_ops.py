@@ -118,6 +118,52 @@ def test_abort_cancels_all_non_terminal(tmp_path: Path) -> None:
     assert s3_now.status is SampleStatus.FINISHED
 
 
+def test_build_runner_strips_orchestrator_knobs(tmp_path: Path) -> None:
+    """build_runner must pop poll_interval / orphan_threshold /
+    heartbeat_interval before passing to the runner constructor, so resume
+    doesn't crash on YAMLs that polarisopt run accepts.
+
+    Regression for the DFW DOE agent's session-level crash with
+    TypeError: SlurmRunner.__init__() got an unexpected keyword argument
+    'poll_interval'.
+    """
+    from polarisopt.studies.ops import build_runner
+
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(
+        dedent(
+            f"""\
+            name: orchknobs
+            workspace: {tmp_path / "ws"}
+            simulator: {{ type: mock, options: {{ function: quadratic }} }}
+            runner:
+              type: slurm
+              options:
+                default_resources:
+                  partition: TPS
+                  account: tps
+                  time: "01:00:00"
+                  cpus_per_task: 4
+                poll_interval: 60
+                orphan_threshold: 5
+                heartbeat_interval: 120
+            parameters:
+              inline:
+                - {{ name: x, file: a.json, min: 0.0, max: 1.0 }}
+            metric: {{ type: identity, options: {{ keys: value }} }}
+            phases:
+              - name: p
+                type: static
+                design: {{ type: lhs, options: {{ n: 4 }} }}
+            """
+        )
+    )
+    cfg = load_study_config(cfg_path)
+    # Should not raise:
+    runner = build_runner(cfg)
+    assert runner.__class__.__name__ == "SlurmRunner"
+
+
 def test_sample_log_paths_empty(tmp_path: Path) -> None:
     s = Sample(phase="p", inputs=np.array([0.1]))
     s.folder = tmp_path / "empty"

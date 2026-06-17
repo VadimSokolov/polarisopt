@@ -351,3 +351,60 @@ def test_smoke_test_preserves_workspace_on_failure(tmp_path: Path, monkeypatch) 
     assert "FAILED" in res.output
     # Workspace preserved
     assert (tmp_path / "ws").exists()
+
+
+# ---------- resume CLI (config-drift + recover-from-disk pass-through) ----------
+
+
+def test_resume_cli_refuses_on_config_drift(tmp_path: Path) -> None:
+    """resume must check the sample fingerprints and refuse if the YAML
+    has drifted since the existing samples ran (symmetric with retry-failed)."""
+    from polarisopt.studies.ops import EXTRA_FINGERPRINT_KEY
+
+    workspace = tmp_path / "ws"
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(_yaml(workspace, runner_type="local"))
+    cfg = load_study_config(cfg_path)
+    workspace.mkdir(parents=True, exist_ok=True)
+    store = SampleStore.open(workspace_layout(workspace)["db"], cfg.name)
+    s = store.add(Sample(phase="p", inputs=np.array([0.5])))
+    s.status = SampleStatus.FINISHED
+    s.metric = np.array([0.25])
+    s.extra[EXTRA_FINGERPRINT_KEY] = "stale-fingerprint-from-prior"
+    store.update(s)
+
+    res = CliRunner().invoke(cli, ["resume", str(cfg_path)])
+    assert res.exit_code != 0
+    assert "config has changed" in res.output
+    assert "--force" in res.output
+
+    # --force allows the resume to proceed.
+    res2 = CliRunner().invoke(cli, ["resume", str(cfg_path), "--force"])
+    assert res2.exit_code == 0, res2.output
+
+
+def test_resume_cli_runs_recover_from_disk(tmp_path: Path) -> None:
+    """A RUNNING sample without a runner_task_id (so reconcile_running
+    skips it) but with outputs on disk should be picked up by the
+    recover_from_disk pass that resume calls automatically.
+    """
+    workspace = tmp_path / "ws"
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(_yaml(workspace, runner_type="local"))
+    cfg = load_study_config(cfg_path)
+    workspace.mkdir(parents=True, exist_ok=True)
+    store = SampleStore.open(workspace_layout(workspace)["db"], cfg.name)
+    # No runner_task_id → reconcile_running can't touch it (filters on
+    # samples with a task_id). Disk artifacts present → recover_from_disk
+    # should pick it up.
+    zombie = store.add(Sample(phase="p", inputs=np.array([0.5])))
+    zombie.status = SampleStatus.RUNNING
+    zombie.folder = workspace / "experiments" / "sim-zombie"
+    _write_mock_output(zombie.folder, value=0.25)
+    store.update(zombie)
+
+    res = CliRunner().invoke(cli, ["resume", str(cfg_path)])
+    assert res.exit_code == 0, res.output
+    final = store.get(zombie.id)
+    assert final.status is SampleStatus.FINISHED, res.output
+    assert "recovered" in res.output

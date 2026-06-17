@@ -223,3 +223,65 @@ def test_status_verbose_status_filter(tmp_path: Path) -> None:
     assert len(rows_for_other) >= 1
     rows_for_sid = [ln for ln in res.output.splitlines() if ln.lstrip().startswith(str(sid)) and " pending " in ln]
     assert not rows_for_sid
+
+
+def test_best_cli_returns_argmin(tmp_path: Path) -> None:
+    cfg_path, _ = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    # Three finished samples — best (argmin) is the lowest metric.
+    for inputs, metric in [(0.2, 0.9), (0.5, 0.25), (0.8, 0.7)]:
+        s = store.add(Sample(phase="p", inputs=np.array([inputs])))
+        s.status = SampleStatus.FINISHED
+        s.metric = np.array([metric])
+        store.update(s)
+
+    res = CliRunner().invoke(cli, ["best", str(cfg_path)])
+    assert res.exit_code == 0, res.output
+    assert "0.25" in res.output
+    # The lowest-metric sample is the one with inputs=0.5.
+    assert "0.5" in res.output
+
+
+def test_best_cli_maximize_flag(tmp_path: Path) -> None:
+    cfg_path, _ = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    for inputs, metric in [(0.2, 0.1), (0.5, 0.25), (0.8, 0.9)]:
+        s = store.add(Sample(phase="p", inputs=np.array([inputs])))
+        s.status = SampleStatus.FINISHED
+        s.metric = np.array([metric])
+        store.update(s)
+
+    res = CliRunner().invoke(cli, ["best", str(cfg_path), "--maximize"])
+    assert res.exit_code == 0, res.output
+    assert "0.9" in res.output
+
+
+def test_best_cli_json_output(tmp_path: Path) -> None:
+    import json as _json
+
+    cfg_path, _ = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    s = store.add(Sample(phase="p", inputs=np.array([0.5])))
+    s.status = SampleStatus.FINISHED
+    s.metric = np.array([0.42])
+    store.update(s)
+
+    res = CliRunner().invoke(cli, ["best", str(cfg_path), "--json"])
+    assert res.exit_code == 0, res.output
+    payload = _json.loads(res.output.strip())
+    assert payload["objective_value"] == 0.42
+    assert payload["inputs"] == [0.5]
+    assert payload["metric"] == [0.42]
+
+
+def test_best_cli_errors_on_empty_store(tmp_path: Path) -> None:
+    cfg_path, _ = _seed(tmp_path)
+    res = CliRunner().invoke(cli, ["best", str(cfg_path)])
+    assert res.exit_code != 0
+    assert "no FINISHED" in res.output

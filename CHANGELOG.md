@@ -2,6 +2,65 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.11.0 — 2026-06-12
+
+Six items from the DFW DOE agent after a 25h study + recovery cycle.
+Three bug fixes that eliminate a class of "config-knob in YAML breaks
+some entry point but not others" pain, plus three quality-of-life
+additions.
+
+### Bug fixes
+
+- **`build_runner` strips orchestrator knobs.** `reconcile_running`,
+  `cancel_sample`, `abort_study`, and friends all go through
+  `build_runner`, which was passing `cfg.runner.options` raw to
+  `make_runner` while `StudyRunner.__init__` popped them. Result:
+  `polarisopt run` accepted a YAML with `poll_interval: 60`, but
+  `polarisopt resume` crashed three sessions later with
+  `TypeError: SlurmRunner.__init__() got an unexpected keyword
+  argument 'poll_interval'`. Now consistent across every entry point.
+- **`polarisopt resume` calls `recover_from_disk` automatically.**
+  After `reconcile_running` finishes, resume sweeps any remaining
+  non-FINISHED samples for on-disk artifacts. Catches zombies that
+  reconcile missed (runner.status raised, metric changed since the
+  binary wrote outputs, etc.) without requiring the user to know
+  the `recover-from-disk` subcommand exists. Skipped under
+  `--skip-reconcile`.
+- **Config-drift check on `polarisopt resume`.** Symmetric with
+  `retry-failed`'s v0.7 check. Resume now compares the current
+  simulator+runner fingerprint against the fingerprints recorded on
+  existing samples and refuses with a clear error if they've
+  diverged. `--force` overrides for the genuine "resume under new
+  config" case.
+
+### Added
+
+- **`polarisopt best <study.yaml>`** — wraps `SampleStore.best_so_far`.
+  Prints id / phase / iteration / inputs / metric / folder for the
+  argmin sample (or argmax with `--maximize`). `--objective N` picks
+  the column for multi-objective studies; `--phase` restricts; `--json`
+  emits a machine-readable payload for shell pipelines.
+- **`--quiet-heartbeat` flag on `polarisopt run` / `resume`.**
+  Filters the periodic `[heartbeat] N sample(s) outstanding…` log
+  lines out of the default output. State transitions still log at
+  INFO. For 25h studies where heartbeats otherwise dominate the log
+  (~300 lines that have to be `grep -v`'d).
+
+### Documentation
+
+- **`docs/how-to/use-from-notebook.md`** — new Partitioning by phase
+  and iteration subsection. The `samples.iteration` column has been
+  populated since v0.1 (warm-up = 0, BO rounds = 1..N for sequential
+  phases) but wasn't documented; analysis queries had to infer batch
+  boundaries from sample id ranges instead. Now shows the
+  `groupby("iteration").min()` pattern explicitly.
+
+### Deferred
+
+- `phase_iteration` schema migration — the column under that name
+  doesn't exist, but `samples.iteration` does the same job. No schema
+  change needed; see the docs update above.
+
 ## 0.10.1 — 2026-06-11
 
 The "zombie sample" recovery release. Master process death during a

@@ -49,9 +49,19 @@ def cli(log_level: str) -> None:
 
 @cli.command()
 @click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
-def run(config: Path) -> None:
+@click.option(
+    "--quiet-heartbeat", is_flag=True,
+    help=(
+        "Suppress the periodic '[heartbeat] N sample(s) outstanding…' log "
+        "lines. Useful for long studies whose log would otherwise be dominated "
+        "by heartbeats. State transitions still log normally."
+    ),
+)
+def run(config: Path, quiet_heartbeat: bool) -> None:
     """Run all phases in CONFIG (a study YAML)."""
     cfg = load_study_config(config)
+    if quiet_heartbeat:
+        _silence_heartbeat()
     runner = StudyRunner(cfg)
     samples = runner.run()
     finished = sum(1 for s in samples if s.status is SampleStatus.FINISHED)
@@ -247,27 +257,103 @@ def _last_log_line(folder: Path | None, max_chars: int = 200) -> str:
 @click.option(
     "--skip-reconcile",
     is_flag=True,
-    help="Don't reconcile RUNNING samples with the runner at startup.",
+    help="Don't reconcile RUNNING samples (skips runner.status + disk recovery).",
 )
-def resume(config: Path, skip_reconcile: bool) -> None:
+@click.option(
+    "--force", is_flag=True,
+    help=(
+        "Resume even if the simulator/runner config has drifted since the "
+        "existing samples ran. Default: refuse to mix runs across edited YAMLs."
+    ),
+)
+@click.option(
+    "--quiet-heartbeat", is_flag=True,
+    help=(
+        "Suppress the periodic '[heartbeat] N sample(s) outstanding…' log "
+        "lines. Useful for long studies whose log would otherwise be dominated "
+        "by heartbeats. State transitions still log normally."
+    ),
+)
+def resume(
+    config: Path, skip_reconcile: bool, force: bool, quiet_heartbeat: bool,
+) -> None:
     """Pick up an interrupted study (re-evaluates any PENDING samples).
 
-    Before running, reconciles every previously-RUNNING sample with the
-    runner: if Slurm has already finished/failed/lost it, the store row
-    is transitioned accordingly so resume isn't blocked.
+    Before running:
+
+    1. Optional config-drift check (skipped with --force) — refuses to
+       resume if the simulator/runner config has been edited since the
+       existing samples ran. Mirrors retry-failed's check.
+    2. reconcile_running — for each previously-RUNNING sample,
+       runner.status + disk recovery (FINISHED if outputs parse).
+    3. recover_from_disk — sweeps any still-non-FINISHED samples for
+       on-disk artifacts. Catches zombies that reconcile missed
+       (runner.status raised, metric changed, etc.).
     """
     cfg = load_study_config(config)
     layout = workspace_layout(cfg.workspace)
     if not layout["db"].exists():
         raise click.ClickException(f"no store at {layout['db']}; run first")
     store = SampleStore.open(layout["db"], cfg.name)
+
+    if not force:
+        _check_resume_drift(cfg, store)
+
+    if quiet_heartbeat:
+        _silence_heartbeat()
+
     if not skip_reconcile:
         reconciled = reconcile_running(cfg, store=store)
         if reconciled:
             click.echo(f"reconciled {len(reconciled)} previously-RUNNING sample(s)")
+        recovered = recover_from_disk(cfg, store=store)
+        if recovered:
+            click.echo(f"recovered {len(recovered)} sample(s) from disk")
+
     runner = StudyRunner(cfg, store=store)
     samples = runner.run()
     click.echo(f"resume complete: {len(samples)} samples processed")
+
+
+def _check_resume_drift(cfg, store) -> None:
+    """Raise ClickException if any existing sample's recorded fingerprint
+    differs from the current simulator+runner config.
+    """
+    from polarisopt.studies.ops import (
+        EXTRA_FINGERPRINT_KEY,
+        simulator_config_fingerprint,
+    )
+    current_fp = simulator_config_fingerprint(cfg)
+    drifted = [
+        s for s in store.list()
+        if (rec := s.extra.get(EXTRA_FINGERPRINT_KEY)) is not None
+        and rec != current_fp
+    ]
+    if drifted:
+        recorded = sorted({s.extra.get(EXTRA_FINGERPRINT_KEY) for s in drifted})
+        raise click.ClickException(
+            f"simulator/runner config has changed since {len(drifted)} "
+            f"existing sample(s) ran (recorded: {recorded}; current: "
+            f"{current_fp!r}). Pass --force to resume under the new config, "
+            f"or use a distinct workspace per variant."
+        )
+
+
+def _silence_heartbeat() -> None:
+    """Downgrade the studies.base heartbeat INFO line to DEBUG.
+
+    Cheaper than a separate log file and lets state-transition lines
+    keep their default INFO visibility. Heartbeats still happen — they
+    just don't print at the default log level.
+    """
+    import logging
+    studies_log = logging.getLogger("polarisopt.studies.base")
+
+    class _SkipHeartbeat(logging.Filter):
+        def filter(self, record: logging.LogRecord) -> bool:
+            return "[heartbeat]" not in record.getMessage()
+
+    studies_log.addFilter(_SkipHeartbeat())
 
 
 @cli.command(name="retry-failed")
@@ -312,6 +398,79 @@ def retry_failed_cmd(config: Path, ids: tuple[int, ...], run: bool, force: bool)
         finished = sum(1 for s in samples if s.status is SampleStatus.FINISHED)
         failed = sum(1 for s in samples if s.status is SampleStatus.FAILED)
         click.echo(f"completed: {finished}/{len(samples)} samples (failed: {failed})")
+
+
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--objective", "objective_index", type=int, default=0, show_default=True,
+    help="Which objective column to optimize over (multi-objective studies).",
+)
+@click.option(
+    "--maximize", is_flag=True,
+    help="Argmax instead of argmin (default).",
+)
+@click.option(
+    "--phase", default=None,
+    help="Restrict to samples from this phase (default: all phases).",
+)
+@click.option(
+    "--json", "as_json", is_flag=True,
+    help="Print the result as a JSON object (id, inputs, metric, folder).",
+)
+def best(
+    config: Path,
+    objective_index: int,
+    maximize: bool,
+    phase: str | None,
+    as_json: bool,
+) -> None:
+    """Print the best finished sample's id, inputs, and metric.
+
+    Wraps ``SampleStore.best_so_far``. ``--maximize`` flips the
+    direction; ``--phase`` restricts the search; ``--json`` makes the
+    output machine-readable for shell pipelines.
+    """
+    import json as _json
+    cfg = load_study_config(config)
+    layout = workspace_layout(cfg.workspace)
+    if not layout["db"].exists():
+        raise click.ClickException(f"no store at {layout['db']}; run first")
+    store = SampleStore.open(layout["db"], cfg.name)
+    result = store.best_so_far(
+        objective_index=objective_index,
+        minimize=not maximize,
+        phase=phase,
+    )
+    if result is None:
+        raise click.ClickException("no FINISHED samples in the store")
+    sample, value = result
+    if as_json:
+        click.echo(
+            _json.dumps(
+                {
+                    "id": sample.id,
+                    "phase": sample.phase,
+                    "iteration": sample.iteration,
+                    "inputs": list(sample.inputs),
+                    "metric": list(sample.metric) if sample.metric is not None else None,
+                    "objective_value": value,
+                    "folder": str(sample.folder) if sample.folder else None,
+                }
+            )
+        )
+        return
+    direction = "max" if maximize else "min"
+    click.echo(f"best sample (arg{direction} over obj[{objective_index}])")
+    click.echo(f"  id:        {sample.id}")
+    click.echo(f"  phase:     {sample.phase}")
+    click.echo(f"  iteration: {sample.iteration}")
+    click.echo(f"  inputs:    {list(sample.inputs)}")
+    if sample.metric is not None:
+        click.echo(f"  metric:    {list(sample.metric)}")
+    click.echo(f"  obj[{objective_index}]:    {value:.6g}  ({direction})")
+    if sample.folder:
+        click.echo(f"  folder:    {sample.folder}")
 
 
 @cli.command(name="recover-from-disk")

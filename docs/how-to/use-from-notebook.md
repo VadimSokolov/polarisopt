@@ -100,6 +100,27 @@ df = store.to_dataframe()
 df.head()
 ```
 
+### Partitioning by phase and iteration
+
+Every sample row has both a `phase` (the YAML phase name) and an
+`iteration` (integer batch index within that phase). For sequential
+phases, `iteration=0` is the warm-up batch and `iteration=1, 2, …`
+are the BO rounds. For static phases all samples share `iteration=0`.
+
+This means analysis queries don't need to infer batch boundaries from
+sample id ranges:
+
+```python
+# Best metric per BO iteration
+df = store.to_dataframe()
+df = df[df["status"] == "finished"]
+df["objective"] = df["metric"].apply(lambda m: m[0] if m else None)
+best_per_iter = df.groupby(["phase", "iteration"])["objective"].min()
+```
+
+The same column is in `Sample.iteration` if you're iterating samples
+in Python instead of going through pandas.
+
 ### Analysis helpers (the full set)
 
 The store ships five helpers built for notebook work. None of them

@@ -78,8 +78,22 @@ def open_store(config: StudyConfig) -> SampleStore:
 
 
 def build_runner(config: StudyConfig) -> Runner:
-    """Re-instantiate the Runner declared in ``config``."""
-    return make_runner({"type": config.runner.type, "options": config.runner.options})
+    """Re-instantiate the Runner declared in ``config``.
+
+    Mirrors :class:`StudyRunner.__init__`'s strip of orchestrator-only
+    knobs (``poll_interval`` / ``orphan_threshold`` /
+    ``heartbeat_interval``). Without this the resume path crashes on
+    ``SlurmRunner.__init__() got an unexpected keyword argument
+    'poll_interval'`` because ``reconcile_running`` and the
+    cancel/abort helpers all go through here while ``polarisopt run``
+    goes through ``StudyRunner`` (which pops). Single behavior across
+    every entry point.
+    """
+    runner_options = {
+        k: v for k, v in config.runner.options.items()
+        if k not in _ORCHESTRATOR_RUNNER_OPTIONS
+    }
+    return make_runner({"type": config.runner.type, "options": runner_options})
 
 
 def _runner_job_for(sample: Sample) -> Job:
