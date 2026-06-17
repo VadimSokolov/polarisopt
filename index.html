@@ -10,7 +10,7 @@
   <meta name="generator" content="quarto-1.8.27">
 
   <meta name="author" content="Vadim Sokolov at George Mason University">
-  <meta name="dcterms.date" content="2026-06-16">
+  <meta name="dcterms.date" content="2026-06-17">
   <title>PolarisOpt</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -209,7 +209,7 @@ Vadim Sokolov at George Mason University
 </div>
 </div>
 
-  <p class="date">2026-06-16</p>
+  <p class="date">2026-06-17</p>
 </section>
 <section id="the-setting" class="slide level2 smaller">
 <h2>The setting</h2>
@@ -322,7 +322,8 @@ Vadim Sokolov at George Mason University
 <span id="cb2-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> run      study.yaml     <span class="co"># submit + poll the whole study</span></span>
 <span id="cb2-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> status   study.yaml <span class="at">-v</span>  <span class="co"># per-sample table: jobid, runtime, last log line</span></span>
 <span id="cb2-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> resume   study.yaml     <span class="co"># pick up an interrupted run</span></span>
-<span id="cb2-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> retry-failed study.yaml <span class="at">--run</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb2-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> best     study.yaml     <span class="co"># winning sample's inputs + metric (--json to pipe)</span></span>
+<span id="cb2-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> retry-failed study.yaml <span class="at">--run</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="fragment">
 <p><code>validate</code> and <code>plan</code> catch the typo class — a wrong plugin name, an option that isn’t in the constructor — in <strong>one second</strong>, instead of after a 30-second stage in a real run.</p>
 </div>
@@ -713,7 +714,7 @@ Vadim Sokolov at George Mason University
 <div class="columns">
 <div class="column" style="width:50%;">
 <ul>
-<li><strong>Resume</strong> — <code>Ctrl-C</code> the master, <code>polarisopt resume</code>; RNG + surrogate restored from the store.</li>
+<li><strong>Resume</strong> — <code>Ctrl-C</code> the master, <code>polarisopt resume</code>; RNG + surrogate restored, and on-disk results are harvested even if Slurm’s status went stale (v0.11).</li>
 <li><strong>retry-failed</strong> — flip crashed samples back to PENDING, re-run.</li>
 <li><strong>plan / validate</strong> — catch errors before burning node-hours.</li>
 </ul>
@@ -725,7 +726,7 @@ Vadim Sokolov at George Mason University
 </ul>
 </div></div>
 <div class="fragment">
-<p>Battle-tested on live POLARIS calibration since <strong>v0.6 (May 2026)</strong>; additive, no breaking changes through <strong>v0.10</strong>.</p>
+<p>Battle-tested on live POLARIS calibration since <strong>v0.6 (May 2026)</strong>; additive, no breaking changes through <strong>v0.11</strong>.</p>
 </div>
 </section>
 <section id="getting-started" class="slide level2 smaller">
