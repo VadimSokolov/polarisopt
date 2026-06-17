@@ -20,6 +20,7 @@ from polarisopt.studies.ops import (
     cancel_sample,
     open_store,
     reconcile_running,
+    recover_from_disk,
     retry_failed,
     sample_log_paths,
 )
@@ -311,6 +312,33 @@ def retry_failed_cmd(config: Path, ids: tuple[int, ...], run: bool, force: bool)
         finished = sum(1 for s in samples if s.status is SampleStatus.FINISHED)
         failed = sum(1 for s in samples if s.status is SampleStatus.FAILED)
         click.echo(f"completed: {finished}/{len(samples)} samples (failed: {failed})")
+
+
+@cli.command(name="recover-from-disk")
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--include-cancelled", is_flag=True,
+    help="Also sweep CANCELLED samples (default: skip them to preserve user intent).",
+)
+def recover_from_disk_cmd(config: Path, include_cancelled: bool) -> None:
+    """Harvest non-FINISHED samples whose outputs are already on disk.
+
+    For when the master died mid-study and the runner no longer remembers
+    the jobids (sacct retention aged them out). Tries
+    simulator.collect_output + metric.compute on each RUNNING/FAILED
+    sample's folder; on success the sample becomes FINISHED with the
+    metric value persisted, no compute re-run needed.
+    """
+    cfg = load_study_config(config)
+    try:
+        recovered = recover_from_disk(cfg, include_cancelled=include_cancelled)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+    if not recovered:
+        click.echo("no recoverable samples (nothing on disk or schemas don't parse)")
+        return
+    ids = sorted(s.id for s in recovered if s.id is not None)
+    click.echo(f"recovered {len(recovered)} sample(s) from disk: {ids}")
 
 
 @cli.command()

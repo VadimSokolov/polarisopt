@@ -47,11 +47,29 @@ design but before evaluating it, just re-run.
 Each ``samples`` row stores ``runner_task_id`` (the Slurm jobid). On
 resume the orchestrator queries Slurm for that jobid and:
 
-- If still running → wait for it to finish.
-- If terminal-success → collect output + compute metric.
-- If terminal-failure → mark the sample failed.
-- If unknown to Slurm (e.g. sacct has aged out) → mark unknown; user
-  intervenes.
+- If still running → leave RUNNING; don't race a partial write.
+- If terminal-success → harvest from disk (`simulator.collect_output`
+  + `metric.compute`), mark FINISHED.
+- If terminal-failure → try disk first. If outputs are there, mark
+  FINISHED (the binary wrote before exiting). Otherwise mark FAILED.
+- If unknown to Slurm (e.g. sacct has aged out) → try disk first. If
+  outputs are there, mark FINISHED. Otherwise mark FAILED with an
+  "orphan" message. (v0.10.1+.)
+
+Disk artifacts always win over Slurm's verdict — a sample whose
+binary completed and wrote its result file is FINISHED, regardless
+of whether the runner still remembers the job.
+
+## When you'd resume
+
+- After interrupting a run with Ctrl-C — pending samples pick up
+  where you left off.
+- After your `polarisopt run` Slurm allocation expired but compute
+  jobs are still in flight — `resume` reconciles them.
+- **When the master process died unexpectedly** (e.g. controlling
+  shell was reaped, login-node idle cleanup, CI step timeout). See
+  [Submitting the master itself as a Slurm job](how-to/run-on-slurm.md#submitting-the-master-itself-as-a-slurm-job)
+  for how to avoid this on future runs.
 
 ## CLI
 

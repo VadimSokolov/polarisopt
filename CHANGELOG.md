@@ -2,6 +2,61 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.10.1 — 2026-06-11
+
+The "zombie sample" recovery release. Master process death during a
+long BO loop used to leave samples in RUNNING forever with NULL
+metrics, even though Slurm had completed the jobs and written all
+artifacts to disk. The BO surrogate then ignored them because it
+filters on non-NULL metric values. Result: wasted compute every
+master crash.
+
+Flagged by the DFW DOE agent with the clearest framing yet of this
+gap — disk artifacts are ground truth; polarisopt should use them.
+
+### Bug fixes / behavioral changes
+
+- **`reconcile_running` is now disk-first.** For each previously-
+  RUNNING sample, after the runner-status check, polarisopt tries
+  `simulator.collect_output` + `metric.compute` against the sample's
+  workspace. If both succeed the sample is FINISHED with the metric
+  value persisted — *regardless* of what the runner says. Disk
+  beats Slurm's verdict:
+  - runner UNKNOWN + outputs on disk → FINISHED (the zombie case
+    when sacct retention aged the jobid out)
+  - runner FAILED + outputs on disk → FINISHED (binary wrote
+    before exiting non-zero)
+  - runner FINISHED + outputs on disk → FINISHED with metric
+- **Active jobs are left alone.** Runner status RUNNING/QUEUED
+  skips disk recovery to avoid racing a partial write.
+- **CANCELLED preserves user intent.** Runner-CANCELLED samples
+  stay CANCELLED even if outputs exist on disk.
+- **FINISHED with missing output is now FAILED** (was: silently
+  left as RUNNING forever, no path to harvest). The v0.5 reconcile
+  comment "leave for the regular poll loop" was lying — there was
+  no such loop.
+
+### Added
+
+- **`recover_from_disk(config)` API function.** Sweeps RUNNING +
+  FAILED samples (plus CANCELLED with `include_cancelled=True`)
+  and harvests any whose outputs exist on disk. Doesn't consult
+  the runner at all — useful when `sacct` has aged jobids out so
+  reconcile can't disambiguate orphans from zombies.
+- **`polarisopt recover-from-disk study.yaml` CLI.** The manual
+  entry point for the standalone sweep. `--include-cancelled` to
+  also recover cancelled samples.
+
+### Documentation
+
+- **`docs/how-to/run-on-slurm.md`** — new Submitting the master itself
+  as a Slurm job section between Monitoring and Common failure modes.
+  Covers the wrapper sbatch script pattern (lightweight master with
+  `--oversubscribe`), what it fixes (SSH/tmux death, login-node idle
+  cleanup, restart hygiene), and a Recovering after a master crash
+  subsection pointing readers at the new `recover-from-disk` CLI plus
+  the disk-recovery story in `resume`.
+
 ## 0.10.0 — 2026-06-11
 
 New simulator capability flagged by the DFW DOE agent after their

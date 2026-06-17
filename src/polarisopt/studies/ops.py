@@ -13,15 +13,18 @@ a no-op; aborting an empty store does nothing.
 
 from __future__ import annotations
 
+import contextlib
 import hashlib
 import json
 from pathlib import Path
 
 from polarisopt.config.schema import StudyConfig
+from polarisopt.metrics.base import Metric, make_metric
 from polarisopt.runners.base import Job, JobSpec, JobStatus, Runner
 from polarisopt.runners.factory import make_runner
 from polarisopt.samples.sample import Sample, SampleStatus
 from polarisopt.samples.store import SampleStore
+from polarisopt.simulator.base import Simulator, make_simulator
 from polarisopt.utils.logging import get_logger
 from polarisopt.utils.paths import workspace_layout
 
@@ -240,6 +243,45 @@ def retry_failed(
     return retried
 
 
+def _try_recover_from_disk(
+    sample: Sample,
+    simulator: Simulator,
+    metric: Metric,
+    store: SampleStore,
+) -> bool:
+    """Try to harvest a sample's outputs from disk and mark it FINISHED.
+
+    Reads ``sample.folder`` via ``simulator.collect_output`` and runs
+    ``metric.compute``. If both succeed the sample is transitioned to
+    FINISHED with the metric value persisted. Returns ``True`` on
+    success, ``False`` on any failure (folder missing, schema mismatch,
+    metric raised) — caller falls back to the runner-status verdict.
+
+    This is the path the master would have taken at finish time if it
+    hadn't died. Used by :func:`reconcile_running` and
+    :func:`recover_from_disk`.
+    """
+    if sample.folder is None or not sample.folder.exists():
+        return False
+    try:
+        output = simulator.collect_output(sample)
+        metric_value = metric.compute(output)
+    except Exception as exc:  # noqa: BLE001
+        log.info(
+            "disk recovery failed for sample %s (%s): %s",
+            sample.id, type(exc).__name__, exc,
+        )
+        return False
+    sample.status = SampleStatus.FINISHED
+    sample.metric = metric_value
+    sample.message = (sample.message or "") + " | recovered from disk"
+    if isinstance(output, dict) and "runtime_s" in output:
+        with contextlib.suppress(TypeError, ValueError):
+            sample.runtime_s = float(output["runtime_s"])
+    store.update(sample)
+    return True
+
+
 def reconcile_running(
     config: StudyConfig,
     *,
@@ -247,24 +289,29 @@ def reconcile_running(
 ) -> list[Sample]:
     """Reconcile RUNNING samples with the runner backend at resume time.
 
-    On startup of a previously-interrupted study, every sample in the
-    SampleStore that's still RUNNING needs to be reconciled with the
-    underlying runner (most commonly Slurm). For each:
+    Disk-first: for each previously-RUNNING sample we check the runner
+    status, and unless it's actively RUNNING/QUEUED we try to harvest
+    outputs from disk via ``simulator.collect_output`` +
+    ``metric.compute``. Disk artifacts win over the runner's verdict —
+    a sample whose binary finished writing and exited cleanly before
+    the master died is FINISHED, regardless of whether ``sacct`` later
+    forgets the job (the v0.5 "orphaned on resume" path).
 
-    - if the runner reports FINISHED → leave it RUNNING so the
-      orchestrator's normal poll loop picks it up and collects metrics
-    - if the runner reports FAILED / CANCELLED → mark the sample
-      accordingly so it doesn't block the resume
-    - if the runner says UNKNOWN (squeue + sacct both empty) → mark the
-      sample FAILED with an "orphan" message; the user can ``retry-failed``
+    Status transitions:
 
-    Returns the list of samples that were transitioned to a terminal
-    state (i.e. samples that **don't** need further runner polling).
+    - runner RUNNING / QUEUED → leave RUNNING (don't race a live write)
+    - runner CANCELLED → mark CANCELLED (preserve user intent; skip disk)
+    - runner FINISHED + disk artifacts → FINISHED with metric
+    - runner FINISHED + no disk artifacts → FAILED (output missing)
+    - runner FAILED + disk artifacts → FINISHED (binary wrote before exit)
+    - runner FAILED + no disk artifacts → FAILED (original message preserved)
+    - runner UNKNOWN + disk artifacts → FINISHED (rescued from accounting GC)
+    - runner UNKNOWN + no disk artifacts → FAILED (orphan)
 
     Parameters
     ----------
     config : StudyConfig
-        Validated study config (provides the Runner to query).
+        Validated study config (provides Runner + Simulator + Metric).
     store : SampleStore or None
         Optional pre-opened store; otherwise opened from ``config``.
 
@@ -278,6 +325,10 @@ def reconcile_running(
     if not running:
         return []
     runner = build_runner(config)
+    simulator = make_simulator(
+        {"type": config.simulator.type, "options": config.simulator.options}
+    )
+    metric = make_metric({"type": config.metric.type, "options": config.metric.options})
     reconciled: list[Sample] = []
     for sample in running:
         job = _runner_job_for(sample)
@@ -289,27 +340,88 @@ def reconcile_running(
                 sample.id, sample.runner_task_id, exc,
             )
             continue
-        if job.status is JobStatus.FAILED:
-            sample.status = SampleStatus.FAILED
-            sample.message = (sample.message or "") + (
-                f" | runner FAILED on resume: {job.message or ''}"
-            )
-            store.update(sample)
-            reconciled.append(sample)
-        elif job.status is JobStatus.CANCELLED:
+        # Live jobs: don't race a partial write. Leave RUNNING; the
+        # caller's poll loop (or a follow-up reconcile) handles them.
+        if job.status in (JobStatus.RUNNING, JobStatus.QUEUED):
+            continue
+        # User-cancelled: preserve intent, skip disk harvest.
+        if job.status is JobStatus.CANCELLED:
             sample.status = SampleStatus.CANCELLED
             sample.message = (sample.message or "") + " | runner CANCELLED on resume"
             store.update(sample)
             reconciled.append(sample)
+            continue
+        # FINISHED / FAILED / UNKNOWN: try the disk first.
+        if _try_recover_from_disk(sample, simulator, metric, store):
+            reconciled.append(sample)
+            continue
+        # No usable artifacts — fall back to the runner verdict.
+        if job.status is JobStatus.FAILED:
+            sample.message = (sample.message or "") + (
+                f" | runner FAILED on resume: {job.message or ''}"
+            )
         elif job.status is JobStatus.UNKNOWN:
-            sample.status = SampleStatus.FAILED
             sample.message = (sample.message or "") + (
                 f" | orphaned on resume (Slurm lost jobid={sample.runner_task_id})"
             )
-            store.update(sample)
-            reconciled.append(sample)
-        # RUNNING / QUEUED / FINISHED: leave for the regular poll loop
+        else:  # FINISHED but disk recovery failed
+            sample.message = (sample.message or "") + (
+                " | runner FINISHED on resume but output is missing/unreadable"
+            )
+        sample.status = SampleStatus.FAILED
+        store.update(sample)
+        reconciled.append(sample)
     return reconciled
+
+
+def recover_from_disk(
+    config: StudyConfig,
+    *,
+    store: SampleStore | None = None,
+    include_cancelled: bool = False,
+) -> list[Sample]:
+    """Sweep RUNNING + FAILED samples and harvest any whose outputs are on disk.
+
+    Use this when ``reconcile_running`` can't help — typically because
+    ``sacct`` retention has aged the jobids out (days to weeks later)
+    so the runner says UNKNOWN with no way to distinguish a real orphan
+    from a job that finished cleanly. The on-disk artifacts are the
+    ground truth.
+
+    Mirrors :func:`_try_recover_from_disk` per sample without consulting
+    the runner at all. Samples with usable disk artifacts become
+    FINISHED with the metric set; samples with no artifacts (or
+    schema-incompatible artifacts) are left untouched.
+
+    Parameters
+    ----------
+    config : StudyConfig
+        Validated study config. Provides Simulator + Metric.
+    store : SampleStore or None
+        Optional pre-opened store; otherwise opened from ``config``.
+    include_cancelled : bool, optional
+        If True, also sweep CANCELLED samples (default False — user
+        intent is preserved). FINISHED samples are always skipped.
+
+    Returns
+    -------
+    list of Sample
+        Samples transitioned to FINISHED by this sweep.
+    """
+    store = store or open_store(config)
+    simulator = make_simulator(
+        {"type": config.simulator.type, "options": config.simulator.options}
+    )
+    metric = make_metric({"type": config.metric.type, "options": config.metric.options})
+    statuses = {SampleStatus.RUNNING, SampleStatus.FAILED}
+    if include_cancelled:
+        statuses.add(SampleStatus.CANCELLED)
+    candidates = [s for s in store.list() if s.status in statuses]
+    recovered: list[Sample] = []
+    for sample in candidates:
+        if _try_recover_from_disk(sample, simulator, metric, store):
+            recovered.append(sample)
+    return recovered
 
 
 def sample_log_paths(sample: Sample) -> list[Path]:

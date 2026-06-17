@@ -99,6 +99,14 @@ This is the same skew documented in the DOE_RUNBOOK Lesson 2.
   notifications.
 - Slurm controller hiccup — usually transient; the sample retries on
   resume.
+- **Master died days ago, the compute job actually finished**,
+  but `sacct` aged the jobid out before `resume` could query it.
+  v0.10.1+ tries the on-disk artifacts first and FINISHES the sample
+  if outputs parse — so this case mostly resolves itself when you
+  re-run `polarisopt resume` or `polarisopt recover-from-disk`. The
+  durable prevention is
+  [Submitting the master itself as a Slurm job](run-on-slurm.md#submitting-the-master-itself-as-a-slurm-job)
+  so the master doesn't die in the first place.
 
 ### "metric failed: ..."
 
