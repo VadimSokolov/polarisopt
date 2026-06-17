@@ -150,8 +150,9 @@ cost of hours instead of seconds, that is real money.
 ## Workflow 4 — calibration by parameter recovery
 
 The workflows above *optimize* an objective; calibration is the inverse
-problem polarisopt was built for — match **observed data**. Where DFW matches
-link counts through the `link_moe` metric, taxidemo matches three taxi-system
+problem polarisopt was built for — match **observed data**. Where a real
+POLARIS calibration matches link counts through the `link_moe` metric, taxidemo
+matches three taxi-system
 observables (journeys completed, mean pick-up time, missed customers) through
 its own [`output_match`](src/taxidemo/metrics.py) metric — a custom `Metric`
 plugin registered via the `polarisopt.metrics` entry point, demonstrating the

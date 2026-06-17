@@ -1,5 +1,5 @@
 # Workflow 4 — calibration by parameter recovery, on the local machine.
-# The toy analog of a DFW link-count calibration: given observed "field
+# The toy analog of a real POLARIS link-count calibration: given observed "field
 # data" (journeys completed, mean pick-up time, missed customers), find
 # simulator inputs that reproduce it. The custom `output_match` metric —
 # taxidemo's stand-in for link_moe — scores each sample by mean squared

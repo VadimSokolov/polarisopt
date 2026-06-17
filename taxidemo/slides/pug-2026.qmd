@@ -373,7 +373,6 @@ phases:
 
 # Live demo {background-color="#1a3a5c"}
 
-### `notebooks/05_calibration.ipynb`
 
 ::: {.notes}
 DEMO (~8 min). Kernel = the taxidemo venv (python3).
@@ -510,7 +509,7 @@ Battle-tested on live POLARIS calibration since **v0.6 (May 2026)**; additive,
 no breaking changes through **v0.10**.
 :::
 
-## Getting started
+## Getting started {.smaller}
 
 ```bash
 git clone https://github.com/VadimSokolov/polarisopt
