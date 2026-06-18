@@ -175,8 +175,8 @@ graph TB
 ::: {.column width="45%"}
 **The master never imports POLARIS.**
 
-- The math layer (GP fit, acquisition) lives on the head node, using a fraction of a CPU.
-- Heavy simulations fan out across Slurm.
+- The math layer (GP fit, acquisition) needs only a fraction of a CPU, so the master can run on the head node or as its own lightweight Slurm/PBS job on a compute node.
+- Heavy simulations fan out across Slurm or PBS.
 - The `Runner` ABC is the **only** boundary.
 - Every state transition is written to the SampleStore, so a study can be killed and resumed.
 - There is no daemon, worker pool, or Postgres queue.
