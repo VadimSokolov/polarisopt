@@ -10,7 +10,7 @@
   <meta name="generator" content="quarto-1.8.27">
 
   <meta name="author" content="Vadim Sokolov at George Mason University">
-  <meta name="dcterms.date" content="2026-06-17">
+  <meta name="dcterms.date" content="2026-06-18">
   <title>PolarisOpt</title>
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -209,7 +209,7 @@ Vadim Sokolov at George Mason University
 </div>
 </div>
 
-  <p class="date">2026-06-17</p>
+  <p class="date">2026-06-18</p>
 </section>
 <section id="the-setting" class="slide level2 smaller">
 <h2>The setting</h2>
@@ -366,8 +366,8 @@ Vadim Sokolov at George Mason University
 </div><div class="column" style="width:45%;">
 <p><strong>The master never imports POLARIS.</strong></p>
 <ul>
-<li>The math layer (GP fit, acquisition) lives on the head node, using a fraction of a CPU.</li>
-<li>Heavy simulations fan out across Slurm.</li>
+<li>The math layer (GP fit, acquisition) needs only a fraction of a CPU, so the master can run on the head node or as its own lightweight Slurm/PBS job on a compute node.</li>
+<li>Heavy simulations fan out across Slurm or PBS.</li>
 <li>The <code>Runner</code> ABC is the <strong>only</strong> boundary.</li>
 <li>Every state transition is written to the SampleStore, so a study can be killed and resumed.</li>
 <li>There is no daemon, worker pool, or Postgres queue.</li>
@@ -462,7 +462,6 @@ Vadim Sokolov at George Mason University
 </section>
 <section id="why-a-toy-simulator" class="slide level2 smaller">
 <h2>Why a toy simulator?</h2>
-<p>POLARIS is the real target but is too slow to demonstrate live. The demo needs a stand-in that is <strong>fast</strong> but still exercises the same structure.</p>
 <div class="columns">
 <div class="column" style="width:55%;">
 <p>A pure-Python, <strong>seedable</strong> port of Amazon’s <a href="https://github.com/amzn/emukit-playground">emukit-playground</a> taxi simulator:</p>
