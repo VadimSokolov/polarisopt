@@ -214,22 +214,16 @@ Vadim Sokolov at George Mason University
 <section id="the-setting" class="slide level2 smaller">
 <h2>The setting</h2>
 <p>A calibrated POLARIS model is the product of <strong>many full simulation runs</strong>.</p>
-<div class="fragment">
 <ul>
 <li>A single full-region iteration takes <strong>hours</strong> of wall-clock time and <strong>60+ GB</strong> of memory.</li>
 <li>Dozens of behavioral parameters are scattered across POLARIS JSON config files.</li>
 <li>Whether a parameter set matches the observed link counts can be answered only by <em>running the model</em>.</li>
 </ul>
-</div>
-<div class="fragment">
 <p>This is the <strong>expensive black-box</strong> regime:</p>
 <blockquote>
 <p>evaluations are expensive, gradients are unavailable, and the simulator is stochastic.</p>
 </blockquote>
-</div>
-<div class="fragment">
 <p><strong>PolarisOpt</strong> is the library that chooses which evaluations to run, for <strong>calibration</strong> (matching observed data) and <strong>exploration</strong> (screening, optimization, and sensitivity analysis).</p>
-</div>
 </section>
 <section id="what-polarisopt-is" class="slide level2 smaller">
 <h2>What PolarisOpt is</h2>
@@ -254,9 +248,7 @@ Vadim Sokolov at George Mason University
 <li>Pluggable stopping criteria</li>
 </ul>
 </div></div>
-<div class="fragment">
 <p>A study is configured in <strong>YAML</strong> and run from the <strong>CLI</strong> or <strong>Python</strong>. Every evaluation is persisted to <strong>SQLite</strong>, so a study survives a crash and can <strong>resume</strong>.</p>
-</div>
 </section>
 <section id="the-sequential-design-loop" class="slide level2">
 <h2>The sequential design loop</h2>
@@ -282,9 +274,7 @@ Vadim Sokolov at George Mason University
 </div>
 </div>
 </div>
-<div class="fragment">
 <p>Each box is a <strong>swappable plugin</strong>. The loop is the same whether the black box is a 6-hour regional POLARIS run or a 0.3-second taxi simulation.</p>
-</div>
 </section>
 <section id="a-study-is-one-yaml-file" class="slide level2 smaller">
 <h2>A study is one YAML file</h2>
@@ -324,9 +314,7 @@ Vadim Sokolov at George Mason University
 <span id="cb2-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> dest_dist_coeff</span><span class="kw">,</span><span class="at">   </span><span class="fu">file</span><span class="kw">:</span><span class="at"> DestinationChoice.json</span><span class="kw">,</span><span class="at"> </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.30</span><span class="kw">,</span><span class="at"> </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.05</span><span class="kw">,</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> float </span><span class="kw">}</span></span>
 <span id="cb2-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> activity_duration</span><span class="kw">,</span><span class="at"> </span><span class="fu">file</span><span class="kw">:</span><span class="at"> ActivityChoice.json</span><span class="kw">,</span><span class="at">    </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span><span class="kw">,</span><span class="at">   </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="fl">4.0</span><span class="kw">,</span><span class="at">   </span><span class="fu">type</span><span class="kw">:</span><span class="at"> float </span><span class="kw">}</span></span>
 <span id="cb2-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> max_destinations</span><span class="kw">,</span><span class="at">  </span><span class="fu">file</span><span class="kw">:</span><span class="at"> DestinationChoice.json</span><span class="kw">,</span><span class="at"> </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="dv">5</span><span class="kw">,</span><span class="at">     </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span><span class="kw">,</span><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> int   </span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="fragment">
 <p>polarisopt injects each sampled value into the named JSON before every run (<code>type</code> is <code>float</code> by default, or <code>int</code>). Adding a parameter is <strong>one line here</strong>, with no code change. The same list can go directly under <code>inline:</code> in the study YAML, which is what the taxi demo does.</p>
-</div>
 </section>
 <section id="run-it" class="slide level2">
 <h2>Run it</h2>
@@ -337,9 +325,7 @@ Vadim Sokolov at George Mason University
 <span id="cb3-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> resume   study.yaml     <span class="co"># pick up an interrupted run</span></span>
 <span id="cb3-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> best     study.yaml     <span class="co"># winning sample's inputs + metric (--json to pipe)</span></span>
 <span id="cb3-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> retry-failed study.yaml <span class="at">--run</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="fragment">
 <p><code>validate</code> and <code>plan</code> catch mistakes such as a wrong plugin name or an option the constructor does not accept in about <strong>a second</strong>, rather than after a 30-second stage in a real run.</p>
-</div>
 </section>
 <section id="master-slave-architecture" class="slide level2 smaller">
 <h2>Master / slave architecture</h2>
@@ -467,9 +453,7 @@ Vadim Sokolov at George Mason University
 <span id="cb6-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">account</span><span class="kw">:</span><span class="at"> POLARIS</span></span>
 <span id="cb6-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">walltime</span><span class="kw">:</span><span class="at"> </span><span class="st">"04:00:00"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div></div>
-<div class="fragment">
 <p>Develop and debug a study on a laptop, then run the <em>same file</em> on the cluster for the real run.</p>
-</div>
 </section>
 <section>
 <section id="demonstrating-it-the-taxi-simulator" class="title-slide slide level1 center" data-background-color="#1a3a5c">
@@ -497,9 +481,7 @@ Vadim Sokolov at George Mason University
 </figure>
 </div>
 </div></div>
-<div class="fragment">
 <p>It uses the same <code>Simulator</code>, <code>Metric</code>, and <code>Runner</code> contracts as a real POLARIS study, so the demonstrated workflow matches the real one, only faster.</p>
-</div>
 </section>
 <section id="five-demo-workflows" class="slide level2 smaller">
 <h2>Five demo workflows</h2>
@@ -551,9 +533,7 @@ Vadim Sokolov at George Mason University
 </tr>
 </tbody>
 </table>
-<div class="fragment">
 <p>Verified end-to-end (seed 42): default settings earn about <strong>6,000</strong> profit, a 64-sample LHS screen finds <strong>15,645</strong>, and the 32-evaluation BO study finds <strong>16,834</strong> and stops on a plateau.</p>
-</div>
 </section>
 <section id="bayesian-optimization-concretely" class="slide level2 smaller">
 <h2>Bayesian optimization, concretely</h2>
@@ -583,9 +563,7 @@ Vadim Sokolov at George Mason University
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode toml code-with-copy"><code class="sourceCode toml"><span id="cb8-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="co"># pyproject.toml</span></span>
 <span id="cb8-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">polarisopt.simulators"</span><span class="kw">]</span></span>
 <span id="cb8-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="dt">taxi</span> <span class="op">=</span> <span class="st">"taxidemo.plugin"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="fragment">
 <p>The master stays independent of POLARIS: it only sees a <code>JobSpec</code> going in and a dict coming out. The same contract wraps the POLARIS binary.</p>
-</div>
 </div></div>
 </section>
 <section id="write-your-own-metric" class="slide level2 smaller">
@@ -602,22 +580,17 @@ Vadim Sokolov at George Mason University
 <span id="cb10-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> output_match</span></span>
 <span id="cb10-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
 <span id="cb10-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">targets_file</span><span class="kw">:</span><span class="at"> ~/taxidemo-runs/calibration-targets.json</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="fragment">
 <p>Replacing <code>output_match</code> with <code>link_moe</code> makes the same study calibrate real POLARIS link volumes.</p>
-</div>
 </section>
 <section id="calibration-the-inverse-problem" class="slide level2 smaller">
 <h2>Calibration: the inverse problem</h2>
 <p>Optimization asks which inputs maximize profit. Calibration asks a different question: which inputs reproduce the <strong>observed data</strong>?</p>
-<div class="fragment">
 <p>We validate the pipeline with a <strong>parameter-recovery test</strong>:</p>
 <ol type="1">
 <li>Pick <em>true</em> parameters; simulate synthetic “field data” (seeds the calibration never sees).</li>
 <li><strong>Hide</strong> the truth and calibrate against the data alone, minimizing <code>output_match</code>.</li>
 <li>Compare what we recover to the truth.</li>
 </ol>
-</div>
-<div class="fragment">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb11-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">phases</span><span class="kw">:</span></span>
 <span id="cb11-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> calibrate</span></span>
 <span id="cb11-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> sequential</span></span>
@@ -626,7 +599,6 @@ Vadim Sokolov at George Mason University
 <span id="cb11-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">generator</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> acquisition</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">surrogate</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> gp</span><span class="kw">},</span><span class="at"> </span><span class="fu">acquisition</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> qei</span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span></span>
 <span id="cb11-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">stop</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> any</span><span class="kw">,</span><span class="at"> </span><span class="fu">criteria</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> max_iter</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">n</span><span class="kw">:</span><span class="at"> </span><span class="dv">12</span><span class="kw">}},</span></span>
 <span id="cb11-8"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">                                   </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> epsilon</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">epsilon</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.02</span><span class="kw">}}</span><span class="at"> </span><span class="kw">]</span><span class="at"> </span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div>
 </section></section>
 <section>
 <section id="live-demo" class="title-slide slide level1 center" data-background-color="#1a3a5c">
@@ -668,14 +640,10 @@ Vadim Sokolov at George Mason University
 <li>So the data <strong>can’t</strong> identify them, and no method could.</li>
 </ul>
 </div></div>
-<div class="fragment">
 <blockquote>
 <p>The discrepancy plot and the data-space table are the report card; the parameter table tells you <em>which</em> of the data-consistent explanations got picked.</p>
 </blockquote>
-</div>
-<div class="fragment">
 <p><strong>The same situation arises with the real model.</strong> Link counts alone rarely pin down every behavioral parameter. The remedy is to observe more, or to <strong>screen first</strong> (Morris) and calibrate only the parameters the data responds to.</p>
-</div>
 </section>
 <section id="running-on-argonne-hpc" class="slide level2 smaller">
 <h2>Running on Argonne HPC</h2>
@@ -726,9 +694,7 @@ Vadim Sokolov at George Mason University
 <span id="cb14-5"><a href="" aria-hidden="true" tabindex="-1"></a>        definition<span class="op">=</span>{...}, exp_id<span class="op">=</span><span class="st">"study"</span>).value</span>
 <span id="cb14-6"><a href="" aria-hidden="true" tabindex="-1"></a>    task.status, task.get_logs(), task.cancel()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div></div>
-<div class="fragment">
 <p>Argonne integrations install with <code>pip install polarisopt[anl]</code>.</p>
-</div>
 </section>
 <section id="built-for-real-hpc-runs" class="slide level2 smaller">
 <h2>Built for real HPC runs</h2>
@@ -747,9 +713,7 @@ Vadim Sokolov at George Mason University
 <li><strong>EQSQL-compat shim</strong>: drop-in for <code>polaris.hpc.eqsql</code>, no Postgres.</li>
 </ul>
 </div></div>
-<div class="fragment">
 <p>In use on live POLARIS calibration since <strong>v0.6 (May 2026)</strong>; additive, with no breaking changes to date.</p>
-</div>
 </section>
 <section id="getting-started" class="slide level2 smaller">
 <h2>Getting started</h2>
@@ -779,17 +743,15 @@ Vadim Sokolov at George Mason University
 <section id="takeaways" class="slide level2 smaller">
 <h2>Takeaways</h2>
 <ul>
-<li class="fragment">PolarisOpt provides <strong>design of experiments and Bayesian optimization</strong> for expensive POLARIS models, for both calibration and exploration.</li>
-<li class="fragment">A study is <strong>one YAML file</strong>; the same file runs on a laptop, a Slurm cluster, or a PBS cluster.</li>
-<li class="fragment"><strong>Everything is a plugin.</strong> Simulators, metrics, surrogates, and designs are added via entry points, not core edits.</li>
-<li class="fragment"><strong>Master/slave plus the SampleStore</strong> let studies survive crashes and resume.</li>
-<li class="fragment">The <strong>taxi demo</strong> runs the entire stack in seconds, using the same workflow as a real POLARIS study.</li>
-<li class="fragment">Calibration is an <strong>inverse problem</strong>, and PolarisOpt makes the identifiability question explicit.</li>
+<li>PolarisOpt provides <strong>design of experiments and Bayesian optimization</strong> for expensive POLARIS models, for both calibration and exploration.</li>
+<li>A study is <strong>one YAML file</strong>; the same file runs on a laptop, a Slurm cluster, or a PBS cluster.</li>
+<li><strong>Everything is a plugin.</strong> Simulators, metrics, surrogates, and designs are added via entry points, not core edits.</li>
+<li><strong>Master/slave plus the SampleStore</strong> let studies survive crashes and resume.</li>
+<li>The <strong>taxi demo</strong> runs the entire stack in seconds, using the same workflow as a real POLARIS study.</li>
+<li>Calibration is an <strong>inverse problem</strong>, and PolarisOpt makes the identifiability question explicit.</li>
 </ul>
-<div class="fragment">
 <h3 id="thank-you.-questions">Thank you. Questions?</h3>
 <p><code>github.com/VadimSokolov/polarisopt</code></p>
-</div>
 
 </section></section>
     </div>
