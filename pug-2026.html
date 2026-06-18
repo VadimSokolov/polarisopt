@@ -211,19 +211,30 @@ Vadim Sokolov at George Mason University
 
   <p class="date">2026-06-18</p>
 </section>
-<section id="the-setting" class="slide level2 smaller">
+<section id="the-setting" class="slide level2">
 <h2>The setting</h2>
-<p>A calibrated POLARIS model is the product of <strong>many full simulation runs</strong>.</p>
-<ul>
-<li>A single full-region iteration takes <strong>hours</strong> of wall-clock time and <strong>60+ GB</strong> of memory.</li>
-<li>Dozens of behavioral parameters are scattered across POLARIS JSON config files.</li>
-<li>Whether a parameter set matches the observed link counts can be answered only by <em>running the model</em>.</li>
-</ul>
-<p>This is the <strong>expensive black-box</strong> regime:</p>
-<blockquote>
-<p>evaluations are expensive, gradients are unavailable, and the simulator is stochastic.</p>
-</blockquote>
-<p><strong>PolarisOpt</strong> is the library that chooses which evaluations to run, for <strong>calibration</strong> (matching observed data) and <strong>exploration</strong> (screening, optimization, and sensitivity analysis).</p>
+<div class="cell" data-reveal="true" data-fig-width="9" data-layout-align="default">
+<div class="cell-output-display">
+<div>
+<p></p><figure class=""><p></p>
+<div>
+<pre class="mermaid mermaid-js">graph LR
+    I1["Choice model&lt;br/&gt;parameters"] --&gt; P
+    I2["Network&lt;br/&gt;configuration"] --&gt; P
+    I3["Transit&lt;br/&gt;settings"] --&gt; P
+    P["POLARIS"] --&gt; O["Network&lt;br/&gt;performance"]
+
+    classDef box fill:#ffffff,stroke:#1a6fb5,stroke-width:1.5px,color:#1a3a5c;
+    classDef model fill:#1a3a5c,stroke:#1a3a5c,stroke-width:1.5px,color:#ffffff;
+    class I1,I2,I3,O box;
+    class P model;
+</pre>
+</div>
+<p></p></figure><p></p>
+</div>
+</div>
+</div>
+<p>A single run costs <strong>hours</strong> and <strong>60+ GB</strong>. <strong>PolarisOpt</strong> chooses which inputs to run, for <strong>calibration</strong> and <strong>exploration</strong>.</p>
 </section>
 <section id="what-polarisopt-is" class="slide level2 smaller">
 <h2>What PolarisOpt is</h2>
