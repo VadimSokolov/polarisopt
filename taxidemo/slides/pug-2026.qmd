@@ -26,19 +26,19 @@ format:
 A calibrated POLARIS model is the product of **many full simulation runs**.
 
 ::: {.fragment}
-- One full-region iteration: **hours** of wall-clock, **60+ GB** of memory.
-- Dozens of behavioral parameters scattered across POLARIS JSON config files.
-- "Does this parameter set match the observed link counts?" — answered only by *running the model*.
+- A single full-region iteration takes **hours** of wall-clock time and **60+ GB** of memory.
+- Dozens of behavioral parameters are scattered across POLARIS JSON config files.
+- Whether a parameter set matches the observed link counts can be answered only by *running the model*.
 :::
 
 ::: {.fragment}
-This is the classic **expensive black-box** regime:
+This is the **expensive black-box** regime:
 
-> evaluations cost real money, gradients don't exist, and the simulator is stochastic.
+> evaluations are expensive, gradients are unavailable, and the simulator is stochastic.
 :::
 
 ::: {.fragment}
-**PolarisOpt** is the library that drives those evaluations intelligently — for **calibration** (match data) and **exploration** (screen, optimize, understand).
+**PolarisOpt** is the library that chooses which evaluations to run, for **calibration** (matching observed data) and **exploration** (screening, optimization, and sensitivity analysis).
 :::
 
 ## What PolarisOpt is {.smaller}
@@ -47,8 +47,8 @@ Modular **design-of-experiments** and **Bayesian optimization** for POLARIS.
 
 ::: {.columns}
 ::: {.column width="50%"}
-### Static DoE
-*One-shot* sample generation for screening & sensitivity.
+### Static design of experiments
+*One-shot* sample generation for screening and sensitivity.
 
 - Latin Hypercube
 - Morris (elementary effects)
@@ -56,7 +56,7 @@ Modular **design-of-experiments** and **Bayesian optimization** for POLARIS.
 - Manual
 :::
 ::: {.column width="50%"}
-### Sequential DoE
+### Sequential design of experiments
 *Adaptive* surrogate-driven Bayesian optimization.
 
 - GP / Multi-task GP surrogates
@@ -67,7 +67,7 @@ Modular **design-of-experiments** and **Bayesian optimization** for POLARIS.
 :::
 
 ::: {.fragment}
-Configured in **YAML**, run from the **CLI** or **Python**, every evaluation persisted to **SQLite** — so a study survives a crash and **resumes**.
+A study is configured in **YAML** and run from the **CLI** or **Python**. Every evaluation is persisted to **SQLite**, so a study survives a crash and can **resume**.
 :::
 
 ## The sequential design loop
@@ -136,7 +136,7 @@ That `source:` field points at this file, a **flat list of records**, one per pa
 ```
 
 ::: {.fragment}
-polarisopt injects each sampled value into the named JSON before every run (`type` is `float` by default, or `int`). Adding a knob is **one line here**, no code. Want it in the study file instead? Drop the same list under `inline:` (what the taxi demo does).
+polarisopt injects each sampled value into the named JSON before every run (`type` is `float` by default, or `int`). Adding a parameter is **one line here**, with no code change. The same list can go directly under `inline:` in the study YAML, which is what the taxi demo does.
 :::
 
 ## Run it
@@ -152,9 +152,9 @@ polarisopt retry-failed study.yaml --run
 ```
 
 ::: {.fragment}
-`validate` and `plan` catch the typo class — a wrong plugin name, an option that
-isn't in the constructor — in **one second**, instead of after a 30-second stage
-in a real run.
+`validate` and `plan` catch mistakes such as a wrong plugin name or an option the
+constructor does not accept in about **a second**, rather than after a 30-second
+stage in a real run.
 :::
 
 ## Master / slave architecture {.smaller}
@@ -164,13 +164,13 @@ in a real run.
 ```{mermaid}
 %%| fig-width: 6
 graph TB
-    subgraph M["Master — one Python process"]
+    subgraph M["Master: one Python process"]
         SS[SampleStore SQLite]
         SR[StudyRunner]
         GP[Surrogate / Acquisition]
         RN[Runner ABC]
     end
-    subgraph SL["Slaves — one process per sample"]
+    subgraph SL["Slaves: one process per sample"]
         P1[POLARIS binary]
         P2[POLARIS binary]
     end
@@ -189,11 +189,11 @@ graph TB
 ::: {.column width="45%"}
 **The master never imports POLARIS.**
 
-- Math layer (GP fit, acquisition) lives on the head node — a fraction of a CPU.
+- The math layer (GP fit, acquisition) lives on the head node, using a fraction of a CPU.
 - Heavy simulations fan out across Slurm.
 - The `Runner` ABC is the **only** boundary.
-- Every transition hits the SampleStore → **kill it, resume it**.
-- No daemon, no worker pool, no Postgres queue.
+- Every state transition is written to the SampleStore, so a study can be killed and resumed.
+- There is no daemon, worker pool, or Postgres queue.
 :::
 :::
 
@@ -201,7 +201,7 @@ graph TB
 
 Each swappable piece is an ABC + a registry. Add one with a class and a
 `@register("name")` decorator; reference it from YAML. External packages
-ship plugins through **entry points** — no core changes.
+ship plugins through **entry points**, with no core changes.
 
 | Family | Built-in implementations |
 |---|---|
@@ -255,16 +255,16 @@ runner:
 :::
 
 ::: {.fragment}
-Develop and debug a study on your laptop in seconds; ship the *same file* to
-the cluster for the real run.
+Develop and debug a study on a laptop, then run the *same file* on the cluster
+for the real run.
 :::
 
 # Demonstrating it: the Taxi simulator {background-color="#1a3a5c"}
 
 ## Why a toy simulator? {.smaller}
 
-POLARIS is the real target, but it's slow to demo. We need a stand-in that is
-**fast** yet **structurally honest**.
+POLARIS is the real target but is too slow to demonstrate live. The demo needs a
+stand-in that is **fast** but still exercises the same structure.
 
 ::: {.columns}
 ::: {.column width="55%"}
@@ -274,7 +274,7 @@ A pure-Python, **seedable** port of Amazon's
 - City grid, fleet of taxis, journey requests, surge pricing.
 - Tunable inputs: `taxi_count`, `base_fare`, `cost_per_tile`, `max_multiplier`, …
 - Outputs: `profit`, `journeys_completed`, `pick_up_time`, `missed`.
-- **Stochastic**, like POLARIS — averages over seeded repeats.
+- **Stochastic**, like POLARIS; averages over seeded repeats.
 - One run ≈ **0.3 s** instead of 6 hours.
 :::
 ::: {.column width="45%"}
@@ -283,38 +283,38 @@ A pure-Python, **seedable** port of Amazon's
 :::
 
 ::: {.fragment}
-Same `Simulator` / `Metric` / `Runner` contracts as a real POLARIS study —
-the workflow you see *is* the real POLARIS workflow, just faster.
+It uses the same `Simulator`, `Metric`, and `Runner` contracts as a real POLARIS
+study, so the demonstrated workflow matches the real one, only faster.
 :::
 
-## Five workflows, one library {.smaller}
+## Five demo workflows {.smaller}
 
 | # | Workflow | Capability shown | Where |
 |---|---|---|---|
 | 1 | Explore the simulator | the black box itself | notebook |
-| 2 | **LHS screening** | static DoE + SampleStore | laptop |
+| 2 | **LHS screening** | static design of experiments + SampleStore | laptop |
 | 2b | **Morris screening** | sensitivity / which knobs matter | laptop |
 | 3 | **Bayesian optimization** | GP + qEI, maximize profit | laptop → Crossover |
 | 4 | **Calibration** | inverse problem, custom metric | laptop → today's demo |
 
 ::: {.fragment}
-Verified end-to-end (seed 42): default settings earn ≈ **6,000** profit;
-a 64-sample LHS screen finds **15,645**; the 32-evaluation BO study finds
-**16,834** and **stops itself** on a plateau.
+Verified end-to-end (seed 42): default settings earn about **6,000** profit,
+a 64-sample LHS screen finds **15,645**, and the 32-evaluation BO study finds
+**16,834** and stops on a plateau.
 :::
 
 ## Bayesian optimization, concretely {.smaller}
 
 The GP **surrogate** interpolates the few expensive runs; **Expected
 Improvement** turns predicted mean and uncertainty into *where to sample next*:
-it explores where the model is unsure and exploits where profit looks high.
+it explores where the model is uncertain and exploits where the predicted profit is high.
 
-![GP fit to a handful of taxi-fleet evaluations; EI proposes the next fleet size to run. The same `gp` + `qei` plugins power workflow 3 — on a laptop or on Crossover.](fig/bo-illustration.png)
+![GP fit to a handful of taxi-fleet evaluations; EI proposes the next fleet size to run. The same `gp` + `qei` plugins power workflow 3, on a laptop or on Crossover.](fig/bo-illustration.png)
 
 ## Write your own simulator {.smaller}
 
 A `Simulator` turns a sample into a job and reads its output back. Register it
-through an entry point — `pip install`, and `type: taxi` works in any YAML.
+through an entry point; after `pip install`, `type: taxi` works in any YAML.
 
 ::: {.columns}
 ::: {.column width="58%"}
@@ -343,16 +343,16 @@ taxi = "taxidemo.plugin"
 ```
 
 ::: {.fragment}
-The master stays POLARIS-free: it only ever sees a `JobSpec` in and a dict out.
-The same contract wraps the POLARIS binary.
+The master stays independent of POLARIS: it only sees a `JobSpec` going in and a
+dict coming out. The same contract wraps the POLARIS binary.
 :::
 :::
 :::
 
 ## Write your own metric {.smaller}
 
-A `Metric` turns simulator outputs into the number the optimizer chases. Here is
-taxidemo's calibration metric — the toy analog of POLARIS's `link_moe`.
+A `Metric` turns simulator outputs into the number the optimizer minimizes or
+maximizes. Here is taxidemo's calibration metric, the toy analog of POLARIS's `link_moe`.
 
 ```python
 @metric_registry.register("output_match")
@@ -372,19 +372,19 @@ metric:
 ```
 
 ::: {.fragment}
-Swap `output_match` → `link_moe` and the *exact same study* calibrates real POLARIS link volumes.
+Replacing `output_match` with `link_moe` makes the same study calibrate real POLARIS link volumes.
 :::
 
-## Calibration = the inverse problem {.smaller}
+## Calibration: the inverse problem {.smaller}
 
-Optimization asks *"what inputs maximize profit?"* Calibration asks the harder
-question: *"what inputs reproduce the **observed data**?"*
+Optimization asks which inputs maximize profit. Calibration asks a different
+question: which inputs reproduce the **observed data**?
 
 ::: {.fragment}
 We validate the pipeline with a **parameter-recovery test**:
 
 1. Pick *true* parameters; simulate synthetic "field data" (seeds the calibration never sees).
-2. **Hide** the truth; calibrate against the data alone — minimize `output_match`.
+2. **Hide** the truth and calibrate against the data alone, minimizing `output_match`.
 3. Compare what we recover to the truth.
 :::
 
@@ -408,10 +408,10 @@ phases:
 DEMO (~8 min). Kernel = the taxidemo venv (python3).
 1. Generate synthetic field data from hidden true params (taxi_count=40, base_fare=7.5, ...).
 2. Show the study YAML.
-3. run_study(...) — workspace is pre-warmed, so it resumes the finished store in <1s (no wait); narrate the master/slave loop over the convergence plot, not during the run.
+3. run_study(...): workspace is pre-warmed, so it resumes the finished store in <1s (no wait); narrate the master/slave loop over the convergence plot, not during the run.
 4. Convergence plot: discrepancy drops below epsilon, plateau/epsilon stop fires.
 5. Two report cards: data-space match (held-out seeds) vs parameter-space recovery.
-6. Land the identifiability point — segue to next slide.
+6. Land the identifiability point, then segue to next slide.
 :::
 
 ## Calibration convergence {.smaller}
@@ -424,17 +424,17 @@ DEMO (~8 min). Kernel = the taxidemo venv (python3).
 ::: {.column width="50%"}
 **The result**
 
-- 56 evaluations, **~105 s** total.
-- `epsilon` stop fired at iteration 10 — the loop *quit when the data was matched*.
+- 56 evaluations, about **105 s** total.
+- The `epsilon` stop fired at iteration 10, once the discrepancy fell below the threshold.
 - Best discrepancy **0.0159**.
 - `taxi_count` recovered **almost exactly** (41 vs true 40).
 :::
 ::: {.column width="50%"}
-**The honest part**
+**The limitation**
 
-- Pricing knobs landed far off — *with an equally good fit*.
+- Pricing knobs landed far off, *with an equally good fit*.
 - Below the cancellation threshold, prices don't move the observed quantities.
-- So the data **can't** identify them — no method could.
+- So the data **can't** identify them, and no method could.
 :::
 :::
 
@@ -444,14 +444,14 @@ DEMO (~8 min). Kernel = the taxidemo venv (python3).
 :::
 
 ::: {.fragment}
-**This is exactly the real-model case.** Link counts alone rarely pin down every behavioral
-parameter. Remedy: observe more, or **screen first** (Morris) and calibrate only
-what the data responds to.
+**The same situation arises with the real model.** Link counts alone rarely pin down every
+behavioral parameter. The remedy is to observe more, or to **screen first** (Morris) and
+calibrate only the parameters the data responds to.
 :::
 
 ## Running on Argonne HPC {.smaller}
 
-Argonne users run the *same study YAML* on **LCRC Crossover** (Slurm) — one `sbatch` per sample; the `pbs` runner targets **Improv / Bebop** the same way.
+Argonne users run the *same study YAML* on **LCRC Crossover** (Slurm), one `sbatch` per sample; the `pbs` runner targets **Improv / Bebop** the same way.
 
 ::: {.columns}
 ::: {.column width="56%"}
@@ -472,9 +472,9 @@ runner:
 ```
 :::
 ::: {.column width="44%"}
-- `setup_commands` load modules / activate the env on the compute node — clean simulator/runner separation.
-- **Node sizing matters:** a full regional model eats ~30 GB/instance — pack **4 workers × 32 threads**, not 8 (OOM on 253 GB nodes).
-- Stateless slaves: a fresh `sbatch` per sample, ~10 s startup — negligible against hour-long regional iterations.
+- `setup_commands` load modules and activate the environment on the compute node, keeping the simulator and runner separate.
+- **Node sizing matters:** a full regional model uses about 30 GB per instance, so pack **4 workers × 32 threads** rather than 8 (8 risks OOM on 253 GB nodes).
+- Stateless slaves: a fresh `sbatch` per sample, about 10 s startup, negligible against hour-long regional iterations.
 :::
 :::
 
@@ -482,7 +482,7 @@ runner:
 
 ::: {.columns}
 ::: {.column width="50%"}
-### Data movement — Globus
+### Data movement: Globus
 Regional models live on the **VMS** shared drive; runs happen on **`/lcrc`** scratch.
 The `anl` / `globus` transfer plugins (via polaris-studio) stage them automatically.
 
@@ -498,8 +498,8 @@ simulator:
 :::
 ::: {.column width="50%"}
 ### Coming from EQ-SQL?
-A drop-in shim for `polaris.hpc.eqsql` — same `insert_task` / `Task` surface,
-but **plain `sbatch`/`squeue`** underneath. No Postgres, no worker pool, no
+A drop-in shim for `polaris.hpc.eqsql`: the same `insert_task` / `Task` surface,
+but **plain `sbatch`/`squeue`** underneath, with no Postgres, worker pool, or
 cross-user contamination.
 
 ```python
@@ -519,24 +519,24 @@ Argonne integrations install with `pip install polarisopt[anl]`.
 
 ## Built for real HPC runs {.smaller}
 
-The toy hides none of the machinery that matters at full-region scale.
+The taxi demo runs through the same production machinery as a full-region study.
 
 ::: {.columns}
 ::: {.column width="50%"}
-- **Resume** — `Ctrl-C` the master, `polarisopt resume`; RNG + surrogate restored, and on-disk results are harvested even if Slurm's status went stale (v0.11).
-- **retry-failed** — flip crashed samples back to PENDING, re-run.
-- **plan / validate** — catch errors before burning node-hours.
+- **Resume**: `Ctrl-C` the master, then `polarisopt resume`; RNG + surrogate restored, and on-disk results are harvested even if Slurm's status went stale (v0.11).
+- **retry-failed**: flip crashed samples back to PENDING and re-run.
+- **plan / validate**: catch errors before burning node-hours.
 :::
 ::: {.column width="50%"}
-- **SampleStore** — every evaluation, input, output, runtime, log path — queryable SQLite.
-- **Globus transfer** — stage models between VMS and cluster scratch.
-- **EQSQL-compat shim** — drop-in for `polaris.hpc.eqsql`, no Postgres.
+- **SampleStore**: every evaluation, input, output, runtime, and log path, queryable in SQLite.
+- **Globus transfer**: stage models between VMS and cluster scratch.
+- **EQSQL-compat shim**: drop-in for `polaris.hpc.eqsql`, no Postgres.
 :::
 :::
 
 ::: {.fragment}
-Battle-tested on live POLARIS calibration since **v0.6 (May 2026)**; additive,
-no breaking changes to date.
+In use on live POLARIS calibration since **v0.6 (May 2026)**; additive, with no
+breaking changes to date.
 :::
 
 ## Getting started {.smaller}
@@ -562,7 +562,7 @@ polarisopt run taxidemo/studies/lhs-local.yaml
 **Code**
 
 - `github.com/VadimSokolov/polarisopt`
-- `taxidemo/` — five runnable workflows
+- `taxidemo/`: five runnable workflows
 - `taxidemo/notebooks/05_calibration.ipynb`
 :::
 :::
@@ -570,15 +570,15 @@ polarisopt run taxidemo/studies/lhs-local.yaml
 ## Takeaways {.smaller}
 
 ::: {.incremental}
-- PolarisOpt = **DoE + Bayesian optimization** for expensive POLARIS models — calibration *and* exploration.
+- PolarisOpt provides **design of experiments and Bayesian optimization** for expensive POLARIS models, for both calibration and exploration.
 - A study is **one YAML file**; the same file runs on a laptop, a Slurm cluster, or a PBS cluster.
-- **Everything is a plugin** — simulators, metrics, surrogates, designs — added via entry points, never core edits.
-- **Master/slave + SampleStore** → studies survive crashes and resume.
-- The **taxi demo** exercises the entire stack in seconds; the workflow *is* the real POLARIS workflow.
-- Calibration is an **inverse problem** — and PolarisOpt makes the identifiability question visible, not hidden.
+- **Everything is a plugin.** Simulators, metrics, surrogates, and designs are added via entry points, not core edits.
+- **Master/slave plus the SampleStore** let studies survive crashes and resume.
+- The **taxi demo** runs the entire stack in seconds, using the same workflow as a real POLARIS study.
+- Calibration is an **inverse problem**, and PolarisOpt makes the identifiability question explicit.
 :::
 
 ::: {.fragment}
-### Thank you — questions?
+### Thank you. Questions?
 `github.com/VadimSokolov/polarisopt`
 :::
