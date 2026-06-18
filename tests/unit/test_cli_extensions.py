@@ -225,6 +225,46 @@ def test_status_verbose_status_filter(tmp_path: Path) -> None:
     assert not rows_for_sid
 
 
+def test_status_verbose_prefers_recent_progress_log_over_stale_wrapper(
+    tmp_path: Path,
+) -> None:
+    """``polarisopt status --verbose`` should surface the polarislib binary's
+    progress log when the wrapper log has gone silent.
+
+    This is the case the DFW DOE agent hit on Improv at 60 minutes in:
+    polaris.stdout.log was stuck at the binary's boot banner while
+    polaris_progress.log was minutes-fresh with sim-hour progress.
+    """
+    import os
+
+    cfg_path, sid = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    sample = store.get(sid)
+    sample.status = SampleStatus.RUNNING
+    sample.runner_task_id = "7628354.imgt1"
+    sample.folder = workspace / "experiments" / "sim-000001"
+    sample.folder.mkdir(parents=True)
+    # Wrapper log: written at startup, mtime aged into the past.
+    wrapper = sample.folder / "polaris.stdout.log"
+    wrapper.write_text("=> Spreading across nodes [[Node 0 free=16]]\n")
+    os.utime(wrapper, (9_000_000, 9_000_000))
+    # Binary progress log under the iteration dir: minutes-fresh.
+    iter_log = sample.folder / "DFW_01_abm_init_iteration" / "log"
+    iter_log.mkdir(parents=True)
+    progress = iter_log / "polaris_progress.log"
+    progress.write_text("sim hour 12 of 24 — events: 1.2M\n")
+    os.utime(progress, (10_000_000, 10_000_000))
+    store.update(sample)
+
+    res = CliRunner().invoke(cli, ["status", str(cfg_path), "--verbose"])
+    assert res.exit_code == 0, res.output
+    assert "sim hour 12 of 24" in res.output
+    # The stale wrapper line must NOT show up — it's the bug we're fixing.
+    assert "Spreading across nodes" not in res.output
+
+
 def test_best_cli_returns_argmin(tmp_path: Path) -> None:
     cfg_path, _ = _seed(tmp_path)
     workspace = tmp_path / "ws"

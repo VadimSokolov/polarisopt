@@ -2,6 +2,28 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.13.1 — 2026-06-17
+
+Hot fix flagged by the DFW DOE agent ~60 minutes into the first
+real Phase 3a calibration on Improv: `polarisopt status --verbose`
+was showing an hour-stale "Spreading across nodes" line as the
+sample's "last log line" while the binary was minutes-fresh.
+
+### Bug fixes
+
+- **`polarisopt status --verbose` now peeks at nested
+  `polaris_progress.log` files.** Previously only globbed top-level
+  `*.log` / `*.out` / `*.err` in the sample folder. After the
+  binary's boot phase, the wrapper log (`polaris.stdout.log`) goes
+  silent because actual simulation activity is written to
+  `<output_dir>/log/polaris_progress.log` instead — for
+  polaris_convergence runs, that file is the only source of recent
+  signal. `_last_log_line` now globs `*/log/polaris_progress.log`
+  too and picks whichever file has the most recent mtime.
+- **Practical effect:** for a sample that's been running for an
+  hour, `status -v` now shows ``sim hour 12 of 24`` instead of
+  ``=> Spreading across nodes [[Node 0 free=16]]``.
+
 ## 0.13.0 — 2026-06-17
 
 Turns polarisopt from a single-cluster (Slurm) tool into the LCRC-wide

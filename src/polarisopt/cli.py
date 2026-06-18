@@ -250,6 +250,13 @@ def _last_log_line(folder: Path | None, max_chars: int = 200) -> str:
     files = []
     for pat in ("*.log", "*.out", "*.err"):
         files.extend(folder.glob(pat))
+    # Also peek at the POLARIS binary's nested progress log(s). The
+    # wrapper logs (polaris.stdout.log, .err) often go silent after the
+    # binary's boot banner because the actual simulation activity is
+    # written to <output_dir>/log/polaris_progress.log instead. Without
+    # this, --verbose can show an hour-stale "Spreading across nodes"
+    # line while the binary is happily at sim-hour 12.
+    files.extend(folder.glob("*/log/polaris_progress.log"))
     files = [p for p in files if p.is_file() and p.stat().st_size > 0]
     if not files:
         return ""
