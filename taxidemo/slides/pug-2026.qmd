@@ -214,12 +214,12 @@ ship plugins through **entry points** — no core changes.
 | **Runner** | `local` · `slurm` |
 | **Transfer** | `local` · `anl` · `globus` |
 
-## Same study, laptop → cluster
+## Same study, laptop → cluster {.smaller}
 
 Only the **runner** changes. The simulator, parameters, metric, and phases are untouched.
 
 ::: {.columns}
-::: {.column width="50%"}
+::: {.column width="30%"}
 **Laptop**
 ```yaml
 runner:
@@ -227,8 +227,8 @@ runner:
   options: {}
 ```
 :::
-::: {.column width="50%"}
-**Crossover (LCRC)**
+::: {.column width="35%"}
+**Crossover (Slurm)**
 ```yaml
 runner:
   type: slurm
@@ -238,6 +238,18 @@ runner:
       account: tps
       time: "04:00:00"
       mem: 64G
+```
+:::
+::: {.column width="35%"}
+**Improv / Bebop (PBS)**
+```yaml
+runner:
+  type: pbs
+  options:
+    default_resources:
+      queue: compute
+      account: POLARIS
+      walltime: "04:00:00"
 ```
 :::
 :::
@@ -439,7 +451,7 @@ what the data responds to.
 
 ## Running on Argonne HPC {.smaller}
 
-Argonne users run the *same study YAML* on **LCRC Crossover** — one `sbatch` per sample.
+Argonne users run the *same study YAML* on **LCRC Crossover** (Slurm) — one `sbatch` per sample; the `pbs` runner targets **Improv / Bebop** the same way.
 
 ::: {.columns}
 ::: {.column width="56%"}
@@ -524,7 +536,7 @@ The toy hides none of the machinery that matters at full-region scale.
 
 ::: {.fragment}
 Battle-tested on live POLARIS calibration since **v0.6 (May 2026)**; additive,
-no breaking changes through **v0.11**.
+no breaking changes to date.
 :::
 
 ## Getting started {.smaller}
@@ -559,7 +571,7 @@ polarisopt run taxidemo/studies/lhs-local.yaml
 
 ::: {.incremental}
 - PolarisOpt = **DoE + Bayesian optimization** for expensive POLARIS models — calibration *and* exploration.
-- A study is **one YAML file**; the same file runs on a laptop or a Slurm cluster.
+- A study is **one YAML file**; the same file runs on a laptop, a Slurm cluster, or a PBS cluster.
 - **Everything is a plugin** — simulators, metrics, surrogates, designs — added via entry points, never core edits.
 - **Master/slave + SampleStore** → studies survive crashes and resume.
 - The **taxi demo** exercises the entire stack in seconds; the workflow *is* the real POLARIS workflow.
