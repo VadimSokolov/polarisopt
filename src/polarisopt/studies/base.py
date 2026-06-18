@@ -126,6 +126,41 @@ class Study(ABC):
         d.mkdir(parents=True, exist_ok=True)
         return d
 
+    def _post_success_hooks(self, sample: Sample, output: dict) -> None:
+        """Run results_transfer + cleanup_after_success on a FINISHED sample.
+
+        v0.16+. Both hooks are optional and best-effort:
+        ``transfer_results`` pushes the simulation outputs to durable
+        storage (Globus / cfs2 / wherever the simulator's
+        ``results_transfer`` is configured for);
+        ``cleanup_after_success`` rm-rf's or prunes the per-sample
+        workspace to free local disk. Order matters — transfer runs
+        first because cleanup may delete the source.
+
+        A raise from either hook logs a WARNING but leaves the sample
+        FINISHED. The metric is already persisted; durable copy and
+        local cleanup are belt-and-suspenders, not part of the
+        correctness path.
+        """
+        transfer_hook = getattr(self.ctx.simulator, "transfer_results", None)
+        if callable(transfer_hook):
+            try:
+                transfer_hook(sample, output)
+            except Exception:  # noqa: BLE001 — best-effort
+                log.exception(
+                    "transfer_results raised for sample %s; FINISHED preserved",
+                    sample.id,
+                )
+        cleanup_hook = getattr(self.ctx.simulator, "cleanup_after_success", None)
+        if callable(cleanup_hook):
+            try:
+                cleanup_hook(sample)
+            except Exception:  # noqa: BLE001 — best-effort
+                log.exception(
+                    "cleanup_after_success raised for sample %s; FINISHED preserved",
+                    sample.id,
+                )
+
     def _try_disk_recovery_inline(self, sample: Sample) -> bool:
         """Attempt to harvest outputs from disk for a single in-flight sample.
 
@@ -353,6 +388,11 @@ class Study(ABC):
                 with contextlib.suppress(TypeError, ValueError):
                     sample.runtime_s = float(output["runtime_s"])
             ctx.store.update(sample)
+            # Post-success hooks (v0.16): push outputs to durable storage
+            # before optional workspace cleanup. Both are best-effort —
+            # if either raises, sample stays FINISHED. The metric is
+            # already committed; storage is defense-in-depth.
+            self._post_success_hooks(sample, output)
 
         # 4) Auto-retry FAILED samples up to ctx.max_retries times. Catches
         # transient failures (OOM on a contended node, node failure, time

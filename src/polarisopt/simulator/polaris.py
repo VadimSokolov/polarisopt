@@ -20,6 +20,7 @@ features (Globus transfer) flow through that dependency.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shlex
 import shutil
@@ -122,6 +123,31 @@ class PolarisSimulator(Simulator):
         keep when a sample fails. Default ``False`` — preserve
         artifacts. Use ``True`` for quota-tight runs where 100 failed
         samples × N GB of stranded workspaces would fill the disk.
+    cleanup_on_success : bool, optional
+        After a sample reaches FINISHED, ``rm -rf`` its workspace.
+        Opt-in because successful results are usually what users want
+        to keep for downstream analysis. Default ``False``. Common
+        pattern for storage-tight clusters: pair with
+        ``results_transfer`` (push outputs to durable storage) and
+        ``keep_files_after_success`` (preserve a small allowlist for
+        local re-analysis).
+    keep_files_after_success : list of str, optional
+        When ``cleanup_on_success=True``, glob patterns (relative to
+        the workspace) for files to preserve. Anything not matching is
+        deleted. Empty list (the default) means full cleanup. Patterns
+        use :mod:`fnmatch` semantics on the relative path —
+        e.g. ``["DFW-Demand.sqlite", "log/*.log", "**/result.h5"]``.
+        Parent directories of kept files are preserved.
+    results_transfer : dict or None
+        Symmetric counterpart to ``transfer`` (which only handles
+        staging IN). When set, after :meth:`collect_output` succeeds,
+        ``polarisopt`` pushes the simulation output directory to a
+        remote destination via the named transfer backend. Spec
+        format: ``{"type": "local|anl|globus", "options": {...},
+        "dest": "/path/or/endpoint:/path"}``. Destination path follows
+        the convention ``<dest>/<study_name>/<sim-NNNNNN>/<output_dir>/``.
+        Default ``None`` — no out-transfer. Combine with
+        ``cleanup_on_success`` for fully ephemeral per-sample disk.
 
     Raises
     ------
@@ -163,6 +189,9 @@ class PolarisSimulator(Simulator):
         quota_check: bool = True,
         quota_safety_multiplier: float = 1.5,
         cleanup_on_failure: bool = False,
+        cleanup_on_success: bool = False,
+        keep_files_after_success: list[str] | None = None,
+        results_transfer: dict[str, Any] | None = None,
     ) -> None:
         self.binary = Path(binary)
         self.model_source = Path(model_source)
@@ -200,6 +229,22 @@ class PolarisSimulator(Simulator):
             )
         self.quota_safety_multiplier: float = float(quota_safety_multiplier)
         self.cleanup_on_failure: bool = bool(cleanup_on_failure)
+        self.cleanup_on_success: bool = bool(cleanup_on_success)
+        self.keep_files_after_success: list[str] = list(keep_files_after_success or [])
+        self._results_transfer_spec: dict[str, Any] | None = (
+            dict(results_transfer) if results_transfer else None
+        )
+        # Validate the results_transfer spec early so YAML mistakes fail
+        # at construction, not after a sample has already burned compute.
+        if self._results_transfer_spec is not None:
+            if "type" not in self._results_transfer_spec:
+                raise SimulatorError(
+                    "results_transfer spec must include 'type' (e.g. 'local', 'anl', 'globus')"
+                )
+            if "dest" not in self._results_transfer_spec:
+                raise SimulatorError(
+                    "results_transfer spec must include 'dest' (destination root path)"
+                )
 
     # ----- staging -----
 
@@ -299,6 +344,101 @@ class PolarisSimulator(Simulator):
             _fmt_bytes(free_bytes),
             _fmt_bytes(required),
         )
+
+    # ----- post-success transfer + cleanup -----
+
+    def transfer_results(self, sample: Sample, output: dict[str, Any]) -> None:
+        """Push a sample's output directory to remote storage if configured.
+
+        Called by the orchestrator after a successful
+        :meth:`collect_output` (so ``output`` is the same dict the
+        metric computed against). No-op when ``results_transfer`` is
+        unset. Failures here log a WARNING but don't fail the sample —
+        the metric is already computed and persisted; durable storage
+        is a defense-in-depth concern.
+
+        Destination layout::
+
+            <dest>/<study_name_or_phase>/<sim-NNNNNN>/<output_dir_name>/
+        """
+        if self._results_transfer_spec is None:
+            return
+        if sample.folder is None:
+            return
+        src = Path(output.get("output_dir", "")) if output.get("output_dir") else None
+        if src is None or not src.exists():
+            log.warning(
+                "transfer_results: output_dir not on disk for sample %s; skipping",
+                sample.id,
+            )
+            return
+        spec = self._results_transfer_spec
+        backend = make_transfer({"type": spec["type"], "options": spec.get("options")})
+        # Use sample.phase + sample.id for path stability; fall back to a
+        # placeholder if either is missing (shouldn't happen for samples
+        # produced by StudyRunner).
+        phase = sample.phase or "phase"
+        sid = sample.id if sample.id is not None else 0
+        dest_root = Path(str(spec["dest"]))
+        dest = dest_root / phase / f"sim-{sid:06d}" / src.name
+        log.info(
+            "PolarisSimulator: transferring results %s -> %s (%s)",
+            src, dest, spec["type"],
+        )
+        try:
+            backend.copy(src, dest, recursive=True)
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "results_transfer failed for sample %s (%s); sample stays FINISHED — "
+                "metric is already committed",
+                sample.id, exc,
+            )
+
+    def cleanup_after_success(self, sample: Sample) -> None:
+        """Remove the workspace (or prune to ``keep_files_after_success``)
+        after a sample reaches FINISHED.
+
+        No-op when ``cleanup_on_success`` is False (the default).
+
+        When ``keep_files_after_success`` is empty: full ``rm -rf``.
+        When it has glob patterns: walk the workspace, preserve any
+        file matching any pattern (and its parent dirs), delete the
+        rest. Globs are :mod:`fnmatch`-style on paths *relative to*
+        the workspace.
+
+        Best-effort — rmtree failures are logged but don't change
+        sample state.
+        """
+        if not self.cleanup_on_success:
+            return
+        if sample.folder is None or not sample.folder.exists():
+            return
+        if not self.keep_files_after_success:
+            log.info(
+                "PolarisSimulator: cleanup_on_success — removing %s", sample.folder,
+            )
+            try:
+                shutil.rmtree(sample.folder)
+            except OSError as exc:
+                log.warning(
+                    "cleanup_after_success: rmtree failed for %s: %s",
+                    sample.folder, exc,
+                )
+            return
+        # Allowlist mode — preserve matched files, delete the rest.
+        log.info(
+            "PolarisSimulator: cleanup_on_success — pruning %s, keep=%s",
+            sample.folder, self.keep_files_after_success,
+        )
+        try:
+            _prune_workspace_to_allowlist(
+                sample.folder, self.keep_files_after_success,
+            )
+        except OSError as exc:
+            log.warning(
+                "cleanup_after_success: prune failed for %s: %s",
+                sample.folder, exc,
+            )
 
     # ----- cleanup (post-failure) -----
 
@@ -511,6 +651,46 @@ def _du_recursive(path: Path) -> int:
                     except OSError:
                         continue
     return total
+
+
+def _prune_workspace_to_allowlist(workspace: Path, keep_patterns: list[str]) -> None:
+    """Delete everything in ``workspace`` except files matching ``keep_patterns``.
+
+    Patterns use standard ``pathlib.Path.glob`` semantics evaluated
+    from the workspace root:
+
+    - ``"DFW-Demand.sqlite"`` — file at the root
+    - ``"log/*.log"`` — files directly under ``log/`` (does NOT
+      descend further)
+    - ``"**/result.h5"`` — files named ``result.h5`` at any depth
+      INCLUDING the workspace root
+
+    Algorithm: glob the keep patterns to build the set of paths to
+    preserve, walk all files under workspace, delete anything not in
+    the keep set, then remove emptied directories bottom-up.
+    """
+    workspace = Path(workspace)
+    keep_paths: set[Path] = set()
+    for pat in keep_patterns:
+        for p in workspace.glob(pat):
+            if p.is_file():
+                keep_paths.add(p.resolve())
+    # Delete unkept files.
+    for path in workspace.rglob("*"):
+        if not path.is_file():
+            continue
+        if path.resolve() in keep_paths:
+            continue
+        with contextlib.suppress(OSError):
+            path.unlink()
+    # Walk dirs bottom-up; remove any that ended up empty.
+    for d in sorted(
+        (p for p in workspace.rglob("*") if p.is_dir()),
+        key=lambda p: len(p.parts),
+        reverse=True,
+    ):
+        with contextlib.suppress(OSError):
+            d.rmdir()  # only succeeds if empty
 
 
 def _fmt_bytes(n: float) -> str:

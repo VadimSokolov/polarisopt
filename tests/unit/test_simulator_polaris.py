@@ -613,6 +613,223 @@ def test_cleanup_on_failure_opt_in_removes_workspace(
     assert not workspace.exists(), "cleanup_on_failure=True must delete"
 
 
+def test_cleanup_on_success_default_keeps_workspace(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """v0.16 default: success preserves the workspace (analysis use case)."""
+    sim = _make_sim(tmp_path)  # cleanup_on_success defaults to False
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    assert workspace.exists()
+    sim.cleanup_after_success(sample)
+    assert workspace.exists(), "default must NOT delete on success"
+
+
+def test_cleanup_on_success_full_wipe(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """cleanup_on_success=True with empty allowlist → rm -rf workspace."""
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        cleanup_on_success=True,
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    assert workspace.exists()
+    sim.cleanup_after_success(sample)
+    assert not workspace.exists()
+
+
+def test_cleanup_on_success_with_keep_files_preserves_allowlist(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """Allowlist mode keeps matching files (and parent dirs); rest is deleted."""
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        cleanup_on_success=True,
+        keep_files_after_success=["DestinationChoice.json", "log/*.log"],
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    # Simulate output artifacts: one to keep, one to discard.
+    (workspace / "log").mkdir()
+    (workspace / "log" / "progress.log").write_text("kept\n")
+    (workspace / "log" / "stale.txt").write_text("discarded\n")
+    (workspace / "ActivityChoice.json").write_text("discarded too\n")
+    sim.cleanup_after_success(sample)
+    # Workspace itself stays; allowlisted files survive.
+    assert workspace.exists()
+    assert (workspace / "DestinationChoice.json").exists()
+    assert (workspace / "log" / "progress.log").exists()
+    # Non-matching files are gone.
+    assert not (workspace / "log" / "stale.txt").exists()
+    assert not (workspace / "ActivityChoice.json").exists()
+
+
+def test_cleanup_on_success_keep_files_double_star_pattern(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """Patterns like **/result.h5 must match files at any depth — including
+    the workspace root (CodeRabbit-flagged edge case)."""
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        cleanup_on_success=True,
+        keep_files_after_success=["**/result.h5"],
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    # Root-level + nested copies of result.h5 must both survive.
+    (workspace / "result.h5").write_text("root\n")
+    (workspace / "iter_1").mkdir()
+    (workspace / "iter_1" / "result.h5").write_text("nested\n")
+    (workspace / "iter_1" / "noise.txt").write_text("discarded\n")
+    sim.cleanup_after_success(sample)
+    assert (workspace / "result.h5").exists()
+    assert (workspace / "iter_1" / "result.h5").exists()
+    assert not (workspace / "iter_1" / "noise.txt").exists()
+
+
+def test_cleanup_on_success_keep_files_glob_does_not_cross_slash(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """log/*.log must match log/foo.log but NOT log/sub/deep.log
+    (standard glob semantics — single * doesn't traverse directories)."""
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        cleanup_on_success=True,
+        keep_files_after_success=["log/*.log"],
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    (workspace / "log").mkdir()
+    (workspace / "log" / "shallow.log").write_text("kept\n")
+    (workspace / "log" / "sub").mkdir()
+    (workspace / "log" / "sub" / "deep.log").write_text("not kept\n")
+    sim.cleanup_after_success(sample)
+    assert (workspace / "log" / "shallow.log").exists()
+    assert not (workspace / "log" / "sub" / "deep.log").exists()
+
+
+def test_results_transfer_pushes_output_dir(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """When results_transfer is configured, transfer_results copies the
+    output dir to <dest>/<phase>/sim-NNNNNN/<output_dir_name>/.
+    """
+    model = _build_fake_model(tmp_path / "m")
+    remote = tmp_path / "remote"
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        results_transfer={
+            "type": "local",
+            "options": {},
+            "dest": str(remote),
+        },
+    )
+    sample = Sample(id=42, phase="bo", inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-42"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    # Simulate the binary writing its output dir.
+    out_dir = workspace / "out"
+    out_dir.mkdir()
+    (out_dir / "DFW-Result.h5").write_text("h5 payload\n")
+    output = {
+        "output_dir": str(out_dir),
+        "result_path": str(out_dir / "DFW-Result.h5"),
+    }
+    sim.transfer_results(sample, output)
+    dest_file = remote / "bo" / "sim-000042" / "out" / "DFW-Result.h5"
+    assert dest_file.exists()
+    assert dest_file.read_text() == "h5 payload\n"
+
+
+def test_results_transfer_noop_when_unset(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    sim = _make_sim(tmp_path)  # no results_transfer
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    # No raise even with no output_dir.
+    sim.transfer_results(sample, {})
+
+
+def test_results_transfer_requires_dest_at_construction(tmp_path: Path) -> None:
+    model = _build_fake_model(tmp_path / "m")
+    with pytest.raises(SimulatorError, match="must include 'dest'"):
+        PolarisSimulator(
+            binary="/usr/bin/echo",
+            model_source=str(model),
+            scenario_file="scenario_abm.json",
+            output_db_filename="R.h5",
+            results_transfer={"type": "local"},  # no 'dest'
+        )
+
+
+def test_results_transfer_requires_type_at_construction(tmp_path: Path) -> None:
+    model = _build_fake_model(tmp_path / "m")
+    with pytest.raises(SimulatorError, match="must include 'type'"):
+        PolarisSimulator(
+            binary="/usr/bin/echo",
+            model_source=str(model),
+            scenario_file="scenario_abm.json",
+            output_db_filename="R.h5",
+            results_transfer={"dest": str(tmp_path / "remote")},
+        )
+
+
+def test_results_transfer_failure_does_not_change_sample_status(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """If transfer_results raises (network blip, etc.), the orchestrator
+    logs WARNING but the sample stays FINISHED. Defense-in-depth, not
+    the correctness path."""
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        results_transfer={
+            "type": "local",
+            "options": {},
+            "dest": str(tmp_path / "remote"),
+        },
+    )
+    sample = Sample(id=1, phase="bo", inputs=np.array([0.5, 0.5]))
+    # Pass output that points at a non-existent dir — transfer logs WARNING
+    # and returns; no raise.
+    sim.transfer_results(sample, {"output_dir": str(tmp_path / "does-not-exist")})
+
+
 def test_cleanup_after_failure_handles_missing_folder(
     tmp_path: Path,
 ) -> None:

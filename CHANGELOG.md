@@ -2,6 +2,61 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.16.0 — 2026-06-18
+
+Ephemeral per-sample disk. v0.14 made FAILED workspaces cleanable
+(opt-in); successful samples also produce 1.5–3 GB each, which fills
+LCRC quotas independently of failure rate. The user's runner had been
+hand-rolling VMS copy + manual unlink of heavy files inside the iter
+dir — project-local code every consuming agent would re-invent.
+v0.16 absorbs that pattern.
+
+### Added
+
+- **`PolarisSimulator(cleanup_on_success=False)`** + new
+  `cleanup_after_success(sample)` hook. Mirrors v0.14's
+  `cleanup_on_failure` shape. The orchestrator calls the hook after
+  a sample reaches FINISHED and the metric is committed; the
+  simulator either rm-rf's the workspace or prunes it (see next).
+  Default `False` (preserve results for analysis — opt in for
+  quota-tight studies). `polaris_convergence` keeps the same
+  default — success cleanup is more destructive than failure
+  cleanup; the user opts in deliberately.
+- **`keep_files_after_success: list[str]`** allowlist of
+  `fnmatch`-style glob patterns relative to the workspace.
+  When `cleanup_on_success=True` + non-empty allowlist, the prune
+  walk preserves matching files (and the directories that contain
+  them) and deletes the rest. Empty list (default) = full wipe.
+  Examples: `["DFW-Demand.sqlite", "log/*.log", "**/result.h5"]`.
+- **`results_transfer: {type, options, dest}`** option on
+  `PolarisSimulator`, symmetric counterpart to today's `transfer`
+  (which only handles staging IN). When set, after
+  `collect_output` succeeds the orchestrator calls
+  `simulator.transfer_results(sample, output)` which pushes the
+  output directory to remote storage via the named transfer
+  backend (`local` / `anl` / `globus`). Destination path:
+  `<dest>/<phase>/<sim-NNNNNN>/<output_dir_name>/`. Combine with
+  `cleanup_on_success=True` for fully ephemeral per-sample disk —
+  the workflow becomes "stage in → run → push out → clean up,"
+  with no net disk growth per sample.
+
+### Orchestrator wiring
+
+A new `_post_success_hooks(sample, output)` step runs immediately
+after the FINISHED transition commits. Order: `transfer_results`
+first (because cleanup may delete the source), then
+`cleanup_after_success`. Both are best-effort — if either raises,
+the sample stays FINISHED with a WARNING logged. The metric is
+already persisted before either fires.
+
+### Compatibility
+
+Backwards-compatible. All three new options default to off /
+preserve-everything. Existing YAMLs and project-local cleanup code
+(like the user's runner-side trim) continue to work unchanged. The
+recommended migration: enable `results_transfer` + `cleanup_on_success`
+in the simulator block, drop the project-local trim code.
+
 ## 0.15.0 — 2026-06-18
 
 Self-healing live masters. The DFW DOE agent reported a 2h+ stuck-master
