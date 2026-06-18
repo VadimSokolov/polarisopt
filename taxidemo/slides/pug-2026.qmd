@@ -122,6 +122,23 @@ phases:                                        # the plan
     stop: { type: any, criteria: [ {type: max_iter, options: {n: 12}}, {type: epsilon, options: {epsilon: 0.01}} ] }
 ```
 
+## `params.yaml`: the knobs {.smaller}
+
+That `source:` field points at this file, a **flat list of records**, one per parameter:
+
+```yaml
+# Each record: the knob, which POLARIS JSON holds it, and the search bounds.
+- { name: auto_asc,          file: ModeChoice.json,        min: -2.0,  max: 2.0,   type: float }
+- { name: transit_ivtt,      file: ModeChoice.json,        min: -0.05, max: -0.01, type: float }
+- { name: dest_dist_coeff,   file: DestinationChoice.json, min: -0.30, max: -0.05, type: float }
+- { name: activity_duration, file: ActivityChoice.json,    min: 0.5,   max: 4.0,   type: float }
+- { name: max_destinations,  file: DestinationChoice.json, min: 5,     max: 30,    type: int   }
+```
+
+::: {.fragment}
+polarisopt injects each sampled value into the named JSON before every run (`type` is `float` by default, or `int`). Adding a knob is **one line here**, no code. Want it in the study file instead? Drop the same list under `inline:` (what the taxi demo does).
+:::
+
 ## Run it
 
 ```bash
