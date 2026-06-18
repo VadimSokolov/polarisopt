@@ -501,6 +501,76 @@ def best(
         click.echo(f"  folder:    {sample.folder}")
 
 
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--failed", "target_failed", is_flag=True,
+    help="Sweep FAILED samples (currently the only mode — required).",
+)
+@click.option(
+    "--dry-run", is_flag=True,
+    help="Print what would be deleted (and total size) without removing anything.",
+)
+def clean(config: Path, target_failed: bool, dry_run: bool) -> None:
+    """Delete workspaces for FAILED samples.
+
+    Retroactive sweep companion to ``cleanup_on_failure: true`` on the
+    simulator. Use after a quota crisis (or any large failure batch) to
+    free disk without going through ``retry-failed`` first. Idempotent
+    — safe to re-run; samples whose folders are already gone are
+    silently skipped.
+
+    The SampleStore row stays FAILED (so you can still see what failed
+    and inspect the message); only the on-disk workspace is removed.
+    """
+    import shutil as _shutil
+
+    if not target_failed:
+        raise click.ClickException("specify --failed (no other modes yet)")
+    cfg = load_study_config(config)
+    try:
+        store = open_store(cfg)
+    except FileNotFoundError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    candidates = [
+        s for s in store.list(status=SampleStatus.FAILED)
+        if s.folder is not None and s.folder.exists()
+    ]
+    if not candidates:
+        click.echo("nothing to clean (no FAILED samples with on-disk workspaces)")
+        return
+
+    from polarisopt.simulator.polaris import _du_recursive, _fmt_bytes
+    total_bytes = 0
+    plan: list[tuple[int, Path, int]] = []
+    for sample in candidates:
+        try:
+            size = _du_recursive(sample.folder)
+        except OSError:
+            size = 0
+        plan.append((sample.id or 0, sample.folder, size))
+        total_bytes += size
+
+    if dry_run:
+        click.echo(f"DRY RUN — would delete {len(plan)} workspace(s) totaling {_fmt_bytes(total_bytes)}:")
+        for sid, folder, size in plan:
+            click.echo(f"  sample {sid:>4}  {_fmt_bytes(size):>10}  {folder}")
+        return
+
+    removed = 0
+    freed_bytes = 0
+    for sid, folder, size in plan:
+        try:
+            _shutil.rmtree(folder)
+        except OSError as exc:
+            click.echo(f"  sample {sid}: rmtree failed: {exc}", err=True)
+            continue
+        removed += 1
+        freed_bytes += size
+    click.echo(f"removed {removed} workspace(s), freed {_fmt_bytes(freed_bytes)}")
+
+
 @cli.command(name="recover-from-disk")
 @click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option(

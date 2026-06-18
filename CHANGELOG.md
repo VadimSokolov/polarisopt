@@ -2,6 +2,55 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.14.0 — 2026-06-17
+
+Quota / disk-full survival kit. The DFW DOE agent's master crashed
+mid-staging on sample 73 of 100 because the workspace filesystem
+filled up — partial copies left stranded, no clean error message,
+no way to free space without manually `find`-ing for failed sample
+folders. This batch closes that path: catch quota errors cleanly,
+refuse to start a copy that won't fit, opt in to per-sample cleanup,
+sweep retroactively.
+
+### Added
+
+- **`QuotaExceededError`** (subclass of `TransferError`). The local
+  transfer wrapper catches `errno.EDQUOT` (122 — per-user quota) and
+  `errno.ENOSPC` (28 — filesystem full), surfaces them as a structured
+  exception so the master can report
+  ``copy /lcrc/.../m → /lcrc/.../sim-073 hit EDQUOT: Disk quota
+  exceeded`` instead of a 50-line traceback. Also detects ENOSPC
+  buried inside `shutil.Error`'s per-file batch from `copytree`.
+  Existing `except TransferError` callers still catch it
+  (backwards-compatible subclass).
+- **Pre-stage quota check** in `PolarisSimulator.prepare()`. Before
+  `transfer.copy`, compute `du -sb`-equivalent of `model_source`,
+  call `os.statvfs` on the workspace, refuse with `QuotaExceededError`
+  if `free < model_size × quota_safety_multiplier`. Default
+  multiplier 1.5×. Catches the cascade at sample 1 instead of
+  sample 73.
+- **`PolarisSimulator(quota_check=True)`**, **`quota_safety_multiplier=1.5`**
+  knobs to tune or disable the check.
+- **`PolarisSimulator(cleanup_on_failure=False)`** + new
+  `Simulator.cleanup_after_failure(sample)` hook. When `True`,
+  rm -rf's the workspace after a sample reaches a terminal FAILED
+  state (after retries, if any). Default `False` to preserve forensic
+  artifacts. Hook runs as step 5 of `_evaluate_batch` so it can't
+  delete a workspace that's about to be retried.
+- **`polarisopt clean --failed [--dry-run] <study.yaml>`** — retroactive
+  sweep. Enumerates FAILED samples with on-disk folders, sums total
+  bytes, deletes (or with `--dry-run`, prints the plan). Store rows
+  stay FAILED so the failure messages survive — only the workspaces
+  are removed. Idempotent.
+
+### Why the asymmetry on defaults
+
+`quota_check` defaults **on** because it's a pure safety net (refuses
+to start something doomed). `cleanup_on_failure` defaults **off**
+because forensic artifacts are usually what you want to keep when
+something fails — the agent who's debugging a failed run wants the
+logs, not "we cleaned up so you can't see what went wrong."
+
 ## 0.13.1 — 2026-06-17
 
 Hot fix flagged by the DFW DOE agent ~60 minutes into the first

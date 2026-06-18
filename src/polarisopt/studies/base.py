@@ -298,14 +298,34 @@ class Study(ABC):
         # Permanent failures still get rejected after exhausting the budget.
         # The per-sample folder is reused — we trust the simulator to
         # overwrite its outputs (POLARIS does).
+        retriable_ids: set[int] = set()
         if ctx.max_retries > 0:
             retriable = self._collect_retriable(samples)
             if retriable:
+                retriable_ids = {s.id for s in retriable if s.id is not None}
                 log.info(
                     "[retry] re-submitting %d sample(s) after FAILED transition",
                     len(retriable),
                 )
                 self._evaluate_batch(retriable)
+
+        # 5) Cleanup terminally-FAILED samples if the simulator opted in.
+        # Skip samples that were retried at THIS level — the recursive
+        # _evaluate_batch above has already run cleanup on them if they
+        # exhausted their budget. Without this gate, a sample that
+        # retries N times has cleanup_hook called N+1 times (one per
+        # recursion level). Best-effort — failures are logged but don't
+        # change sample state.
+        cleanup_hook = getattr(ctx.simulator, "cleanup_after_failure", None)
+        if callable(cleanup_hook):
+            for sample in samples:
+                if sample.status is SampleStatus.FAILED and sample.id not in retriable_ids:
+                    try:
+                        cleanup_hook(sample)
+                    except Exception:  # noqa: BLE001 — cleanup is best-effort
+                        log.exception(
+                            "cleanup_after_failure raised for sample %s", sample.id,
+                        )
 
         return samples
 

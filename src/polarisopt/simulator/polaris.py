@@ -20,7 +20,9 @@ features (Globus transfer) flow through that dependency.
 
 from __future__ import annotations
 
+import os
 import shlex
+import shutil
 import sys
 from pathlib import Path
 from typing import Any
@@ -103,6 +105,23 @@ class PolarisSimulator(Simulator):
         positional arg (e.g. ``"Integrated_Model"`` produces
         ``apptainer run ... polaris.sif Integrated_Model <scenario> <threads>``).
         Default ``None`` (historical bare invocation).
+    quota_check : bool, optional
+        Before each ``transfer.copy``, compute the model's on-disk size
+        and compare against the workspace filesystem's free space.
+        Refuse with :class:`~polarisopt.transfer.QuotaExceededError` if
+        ``free < model_size * quota_safety_multiplier``. Catches the
+        "we'll fail at sample 73 of 100 with a partial copy" case at
+        sample 1. Default ``True``.
+    quota_safety_multiplier : float, optional
+        Headroom multiplier for the quota check. Default ``1.5`` —
+        require 1.5× the model size to be free before staging.
+    cleanup_on_failure : bool, optional
+        When a sample reaches a terminal FAILED state (after retries
+        exhausted), ``rm -rf`` its workspace. Opt-in because forensic
+        artifacts (logs, partial outputs) are usually what you want to
+        keep when a sample fails. Default ``False`` — preserve
+        artifacts. Use ``True`` for quota-tight runs where 100 failed
+        samples × N GB of stranded workspaces would fill the disk.
 
     Raises
     ------
@@ -141,6 +160,9 @@ class PolarisSimulator(Simulator):
         sif_entrypoint: str | None = None,
         pre_script: str | None = None,
         pre_script_interpreter: str | None = None,
+        quota_check: bool = True,
+        quota_safety_multiplier: float = 1.5,
+        cleanup_on_failure: bool = False,
     ) -> None:
         self.binary = Path(binary)
         self.model_source = Path(model_source)
@@ -171,6 +193,13 @@ class PolarisSimulator(Simulator):
         # Resolved lazily — sys.executable inside __init__ might differ
         # from what's available at runtime in some envs; keep the string.
         self.pre_script_interpreter: str = pre_script_interpreter or sys.executable
+        self.quota_check: bool = bool(quota_check)
+        if quota_safety_multiplier <= 0:
+            raise SimulatorError(
+                f"quota_safety_multiplier must be > 0, got {quota_safety_multiplier}"
+            )
+        self.quota_safety_multiplier: float = float(quota_safety_multiplier)
+        self.cleanup_on_failure: bool = bool(cleanup_on_failure)
 
     # ----- staging -----
 
@@ -182,6 +211,8 @@ class PolarisSimulator(Simulator):
         if not self.model_source.exists():
             raise SimulatorError(f"model_source does not exist: {self.model_source}")
         workspace.mkdir(parents=True, exist_ok=True)
+        if self.quota_check:
+            self._check_quota(workspace)
         log.info("PolarisSimulator: staging model into %s", workspace)
         self._transfer.copy(self.model_source, workspace, recursive=True)
         missing = inject_values(sample.inputs, space, workspace)
@@ -229,6 +260,68 @@ class PolarisSimulator(Simulator):
             stderr=workspace / "polaris.stderr.log",
             env={"POLARIS_NUM_THREADS": self.num_threads},
         )
+
+    # ----- quota check (pre-stage) -----
+
+    def _check_quota(self, workspace: Path) -> None:
+        """Refuse to stage if the workspace filesystem can't hold the model.
+
+        Computes the on-disk size of ``self.model_source`` and compares
+        against the workspace filesystem's free bytes. Raises
+        :class:`~polarisopt.transfer.QuotaExceededError` if
+        ``free < model_size * quota_safety_multiplier``. The check is
+        best-effort — if either statistic can't be obtained (rare on
+        local FS, more common on FUSE mounts) we log and proceed.
+        """
+        try:
+            model_bytes = _du_recursive(self.model_source)
+            stat = os.statvfs(workspace)
+            free_bytes = stat.f_bavail * stat.f_frsize
+        except OSError as exc:
+            log.warning(
+                "quota check skipped: could not stat workspace or model_source (%s)",
+                exc,
+            )
+            return
+        required = int(model_bytes * self.quota_safety_multiplier)
+        if free_bytes < required:
+            from polarisopt.transfer.base import QuotaExceededError
+
+            raise QuotaExceededError(
+                f"workspace {workspace} has {_fmt_bytes(free_bytes)} free, but "
+                f"staging {self.model_source} needs ~"
+                f"{_fmt_bytes(required)} ({_fmt_bytes(model_bytes)} × "
+                f"{self.quota_safety_multiplier}× safety). Refusing to start a "
+                f"partial copy. Free space or pass quota_check=False."
+            )
+        log.debug(
+            "PolarisSimulator: quota OK — %s free, %s required",
+            _fmt_bytes(free_bytes),
+            _fmt_bytes(required),
+        )
+
+    # ----- cleanup (post-failure) -----
+
+    def cleanup_after_failure(self, sample: Sample) -> None:
+        """Remove the sample's workspace when ``cleanup_on_failure=True``.
+
+        Called by the orchestrator after a sample reaches a terminal
+        FAILED state (i.e. after retry budget is exhausted, if any).
+        Default behavior is no-op; opt in for quota-tight runs where
+        100 failed samples × N GB of stranded workspaces would fill
+        the disk.
+        """
+        if not self.cleanup_on_failure:
+            return
+        if sample.folder is None or not sample.folder.exists():
+            return
+        log.info(
+            "PolarisSimulator: cleanup_on_failure — removing %s", sample.folder,
+        )
+        try:
+            shutil.rmtree(sample.folder)
+        except OSError as exc:
+            log.warning("cleanup_after_failure: rmtree failed for %s: %s", sample.folder, exc)
 
     # ----- command construction -----
 
@@ -391,3 +484,39 @@ def _arg_value(value: Any) -> str:
     if isinstance(value, bool):
         return "true" if value else "false"
     return str(value)
+
+
+def _du_recursive(path: Path) -> int:
+    """Total bytes under ``path`` (``du -sb`` equivalent).
+
+    Walks the tree with ``os.scandir`` for symlink-safety and speed
+    on large model directories. Symlinks aren't followed so we don't
+    double-count files referenced from multiple model variants.
+    """
+    if path.is_file():
+        return path.stat().st_size
+    total = 0
+    stack = [path]
+    while stack:
+        d = stack.pop()
+        with os.scandir(d) as it:
+            for entry in it:
+                if entry.is_symlink():
+                    continue
+                if entry.is_dir(follow_symlinks=False):
+                    stack.append(Path(entry.path))
+                else:
+                    try:
+                        total += entry.stat(follow_symlinks=False).st_size
+                    except OSError:
+                        continue
+    return total
+
+
+def _fmt_bytes(n: float) -> str:
+    """Render a byte count as a human-readable string (B, KB, MB, GB, TB)."""
+    for unit in ("B", "KB", "MB", "GB", "TB"):
+        if abs(n) < 1024.0:
+            return f"{n:.1f} {unit}"
+        n /= 1024.0
+    return f"{n:.1f} PB"

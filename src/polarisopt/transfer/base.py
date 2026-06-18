@@ -19,6 +19,22 @@ class TransferError(RuntimeError):
     """Raised when a transfer fails."""
 
 
+class QuotaExceededError(TransferError):
+    """Raised when a transfer fails because the destination filesystem is full
+    or the user is at their quota limit.
+
+    A subclass of :class:`TransferError` so existing ``except TransferError``
+    callers still catch it, but distinct so the master loop can report
+    "quota exceeded — staged X bytes of Y" instead of a generic
+    ``[Errno 122] Disk quota exceeded`` traceback.
+
+    Triggered on ``errno.EDQUOT`` (122 — per-user quota hit) and
+    ``errno.ENOSPC`` (28 — filesystem completely full). Both produce a
+    failed sample whose recovery story is the same: free space, then
+    `polarisopt retry-failed --run`.
+    """
+
+
 class Transfer(ABC):
     """Copy files / directories between locations."""
 

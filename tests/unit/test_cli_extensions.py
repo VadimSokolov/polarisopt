@@ -225,6 +225,70 @@ def test_status_verbose_status_filter(tmp_path: Path) -> None:
     assert not rows_for_sid
 
 
+def test_clean_failed_removes_failed_sample_workspaces(tmp_path: Path) -> None:
+    """polarisopt clean --failed deletes on-disk workspaces of FAILED
+    samples but leaves the store rows in place (so the message survives)."""
+    cfg_path, sid = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    # One FAILED sample with a populated folder, one FINISHED (should be untouched).
+    failed_sample = store.get(sid)
+    failed_sample.status = SampleStatus.FAILED
+    failed_sample.folder = workspace / "experiments" / "sim-000001"
+    failed_sample.folder.mkdir(parents=True)
+    (failed_sample.folder / "wasted.log").write_text("dead bytes\n")
+    store.update(failed_sample)
+
+    finished = store.add(Sample(phase="p", inputs=np.array([0.9])))
+    finished.status = SampleStatus.FINISHED
+    finished.metric = np.array([0.81])
+    finished.folder = workspace / "experiments" / "sim-000002"
+    finished.folder.mkdir(parents=True)
+    (finished.folder / "result.h5").write_text("ok\n")
+    store.update(finished)
+
+    res = CliRunner().invoke(cli, ["clean", str(cfg_path), "--failed"])
+    assert res.exit_code == 0, res.output
+    assert "removed 1 workspace" in res.output
+    assert not failed_sample.folder.exists()
+    assert finished.folder.exists()
+    # Store row survives.
+    assert store.get(sid).status is SampleStatus.FAILED
+
+
+def test_clean_failed_dry_run_does_not_delete(tmp_path: Path) -> None:
+    cfg_path, sid = _seed(tmp_path)
+    workspace = tmp_path / "ws"
+    layout = workspace_layout(workspace)
+    store = SampleStore.open(layout["db"], f"cli-ext-{workspace.name}")
+    sample = store.get(sid)
+    sample.status = SampleStatus.FAILED
+    sample.folder = workspace / "experiments" / "sim-000001"
+    sample.folder.mkdir(parents=True)
+    (sample.folder / "stuff.log").write_text("x" * 1024)
+    store.update(sample)
+
+    res = CliRunner().invoke(cli, ["clean", str(cfg_path), "--failed", "--dry-run"])
+    assert res.exit_code == 0, res.output
+    assert "DRY RUN" in res.output
+    assert sample.folder.exists(), "dry-run must NOT delete"
+
+
+def test_clean_failed_no_candidates(tmp_path: Path) -> None:
+    cfg_path, _ = _seed(tmp_path)
+    res = CliRunner().invoke(cli, ["clean", str(cfg_path), "--failed"])
+    assert res.exit_code == 0, res.output
+    assert "nothing to clean" in res.output
+
+
+def test_clean_requires_failed_flag(tmp_path: Path) -> None:
+    cfg_path, _ = _seed(tmp_path)
+    res = CliRunner().invoke(cli, ["clean", str(cfg_path)])
+    assert res.exit_code != 0
+    assert "--failed" in res.output
+
+
 def test_status_verbose_prefers_recent_progress_log_over_stale_wrapper(
     tmp_path: Path,
 ) -> None:

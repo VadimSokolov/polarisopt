@@ -513,3 +513,120 @@ def test_collect_output_no_iteration_dirs_returns_iteration_none(
     out = sim.collect_output(sample)
     assert out["iteration"] is None
     assert out["output_dir"].endswith("/out")
+
+
+# ---------- v0.14: quota + cleanup ----------
+
+
+def test_quota_check_refuses_when_free_space_too_low(
+    tmp_path: Path, space: ParameterSpace, monkeypatch
+) -> None:
+    """If the workspace filesystem can't hold model_source * safety_multiplier,
+    PolarisSimulator.prepare() must refuse instead of starting a partial copy.
+    """
+    from polarisopt.transfer.base import QuotaExceededError
+
+    model = _build_fake_model(tmp_path / "m")
+    # Make the fake model "large" by writing a few KB of padding.
+    (model / "padding.bin").write_bytes(b"x" * 10_000)
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        quota_safety_multiplier=2.0,
+    )
+    # Lie about free space — pretend statvfs returns way less than we need.
+    class _FakeStat:
+        f_bavail = 1  # one block
+        f_frsize = 1  # one byte per block → 1 byte free
+    monkeypatch.setattr("os.statvfs", lambda _path: _FakeStat())
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    with pytest.raises(QuotaExceededError, match="needs ~"):
+        sim.prepare(sample, space, tmp_path / "sim-1")
+
+
+def test_quota_check_allows_when_free_space_sufficient(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    sim = _make_sim(tmp_path)  # uses real os.statvfs on /tmp — plenty of room
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    # Should not raise.
+    sim.prepare(sample, space, tmp_path / "sim-1")
+
+
+def test_quota_check_opt_out(
+    tmp_path: Path, space: ParameterSpace, monkeypatch
+) -> None:
+    """quota_check=False lets the copy proceed regardless of free space."""
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        quota_check=False,
+    )
+    # Even if statvfs says "0 free", we proceed.
+    class _FakeStat:
+        f_bavail = 0
+        f_frsize = 4096
+    monkeypatch.setattr("os.statvfs", lambda _path: _FakeStat())
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    sim.prepare(sample, space, tmp_path / "sim-1")  # no raise
+
+
+def test_cleanup_on_failure_default_keeps_workspace(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """Backwards-compat: by default the workspace is preserved after a sample
+    is marked FAILED. Forensic artifacts (logs, partial output) survive.
+    """
+    sim = _make_sim(tmp_path)  # cleanup_on_failure defaults to False
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    assert workspace.exists()
+    sim.cleanup_after_failure(sample)
+    assert workspace.exists(), "default must NOT delete"
+
+
+def test_cleanup_on_failure_opt_in_removes_workspace(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """cleanup_on_failure=True rm -rf's the sample folder."""
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        cleanup_on_failure=True,
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    workspace = tmp_path / "experiments" / "sim-1"
+    sim.prepare(sample, space, workspace)
+    sample.folder = workspace
+    assert workspace.exists()
+    sim.cleanup_after_failure(sample)
+    assert not workspace.exists(), "cleanup_on_failure=True must delete"
+
+
+def test_cleanup_after_failure_handles_missing_folder(
+    tmp_path: Path,
+) -> None:
+    """cleanup_after_failure is idempotent — re-running on a missing folder
+    is a no-op, not an exception."""
+    model = _build_fake_model(tmp_path / "m")
+    sim = PolarisSimulator(
+        binary="/usr/bin/echo",
+        model_source=str(model),
+        scenario_file="scenario_abm.json",
+        output_db_filename="R.h5",
+        cleanup_on_failure=True,
+    )
+    sample = Sample(id=1, inputs=np.array([0.5, 0.5]))
+    sample.folder = tmp_path / "never-existed"
+    # No raise.
+    sim.cleanup_after_failure(sample)

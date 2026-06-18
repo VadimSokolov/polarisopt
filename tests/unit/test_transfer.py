@@ -51,3 +51,69 @@ def test_make_transfer_factory() -> None:
 
 def test_registry_has_local() -> None:
     assert "local" in transfer_registry
+
+
+def test_quota_exceeded_subclasses_transfer_error() -> None:
+    """Existing ``except TransferError`` callers must still catch
+    QuotaExceededError so v0.14 doesn't break backwards-compat.
+    """
+    from polarisopt.transfer.base import QuotaExceededError, TransferError
+
+    assert issubclass(QuotaExceededError, TransferError)
+
+
+def test_local_copy_raises_quota_exceeded_on_edquot(
+    tmp_path, monkeypatch,
+) -> None:
+    """EDQUOT (errno 122) from shutil.copy2 → QuotaExceededError, not a
+    bare TransferError with a 50-line traceback the master can't classify.
+    """
+    import errno
+    import shutil as _shutil
+
+    from polarisopt.transfer.base import QuotaExceededError
+    from polarisopt.transfer.local import LocalTransfer
+
+    src = tmp_path / "src.txt"
+    src.write_text("payload")
+
+    def _quota_fail(*_a, **_kw):
+        raise OSError(errno.EDQUOT, "Disk quota exceeded")
+
+    monkeypatch.setattr(_shutil, "copy2", _quota_fail)
+    t = LocalTransfer()
+    with pytest.raises(QuotaExceededError, match="EDQUOT"):
+        t.copy(src, tmp_path / "dst.txt")
+
+
+def test_local_copy_raises_quota_exceeded_on_enospc_inside_copytree(
+    tmp_path, monkeypatch,
+) -> None:
+    """ENOSPC raised during copytree (filesystem full) → QuotaExceededError.
+
+    shutil.copytree batches per-file errors into a shutil.Error whose
+    args[0] is a list of (src, dst, why) tuples. The detection has to
+    walk that structure.
+    """
+    import errno
+    import shutil as _shutil
+
+    from polarisopt.transfer.base import QuotaExceededError
+    from polarisopt.transfer.local import LocalTransfer
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "a.txt").write_text("x")
+
+    def _enospc_tree(*_a, **_kw):
+        raise _shutil.Error([
+            (str(src / "a.txt"), str(tmp_path / "dst/a.txt"),
+             "[Errno 28] No space left on device: '/dst/a.txt'"),
+        ])
+
+    monkeypatch.setattr(_shutil, "copytree", _enospc_tree)
+    t = LocalTransfer()
+    with pytest.raises(QuotaExceededError, match="ENOSPC"):
+        t.copy(src, tmp_path / "dst", recursive=True)
+    # Use errno to silence the unused-import linter
+    assert errno.ENOSPC == 28

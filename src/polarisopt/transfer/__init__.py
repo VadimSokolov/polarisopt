@@ -1,6 +1,7 @@
 """File transfer backends — local, ANL Globus, ..."""
 
 from polarisopt.transfer.base import (
+    QuotaExceededError,
     Transfer,
     TransferError,
     make_transfer,
@@ -10,6 +11,7 @@ from polarisopt.transfer.local import LocalTransfer
 
 __all__ = [
     "LocalTransfer",
+    "QuotaExceededError",
     "Transfer",
     "TransferError",
     "make_transfer",
