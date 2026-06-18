@@ -216,19 +216,19 @@ Vadim Sokolov at George Mason University
 <p>A calibrated POLARIS model is the product of <strong>many full simulation runs</strong>.</p>
 <div class="fragment">
 <ul>
-<li>One full-region iteration: <strong>hours</strong> of wall-clock, <strong>60+ GB</strong> of memory.</li>
-<li>Dozens of behavioral parameters scattered across POLARIS JSON config files.</li>
-<li>“Does this parameter set match the observed link counts?” — answered only by <em>running the model</em>.</li>
+<li>A single full-region iteration takes <strong>hours</strong> of wall-clock time and <strong>60+ GB</strong> of memory.</li>
+<li>Dozens of behavioral parameters are scattered across POLARIS JSON config files.</li>
+<li>Whether a parameter set matches the observed link counts can be answered only by <em>running the model</em>.</li>
 </ul>
 </div>
 <div class="fragment">
-<p>This is the classic <strong>expensive black-box</strong> regime:</p>
+<p>This is the <strong>expensive black-box</strong> regime:</p>
 <blockquote>
-<p>evaluations cost real money, gradients don’t exist, and the simulator is stochastic.</p>
+<p>evaluations are expensive, gradients are unavailable, and the simulator is stochastic.</p>
 </blockquote>
 </div>
 <div class="fragment">
-<p><strong>PolarisOpt</strong> is the library that drives those evaluations intelligently — for <strong>calibration</strong> (match data) and <strong>exploration</strong> (screen, optimize, understand).</p>
+<p><strong>PolarisOpt</strong> is the library that chooses which evaluations to run, for <strong>calibration</strong> (matching observed data) and <strong>exploration</strong> (screening, optimization, and sensitivity analysis).</p>
 </div>
 </section>
 <section id="what-polarisopt-is" class="slide level2 smaller">
@@ -236,8 +236,8 @@ Vadim Sokolov at George Mason University
 <p>Modular <strong>design-of-experiments</strong> and <strong>Bayesian optimization</strong> for POLARIS.</p>
 <div class="columns">
 <div class="column" style="width:50%;">
-<h3 id="static-doe">Static DoE</h3>
-<p><em>One-shot</em> sample generation for screening &amp; sensitivity.</p>
+<h3 id="static-design-of-experiments">Static design of experiments</h3>
+<p><em>One-shot</em> sample generation for screening and sensitivity.</p>
 <ul>
 <li>Latin Hypercube</li>
 <li>Morris (elementary effects)</li>
@@ -245,7 +245,7 @@ Vadim Sokolov at George Mason University
 <li>Manual</li>
 </ul>
 </div><div class="column" style="width:50%;">
-<h3 id="sequential-doe">Sequential DoE</h3>
+<h3 id="sequential-design-of-experiments">Sequential design of experiments</h3>
 <p><em>Adaptive</em> surrogate-driven Bayesian optimization.</p>
 <ul>
 <li>GP / Multi-task GP surrogates</li>
@@ -255,7 +255,7 @@ Vadim Sokolov at George Mason University
 </ul>
 </div></div>
 <div class="fragment">
-<p>Configured in <strong>YAML</strong>, run from the <strong>CLI</strong> or <strong>Python</strong>, every evaluation persisted to <strong>SQLite</strong> — so a study survives a crash and <strong>resumes</strong>.</p>
+<p>A study is configured in <strong>YAML</strong> and run from the <strong>CLI</strong> or <strong>Python</strong>. Every evaluation is persisted to <strong>SQLite</strong>, so a study survives a crash and can <strong>resume</strong>.</p>
 </div>
 </section>
 <section id="the-sequential-design-loop" class="slide level2">
@@ -325,7 +325,7 @@ Vadim Sokolov at George Mason University
 <span id="cb2-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> activity_duration</span><span class="kw">,</span><span class="at"> </span><span class="fu">file</span><span class="kw">:</span><span class="at"> ActivityChoice.json</span><span class="kw">,</span><span class="at">    </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span><span class="kw">,</span><span class="at">   </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="fl">4.0</span><span class="kw">,</span><span class="at">   </span><span class="fu">type</span><span class="kw">:</span><span class="at"> float </span><span class="kw">}</span></span>
 <span id="cb2-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> max_destinations</span><span class="kw">,</span><span class="at">  </span><span class="fu">file</span><span class="kw">:</span><span class="at"> DestinationChoice.json</span><span class="kw">,</span><span class="at"> </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="dv">5</span><span class="kw">,</span><span class="at">     </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span><span class="kw">,</span><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> int   </span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="fragment">
-<p>polarisopt injects each sampled value into the named JSON before every run (<code>type</code> is <code>float</code> by default, or <code>int</code>). Adding a knob is <strong>one line here</strong>, no code. Want it in the study file instead? Drop the same list under <code>inline:</code> (what the taxi demo does).</p>
+<p>polarisopt injects each sampled value into the named JSON before every run (<code>type</code> is <code>float</code> by default, or <code>int</code>). Adding a parameter is <strong>one line here</strong>, with no code change. The same list can go directly under <code>inline:</code> in the study YAML, which is what the taxi demo does.</p>
 </div>
 </section>
 <section id="run-it" class="slide level2">
@@ -338,7 +338,7 @@ Vadim Sokolov at George Mason University
 <span id="cb3-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> best     study.yaml     <span class="co"># winning sample's inputs + metric (--json to pipe)</span></span>
 <span id="cb3-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> retry-failed study.yaml <span class="at">--run</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="fragment">
-<p><code>validate</code> and <code>plan</code> catch the typo class — a wrong plugin name, an option that isn’t in the constructor — in <strong>one second</strong>, instead of after a 30-second stage in a real run.</p>
+<p><code>validate</code> and <code>plan</code> catch mistakes such as a wrong plugin name or an option the constructor does not accept in about <strong>a second</strong>, rather than after a 30-second stage in a real run.</p>
 </div>
 </section>
 <section id="master-slave-architecture" class="slide level2 smaller">
@@ -351,13 +351,13 @@ Vadim Sokolov at George Mason University
 <p></p><figure class=""><p></p>
 <div>
 <pre class="mermaid mermaid-js">graph TB
-    subgraph M["Master — one Python process"]
+    subgraph M["Master: one Python process"]
         SS[SampleStore SQLite]
         SR[StudyRunner]
         GP[Surrogate / Acquisition]
         RN[Runner ABC]
     end
-    subgraph SL["Slaves — one process per sample"]
+    subgraph SL["Slaves: one process per sample"]
         P1[POLARIS binary]
         P2[POLARIS binary]
     end
@@ -380,17 +380,17 @@ Vadim Sokolov at George Mason University
 </div><div class="column" style="width:45%;">
 <p><strong>The master never imports POLARIS.</strong></p>
 <ul>
-<li>Math layer (GP fit, acquisition) lives on the head node — a fraction of a CPU.</li>
+<li>The math layer (GP fit, acquisition) lives on the head node, using a fraction of a CPU.</li>
 <li>Heavy simulations fan out across Slurm.</li>
 <li>The <code>Runner</code> ABC is the <strong>only</strong> boundary.</li>
-<li>Every transition hits the SampleStore → <strong>kill it, resume it</strong>.</li>
-<li>No daemon, no worker pool, no Postgres queue.</li>
+<li>Every state transition is written to the SampleStore, so a study can be killed and resumed.</li>
+<li>There is no daemon, worker pool, or Postgres queue.</li>
 </ul>
 </div></div>
 </section>
 <section id="everything-is-a-plugin" class="slide level2 smaller">
 <h2>Everything is a plugin</h2>
-<p>Each swappable piece is an ABC + a registry. Add one with a class and a <code>@register("name")</code> decorator; reference it from YAML. External packages ship plugins through <strong>entry points</strong> — no core changes.</p>
+<p>Each swappable piece is an ABC + a registry. Add one with a class and a <code>@register("name")</code> decorator; reference it from YAML. External packages ship plugins through <strong>entry points</strong>, with no core changes.</p>
 <table class="caption-top">
 <colgroup>
 <col style="width: 50%">
@@ -468,7 +468,7 @@ Vadim Sokolov at George Mason University
 <span id="cb6-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">walltime</span><span class="kw">:</span><span class="at"> </span><span class="st">"04:00:00"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div></div>
 <div class="fragment">
-<p>Develop and debug a study on your laptop in seconds; ship the <em>same file</em> to the cluster for the real run.</p>
+<p>Develop and debug a study on a laptop, then run the <em>same file</em> on the cluster for the real run.</p>
 </div>
 </section>
 <section>
@@ -478,7 +478,7 @@ Vadim Sokolov at George Mason University
 </section>
 <section id="why-a-toy-simulator" class="slide level2 smaller">
 <h2>Why a toy simulator?</h2>
-<p>POLARIS is the real target, but it’s slow to demo. We need a stand-in that is <strong>fast</strong> yet <strong>structurally honest</strong>.</p>
+<p>POLARIS is the real target but is too slow to demonstrate live. The demo needs a stand-in that is <strong>fast</strong> but still exercises the same structure.</p>
 <div class="columns">
 <div class="column" style="width:55%;">
 <p>A pure-Python, <strong>seedable</strong> port of Amazon’s <a href="https://github.com/amzn/emukit-playground">emukit-playground</a> taxi simulator:</p>
@@ -486,7 +486,7 @@ Vadim Sokolov at George Mason University
 <li>City grid, fleet of taxis, journey requests, surge pricing.</li>
 <li>Tunable inputs: <code>taxi_count</code>, <code>base_fare</code>, <code>cost_per_tile</code>, <code>max_multiplier</code>, …</li>
 <li>Outputs: <code>profit</code>, <code>journeys_completed</code>, <code>pick_up_time</code>, <code>missed</code>.</li>
-<li><strong>Stochastic</strong>, like POLARIS — averages over seeded repeats.</li>
+<li><strong>Stochastic</strong>, like POLARIS; averages over seeded repeats.</li>
 <li>One run ≈ <strong>0.3 s</strong> instead of 6 hours.</li>
 </ul>
 </div><div class="column" style="width:45%;">
@@ -498,11 +498,11 @@ Vadim Sokolov at George Mason University
 </div>
 </div></div>
 <div class="fragment">
-<p>Same <code>Simulator</code> / <code>Metric</code> / <code>Runner</code> contracts as a real POLARIS study — the workflow you see <em>is</em> the real POLARIS workflow, just faster.</p>
+<p>It uses the same <code>Simulator</code>, <code>Metric</code>, and <code>Runner</code> contracts as a real POLARIS study, so the demonstrated workflow matches the real one, only faster.</p>
 </div>
 </section>
-<section id="five-workflows-one-library" class="slide level2 smaller">
-<h2>Five workflows, one library</h2>
+<section id="five-demo-workflows" class="slide level2 smaller">
+<h2>Five demo workflows</h2>
 <table class="caption-top">
 <colgroup>
 <col style="width: 25%">
@@ -528,7 +528,7 @@ Vadim Sokolov at George Mason University
 <tr class="even">
 <td>2</td>
 <td><strong>LHS screening</strong></td>
-<td>static DoE + SampleStore</td>
+<td>static design of experiments + SampleStore</td>
 <td>laptop</td>
 </tr>
 <tr class="odd">
@@ -552,17 +552,17 @@ Vadim Sokolov at George Mason University
 </tbody>
 </table>
 <div class="fragment">
-<p>Verified end-to-end (seed 42): default settings earn ≈ <strong>6,000</strong> profit; a 64-sample LHS screen finds <strong>15,645</strong>; the 32-evaluation BO study finds <strong>16,834</strong> and <strong>stops itself</strong> on a plateau.</p>
+<p>Verified end-to-end (seed 42): default settings earn about <strong>6,000</strong> profit, a 64-sample LHS screen finds <strong>15,645</strong>, and the 32-evaluation BO study finds <strong>16,834</strong> and stops on a plateau.</p>
 </div>
 </section>
 <section id="bayesian-optimization-concretely" class="slide level2 smaller">
 <h2>Bayesian optimization, concretely</h2>
-<p>The GP <strong>surrogate</strong> interpolates the few expensive runs; <strong>Expected Improvement</strong> turns predicted mean and uncertainty into <em>where to sample next</em>: it explores where the model is unsure and exploits where profit looks high.</p>
+<p>The GP <strong>surrogate</strong> interpolates the few expensive runs; <strong>Expected Improvement</strong> turns predicted mean and uncertainty into <em>where to sample next</em>: it explores where the model is uncertain and exploits where the predicted profit is high.</p>
 
-<img data-src="fig/bo-illustration.png" class="r-stretch quarto-figure-center"><p class="caption">GP fit to a handful of taxi-fleet evaluations; EI proposes the next fleet size to run. The same <code>gp</code> + <code>qei</code> plugins power workflow 3 — on a laptop or on Crossover.</p></section>
+<img data-src="fig/bo-illustration.png" class="r-stretch quarto-figure-center"><p class="caption">GP fit to a handful of taxi-fleet evaluations; EI proposes the next fleet size to run. The same <code>gp</code> + <code>qei</code> plugins power workflow 3, on a laptop or on Crossover.</p></section>
 <section id="write-your-own-simulator" class="slide level2 smaller">
 <h2>Write your own simulator</h2>
-<p>A <code>Simulator</code> turns a sample into a job and reads its output back. Register it through an entry point — <code>pip install</code>, and <code>type: taxi</code> works in any YAML.</p>
+<p>A <code>Simulator</code> turns a sample into a job and reads its output back. Register it through an entry point; after <code>pip install</code>, <code>type: taxi</code> works in any YAML.</p>
 <div class="columns">
 <div class="column" style="width:58%;">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">@simulator_registry.register</span>(<span class="st">"taxi"</span>)</span>
@@ -584,13 +584,13 @@ Vadim Sokolov at George Mason University
 <span id="cb8-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">polarisopt.simulators"</span><span class="kw">]</span></span>
 <span id="cb8-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="dt">taxi</span> <span class="op">=</span> <span class="st">"taxidemo.plugin"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="fragment">
-<p>The master stays POLARIS-free: it only ever sees a <code>JobSpec</code> in and a dict out. The same contract wraps the POLARIS binary.</p>
+<p>The master stays independent of POLARIS: it only sees a <code>JobSpec</code> going in and a dict coming out. The same contract wraps the POLARIS binary.</p>
 </div>
 </div></div>
 </section>
 <section id="write-your-own-metric" class="slide level2 smaller">
 <h2>Write your own metric</h2>
-<p>A <code>Metric</code> turns simulator outputs into the number the optimizer chases. Here is taxidemo’s calibration metric — the toy analog of POLARIS’s <code>link_moe</code>.</p>
+<p>A <code>Metric</code> turns simulator outputs into the number the optimizer minimizes or maximizes. Here is taxidemo’s calibration metric, the toy analog of POLARIS’s <code>link_moe</code>.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">@metric_registry.register</span>(<span class="st">"output_match"</span>)</span>
 <span id="cb9-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> OutputMatchMetric(Metric):</span>
 <span id="cb9-3"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Mean squared relative error between outputs and observed targets. 0 = perfect."""</span></span>
@@ -603,17 +603,17 @@ Vadim Sokolov at George Mason University
 <span id="cb10-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
 <span id="cb10-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">targets_file</span><span class="kw">:</span><span class="at"> ~/taxidemo-runs/calibration-targets.json</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="fragment">
-<p>Swap <code>output_match</code> → <code>link_moe</code> and the <em>exact same study</em> calibrates real POLARIS link volumes.</p>
+<p>Replacing <code>output_match</code> with <code>link_moe</code> makes the same study calibrate real POLARIS link volumes.</p>
 </div>
 </section>
 <section id="calibration-the-inverse-problem" class="slide level2 smaller">
-<h2>Calibration = the inverse problem</h2>
-<p>Optimization asks <em>“what inputs maximize profit?”</em> Calibration asks the harder question: <em>“what inputs reproduce the <strong>observed data</strong>?”</em></p>
+<h2>Calibration: the inverse problem</h2>
+<p>Optimization asks which inputs maximize profit. Calibration asks a different question: which inputs reproduce the <strong>observed data</strong>?</p>
 <div class="fragment">
 <p>We validate the pipeline with a <strong>parameter-recovery test</strong>:</p>
 <ol type="1">
 <li>Pick <em>true</em> parameters; simulate synthetic “field data” (seeds the calibration never sees).</li>
-<li><strong>Hide</strong> the truth; calibrate against the data alone — minimize <code>output_match</code>.</li>
+<li><strong>Hide</strong> the truth and calibrate against the data alone, minimizing <code>output_match</code>.</li>
 <li>Compare what we recover to the truth.</li>
 </ol>
 </div>
@@ -632,7 +632,7 @@ Vadim Sokolov at George Mason University
 <section id="live-demo" class="title-slide slide level1 center" data-background-color="#1a3a5c">
 <h1>Live demo</h1>
 <aside class="notes">
-<p>DEMO (~8 min). Kernel = the taxidemo venv (python3). 1. Generate synthetic field data from hidden true params (taxi_count=40, base_fare=7.5, …). 2. Show the study YAML. 3. run_study(…) — workspace is pre-warmed, so it resumes the finished store in &lt;1s (no wait); narrate the master/slave loop over the convergence plot, not during the run. 4. Convergence plot: discrepancy drops below epsilon, plateau/epsilon stop fires. 5. Two report cards: data-space match (held-out seeds) vs parameter-space recovery. 6. Land the identifiability point — segue to next slide.</p>
+<p>DEMO (~8 min). Kernel = the taxidemo venv (python3). 1. Generate synthetic field data from hidden true params (taxi_count=40, base_fare=7.5, …). 2. Show the study YAML. 3. run_study(…): workspace is pre-warmed, so it resumes the finished store in &lt;1s (no wait); narrate the master/slave loop over the convergence plot, not during the run. 4. Convergence plot: discrepancy drops below epsilon, plateau/epsilon stop fires. 5. Two report cards: data-space match (held-out seeds) vs parameter-space recovery. 6. Land the identifiability point, then segue to next slide.</p>
 <style type="text/css">
         span.MJX_Assistive_MathML {
           position:absolute!important;
@@ -655,17 +655,17 @@ Vadim Sokolov at George Mason University
 <div class="column" style="width:50%;">
 <p><strong>The result</strong></p>
 <ul>
-<li>56 evaluations, <strong>~105 s</strong> total.</li>
-<li><code>epsilon</code> stop fired at iteration 10 — the loop <em>quit when the data was matched</em>.</li>
+<li>56 evaluations, about <strong>105 s</strong> total.</li>
+<li>The <code>epsilon</code> stop fired at iteration 10, once the discrepancy fell below the threshold.</li>
 <li>Best discrepancy <strong>0.0159</strong>.</li>
 <li><code>taxi_count</code> recovered <strong>almost exactly</strong> (41 vs true 40).</li>
 </ul>
 </div><div class="column" style="width:50%;">
-<p><strong>The honest part</strong></p>
+<p><strong>The limitation</strong></p>
 <ul>
-<li>Pricing knobs landed far off — <em>with an equally good fit</em>.</li>
+<li>Pricing knobs landed far off, <em>with an equally good fit</em>.</li>
 <li>Below the cancellation threshold, prices don’t move the observed quantities.</li>
-<li>So the data <strong>can’t</strong> identify them — no method could.</li>
+<li>So the data <strong>can’t</strong> identify them, and no method could.</li>
 </ul>
 </div></div>
 <div class="fragment">
@@ -674,12 +674,12 @@ Vadim Sokolov at George Mason University
 </blockquote>
 </div>
 <div class="fragment">
-<p><strong>This is exactly the real-model case.</strong> Link counts alone rarely pin down every behavioral parameter. Remedy: observe more, or <strong>screen first</strong> (Morris) and calibrate only what the data responds to.</p>
+<p><strong>The same situation arises with the real model.</strong> Link counts alone rarely pin down every behavioral parameter. The remedy is to observe more, or to <strong>screen first</strong> (Morris) and calibrate only the parameters the data responds to.</p>
 </div>
 </section>
 <section id="running-on-argonne-hpc" class="slide level2 smaller">
 <h2>Running on Argonne HPC</h2>
-<p>Argonne users run the <em>same study YAML</em> on <strong>LCRC Crossover</strong> (Slurm) — one <code>sbatch</code> per sample; the <code>pbs</code> runner targets <strong>Improv / Bebop</strong> the same way.</p>
+<p>Argonne users run the <em>same study YAML</em> on <strong>LCRC Crossover</strong> (Slurm), one <code>sbatch</code> per sample; the <code>pbs</code> runner targets <strong>Improv / Bebop</strong> the same way.</p>
 <div class="columns">
 <div class="column" style="width:56%;">
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb12-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">runner</span><span class="kw">:</span></span>
@@ -697,9 +697,9 @@ Vadim Sokolov at George Mason University
 <span id="cb12-13"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="kw">-</span><span class="at"> </span><span class="st">"conda activate polaris_xover"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div><div class="column" style="width:44%;">
 <ul>
-<li><code>setup_commands</code> load modules / activate the env on the compute node — clean simulator/runner separation.</li>
-<li><strong>Node sizing matters:</strong> a full regional model eats ~30 GB/instance — pack <strong>4 workers × 32 threads</strong>, not 8 (OOM on 253 GB nodes).</li>
-<li>Stateless slaves: a fresh <code>sbatch</code> per sample, ~10 s startup — negligible against hour-long regional iterations.</li>
+<li><code>setup_commands</code> load modules and activate the environment on the compute node, keeping the simulator and runner separate.</li>
+<li><strong>Node sizing matters:</strong> a full regional model uses about 30 GB per instance, so pack <strong>4 workers × 32 threads</strong> rather than 8 (8 risks OOM on 253 GB nodes).</li>
+<li>Stateless slaves: a fresh <code>sbatch</code> per sample, about 10 s startup, negligible against hour-long regional iterations.</li>
 </ul>
 </div></div>
 </section>
@@ -707,7 +707,7 @@ Vadim Sokolov at George Mason University
 <h2>Moving models &amp; migrating in</h2>
 <div class="columns">
 <div class="column" style="width:50%;">
-<h3 id="data-movement-globus">Data movement — Globus</h3>
+<h3 id="data-movement-globus">Data movement: Globus</h3>
 <p>Regional models live on the <strong>VMS</strong> shared drive; runs happen on <strong><code>/lcrc</code></strong> scratch. The <code>anl</code> / <code>globus</code> transfer plugins (via polaris-studio) stage them automatically.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb13-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">simulator</span><span class="kw">:</span></span>
 <span id="cb13-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> polaris</span></span>
@@ -718,7 +718,7 @@ Vadim Sokolov at George Mason University
 <span id="cb13-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div><div class="column" style="width:50%;">
 <h3 id="coming-from-eq-sql">Coming from EQ-SQL?</h3>
-<p>A drop-in shim for <code>polaris.hpc.eqsql</code> — same <code>insert_task</code> / <code>Task</code> surface, but <strong>plain <code>sbatch</code>/<code>squeue</code></strong> underneath. No Postgres, no worker pool, no cross-user contamination.</p>
+<p>A drop-in shim for <code>polaris.hpc.eqsql</code>: the same <code>insert_task</code> / <code>Task</code> surface, but <strong>plain <code>sbatch</code>/<code>squeue</code></strong> underneath, with no Postgres, worker pool, or cross-user contamination.</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> polarisopt <span class="im">import</span> eqsql_compat</span>
 <span id="cb14-2"><a href="" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb14-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> eqsql_compat.open_queue(ws) <span class="im">as</span> q:</span>
@@ -732,23 +732,23 @@ Vadim Sokolov at George Mason University
 </section>
 <section id="built-for-real-hpc-runs" class="slide level2 smaller">
 <h2>Built for real HPC runs</h2>
-<p>The toy hides none of the machinery that matters at full-region scale.</p>
+<p>The taxi demo runs through the same production machinery as a full-region study.</p>
 <div class="columns">
 <div class="column" style="width:50%;">
 <ul>
-<li><strong>Resume</strong> — <code>Ctrl-C</code> the master, <code>polarisopt resume</code>; RNG + surrogate restored, and on-disk results are harvested even if Slurm’s status went stale (v0.11).</li>
-<li><strong>retry-failed</strong> — flip crashed samples back to PENDING, re-run.</li>
-<li><strong>plan / validate</strong> — catch errors before burning node-hours.</li>
+<li><strong>Resume</strong>: <code>Ctrl-C</code> the master, then <code>polarisopt resume</code>; RNG + surrogate restored, and on-disk results are harvested even if Slurm’s status went stale (v0.11).</li>
+<li><strong>retry-failed</strong>: flip crashed samples back to PENDING and re-run.</li>
+<li><strong>plan / validate</strong>: catch errors before burning node-hours.</li>
 </ul>
 </div><div class="column" style="width:50%;">
 <ul>
-<li><strong>SampleStore</strong> — every evaluation, input, output, runtime, log path — queryable SQLite.</li>
-<li><strong>Globus transfer</strong> — stage models between VMS and cluster scratch.</li>
-<li><strong>EQSQL-compat shim</strong> — drop-in for <code>polaris.hpc.eqsql</code>, no Postgres.</li>
+<li><strong>SampleStore</strong>: every evaluation, input, output, runtime, and log path, queryable in SQLite.</li>
+<li><strong>Globus transfer</strong>: stage models between VMS and cluster scratch.</li>
+<li><strong>EQSQL-compat shim</strong>: drop-in for <code>polaris.hpc.eqsql</code>, no Postgres.</li>
 </ul>
 </div></div>
 <div class="fragment">
-<p>Battle-tested on live POLARIS calibration since <strong>v0.6 (May 2026)</strong>; additive, no breaking changes to date.</p>
+<p>In use on live POLARIS calibration since <strong>v0.6 (May 2026)</strong>; additive, with no breaking changes to date.</p>
 </div>
 </section>
 <section id="getting-started" class="slide level2 smaller">
@@ -771,7 +771,7 @@ Vadim Sokolov at George Mason University
 <p><strong>Code</strong></p>
 <ul>
 <li><code>github.com/VadimSokolov/polarisopt</code></li>
-<li><code>taxidemo/</code> — five runnable workflows</li>
+<li><code>taxidemo/</code>: five runnable workflows</li>
 <li><code>taxidemo/notebooks/05_calibration.ipynb</code></li>
 </ul>
 </div></div>
@@ -779,15 +779,15 @@ Vadim Sokolov at George Mason University
 <section id="takeaways" class="slide level2 smaller">
 <h2>Takeaways</h2>
 <ul>
-<li class="fragment">PolarisOpt = <strong>DoE + Bayesian optimization</strong> for expensive POLARIS models — calibration <em>and</em> exploration.</li>
+<li class="fragment">PolarisOpt provides <strong>design of experiments and Bayesian optimization</strong> for expensive POLARIS models, for both calibration and exploration.</li>
 <li class="fragment">A study is <strong>one YAML file</strong>; the same file runs on a laptop, a Slurm cluster, or a PBS cluster.</li>
-<li class="fragment"><strong>Everything is a plugin</strong> — simulators, metrics, surrogates, designs — added via entry points, never core edits.</li>
-<li class="fragment"><strong>Master/slave + SampleStore</strong> → studies survive crashes and resume.</li>
-<li class="fragment">The <strong>taxi demo</strong> exercises the entire stack in seconds; the workflow <em>is</em> the real POLARIS workflow.</li>
-<li class="fragment">Calibration is an <strong>inverse problem</strong> — and PolarisOpt makes the identifiability question visible, not hidden.</li>
+<li class="fragment"><strong>Everything is a plugin.</strong> Simulators, metrics, surrogates, and designs are added via entry points, not core edits.</li>
+<li class="fragment"><strong>Master/slave plus the SampleStore</strong> let studies survive crashes and resume.</li>
+<li class="fragment">The <strong>taxi demo</strong> runs the entire stack in seconds, using the same workflow as a real POLARIS study.</li>
+<li class="fragment">Calibration is an <strong>inverse problem</strong>, and PolarisOpt makes the identifiability question explicit.</li>
 </ul>
 <div class="fragment">
-<h3 id="thank-you-questions">Thank you — questions?</h3>
+<h3 id="thank-you.-questions">Thank you. Questions?</h3>
 <p><code>github.com/VadimSokolov/polarisopt</code></p>
 </div>
 
