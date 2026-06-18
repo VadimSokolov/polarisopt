@@ -75,8 +75,26 @@ def test_exclusive_flag_renders_sbatch_directive(tmp_path: Path, fake_shell) -> 
     assert "#SBATCH --exclusive" not in job2.script_path.read_text()
 
 
+def test_submit_retries_on_transient_qosgrp_limit(tmp_path: Path, fake_shell) -> None:
+    """Slurm QOSGrpJobsLimit is transient (queue gets drained); v0.15
+    retries with backoff instead of marking the sample FAILED."""
+    fake_shell.responses.append(
+        _ok(rc=1, stderr="sbatch: error: QOSGrpJobsLimit"),
+    )
+    fake_shell.responses.append(_ok(stdout="Submitted batch job 9999\n"))
+    runner = SlurmRunner(shell_runner=fake_shell, submit_retry_backoff_s=(0, 0, 0))
+    spec = JobSpec(name="x", command="echo hi", cwd=tmp_path / "r")
+    job = runner.submit(spec)
+    assert job.task_id == "9999"
+    sbatch_calls = [c for c in fake_shell.calls if c[0] == "sbatch"]
+    assert len(sbatch_calls) == 2
+
+
 def test_submit_raises_on_sbatch_failure(tmp_path: Path, fake_shell) -> None:
-    fake_shell.responses.append(_ok(rc=1, stderr="QOSGrpJobsLimit"))
+    # Use a non-transient error so the v0.15 retry-with-backoff path
+    # doesn't kick in. "Invalid partition" is a permanent submission
+    # error, not something a retry would fix.
+    fake_shell.responses.append(_ok(rc=1, stderr="sbatch: error: Invalid partition specified"))
     runner = SlurmRunner(shell_runner=fake_shell)
     spec = JobSpec(name="x", command="false", cwd=tmp_path)
     with pytest.raises(RunnerError, match="sbatch failed"):

@@ -2,6 +2,51 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.15.0 — 2026-06-18
+
+Self-healing live masters. The DFW DOE agent reported a 2h+ stuck-master
+incident on Improv: PBS aged jobids out of `qstat` accounting, polarisopt
+defensively kept the samples in RUNNING (correct), but had no in-flight
+mechanism to harvest the on-disk artifacts. Manual `recover-from-disk`
+worked but required the operator to notice. v0.15 closes the loop —
+the master self-heals on UNKNOWN, retries transient submit errors with
+backoff, and reports stalled state via heartbeat deltas.
+
+### Added
+
+- **In-flight disk reconcile** (item 1 from the agent's batch — highest
+  leverage). When `runner.status()` returns UNKNOWN inside
+  `_evaluate_batch`'s poll loop, the master now tries
+  `simulator.collect_output` + `metric.compute` against the workspace
+  *before* incrementing the orphan counter. If outputs parse → sample
+  goes FINISHED with metric set, no restart needed. Falls through to
+  the existing orphan-threshold logic when disk recovery fails. Same
+  mechanism v0.10.1 added to `resume`, now also live inside `run`.
+- **Transient submit-error backoff** (item 3). `PBSRunner.submit` and
+  `SlurmRunner.submit` detect known-transient error patterns and
+  retry with exponential backoff (10s → 30s → 60s → 120s → 240s,
+  default 5 attempts) instead of marking the sample FAILED. PBS:
+  per-user limit (`would exceed complex's per-user limit`), server
+  busy, resource temporarily unavailable. Slurm: `QOSGrpJobsLimit`,
+  `AssocGrpJobsLimit`, controller busy. Permanent errors (unknown
+  queue, bad account, invalid partition) still raise immediately.
+  Backoff schedule is per-instance configurable via
+  `submit_retry_backoff_s`.
+- **Heartbeat transition deltas** (item 2). The `[heartbeat]` log line
+  now shows `+3 FINISHED, +0 FAILED, +0 RECOVERED since last` so a
+  stalled master is visible in the log even when the PBS-side counts
+  don't move. Empty deltas surface as ``0 transitions since last
+  (master may be stalled)``.
+
+### Changed
+
+- **`PolarisConvergenceSimulator.cleanup_on_failure` defaults `True`**
+  (item 4). polarislib workloads stage 1.5–3 GB per sample; preserving
+  every FAILED workspace fills the filesystem fast. The base
+  `PolarisSimulator` keeps the default `False` (forensic preservation
+  is the more common use case for hand-rolled simulations). Explicit
+  YAML overrides win.
+
 ## 0.14.0 — 2026-06-17
 
 Quota / disk-full survival kit. The DFW DOE agent's master crashed

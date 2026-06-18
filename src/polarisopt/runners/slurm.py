@@ -143,16 +143,25 @@ class SlurmRunner(Runner):
     ... ))
     """
 
+    SUBMIT_RETRY_BACKOFF_S: tuple[int, ...] = (10, 30, 60, 120, 240)
+
     def __init__(
         self,
         *,
         default_resources: SlurmResources | None = None,
         shell_runner: ShellRunner | None = None,
+        submit_retry_backoff_s: tuple[int, ...] | list[int] | None = None,
     ) -> None:
         self._default = default_resources or SlurmResources()
         self._shell = shell_runner or _default_shell_runner
+        self._submit_backoff: tuple[int, ...] = (
+            tuple(submit_retry_backoff_s)
+            if submit_retry_backoff_s is not None
+            else self.SUBMIT_RETRY_BACKOFF_S
+        )
 
     def submit(self, spec: JobSpec) -> SlurmJob:
+        import time
         spec.cwd.mkdir(parents=True, exist_ok=True)
         resources = spec.extra.get("resources", self._default)
         if not isinstance(resources, SlurmResources):
@@ -160,9 +169,30 @@ class SlurmRunner(Runner):
         script_path = spec.cwd / f"{_safe_name(spec.name)}.slurm"
         script_path.write_text(self._render_script(spec, resources))
 
-        result = self._shell(["sbatch", str(script_path)])
-        if result.returncode != 0:
-            raise RunnerError(f"sbatch failed (rc={result.returncode}): {result.stderr.strip() or result.stdout.strip()}")
+        attempt = 0
+        while True:
+            result = self._shell(["sbatch", str(script_path)])
+            if result.returncode == 0:
+                break
+            stderr_text = (result.stderr or "").strip()
+            if (
+                attempt < len(self._submit_backoff)
+                and _is_transient_sbatch_error(result.returncode, stderr_text)
+            ):
+                wait = self._submit_backoff[attempt]
+                log.warning(
+                    "SlurmRunner.submit: transient sbatch error (rc=%d, attempt %d/%d) "
+                    "- retrying in %ds: %s",
+                    result.returncode, attempt + 1, len(self._submit_backoff),
+                    wait, stderr_text,
+                )
+                time.sleep(wait)
+                attempt += 1
+                continue
+            raise RunnerError(
+                f"sbatch failed (rc={result.returncode}): "
+                f"{stderr_text or (result.stdout or '').strip()}"
+            )
         match = _SBATCH_JOBID_RE.search(result.stdout)
         if not match:
             raise RunnerError(f"could not parse sbatch output: {result.stdout!r}")
@@ -221,6 +251,31 @@ class SlurmRunner(Runner):
 
 def _safe_name(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", name)
+
+
+_TRANSIENT_SBATCH_PATTERNS = (
+    "qosgrpjobslimit",
+    "qosgrpsubmitjobslimit",
+    "assocgrpjobslimit",
+    "assocgrpsubmitjobslimit",
+    "qosmaxjobsperuserlimit",
+    "resources",  # AssocMaxJobs / partition full — transient
+    "controller is busy",
+    "socket timed out",
+    "system error",
+    "slurm_persist_conn_open_without_init",
+)
+
+
+def _is_transient_sbatch_error(rc: int, stderr: str) -> bool:
+    """Pattern-match sbatch stderr for transient submit conditions.
+
+    QOS / association job-count limits, partition saturation, controller
+    busy. Don't retry on permanent errors (bad partition, unknown
+    account, malformed script).
+    """
+    text = stderr.lower()
+    return any(pat in text for pat in _TRANSIENT_SBATCH_PATTERNS)
 
 
 def _squeue_state_to_status(state: str) -> JobStatus:

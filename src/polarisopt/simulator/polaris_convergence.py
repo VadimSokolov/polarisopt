@@ -227,6 +227,14 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         disable_async_callback: bool = True,
         **kw: Any,
     ) -> None:
+        # polarislib workloads stage 1.5–3 GB per sample; if 100 FAILED
+        # samples accumulate their workspaces nobody asked to preserve,
+        # the filesystem fills. Default cleanup_on_failure=True for
+        # polaris_convergence is the safer call. The base PolarisSimulator
+        # keeps the default False because forensic preservation is the
+        # more common use case for hand-rolled simulations. Explicit
+        # ``cleanup_on_failure`` in YAML wins.
+        kw.setdefault("cleanup_on_failure", True)
         super().__init__(**kw)
         self.runner_script = Path(runner_script)
         if not self.runner_script.exists():

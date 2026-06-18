@@ -194,16 +194,29 @@ class PBSRunner(Runner):
     ... ))
     """
 
+    # Backoff schedule (seconds) for transient qsub failures — per-user
+    # queue limits, "PBS server busy", brief controller hiccups. After
+    # the schedule is exhausted, the submit raises RunnerError as before.
+    # Override per-instance for tests or aggressive clusters.
+    SUBMIT_RETRY_BACKOFF_S: tuple[int, ...] = (10, 30, 60, 120, 240)
+
     def __init__(
         self,
         *,
         default_resources: PBSResources | None = None,
         shell_runner: ShellRunner | None = None,
+        submit_retry_backoff_s: tuple[int, ...] | list[int] | None = None,
     ) -> None:
         self._default = default_resources or PBSResources()
         self._shell = shell_runner or _default_shell_runner
+        self._submit_backoff: tuple[int, ...] = (
+            tuple(submit_retry_backoff_s)
+            if submit_retry_backoff_s is not None
+            else self.SUBMIT_RETRY_BACKOFF_S
+        )
 
     def submit(self, spec: JobSpec) -> PBSJob:
+        import time
         spec.cwd.mkdir(parents=True, exist_ok=True)
         resources = spec.extra.get("resources", self._default)
         if not isinstance(resources, PBSResources):
@@ -211,11 +224,29 @@ class PBSRunner(Runner):
         script_path = spec.cwd / f"{_safe_name(spec.name)}.pbs"
         script_path.write_text(self._render_script(spec, resources))
 
-        result = self._shell(["qsub", str(script_path)])
-        if result.returncode != 0:
+        attempt = 0
+        while True:
+            result = self._shell(["qsub", str(script_path)])
+            if result.returncode == 0:
+                break
+            stderr_text = (result.stderr or "").strip()
+            if (
+                attempt < len(self._submit_backoff)
+                and _is_transient_qsub_error(result.returncode, stderr_text)
+            ):
+                wait = self._submit_backoff[attempt]
+                log.warning(
+                    "PBSRunner.submit: transient qsub error (rc=%d, attempt %d/%d) "
+                    "- retrying in %ds: %s",
+                    result.returncode, attempt + 1, len(self._submit_backoff),
+                    wait, stderr_text,
+                )
+                time.sleep(wait)
+                attempt += 1
+                continue
             raise RunnerError(
                 f"qsub failed (rc={result.returncode}): "
-                f"{result.stderr.strip() or result.stdout.strip()}"
+                f"{stderr_text or (result.stdout or '').strip()}"
             )
         # qsub prints just the jobid (``<number>.<server>``) on stdout.
         # Strip and take the last non-empty line in case a wrapper added
@@ -309,6 +340,31 @@ class PBSRunner(Runner):
 
 def _safe_name(name: str) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", name)
+
+
+_TRANSIENT_QSUB_PATTERNS = (
+    "would exceed complex's per-user limit",  # PBS Pro user-job limit
+    "would exceed queue's per-user limit",
+    "would exceed server's per-user limit",
+    "resource temporarily unavailable",
+    "server is busy",
+    "cannot connect to pbs server",
+    "request rejected as server shutting down",
+    "system error",  # transient server-side; safe to retry
+)
+
+
+def _is_transient_qsub_error(rc: int, stderr: str) -> bool:
+    """Decide whether a non-zero qsub should be retried with backoff.
+
+    Pattern-matching on the stderr text. PBS doesn't have a stable
+    machine-readable error code (rc 38 is the most common "limit"
+    case but the text varies by version), so we match strings that
+    polarisopt has observed correlating with transient cluster
+    state vs. permanent submission errors (bad queue, no account, etc.).
+    """
+    text = stderr.lower()
+    return any(pat in text for pat in _TRANSIENT_QSUB_PATTERNS)
 
 
 def _qstat_state_to_status(state: str) -> JobStatus:

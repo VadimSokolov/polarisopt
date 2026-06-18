@@ -162,6 +162,69 @@ def test_max_retries_recovers_transient_failure(
     assert sample.extra.get("retry_count") == 1
 
 
+class _PreWrittenOutputsSimulator(MockSimulator):
+    """Mock variant that writes outputs.json synchronously in prepare()
+    rather than via a subprocess. Lets the v0.15 in-flight disk recovery
+    test run deterministically (no race against subprocess startup).
+    """
+
+    def prepare(self, sample, space, workspace):  # type: ignore[override]
+        spec = super().prepare(sample, space, workspace)
+        # Compute the benchmark value in-process and write outputs.json now.
+        import json as _json
+
+        from polarisopt.simulator.benchmarks import BENCHMARKS
+        value = BENCHMARKS[self.function](sample.inputs)
+        (workspace / self.OUTPUT_FILE).write_text(
+            _json.dumps({"value": float(value), "runtime_s": 0.0})
+        )
+        # Command is a no-op — outputs already on disk.
+        spec.command = "true"
+        return spec
+
+
+def test_inflight_disk_recovery_on_unknown(
+    tmp_path: Path, space: ParameterSpace, monkeypatch,
+) -> None:
+    """v0.15 in-flight disk reconcile: when runner.status returns UNKNOWN
+    for a sample whose outputs are already on disk, the master harvests
+    them inline (no resume restart needed).
+    """
+    from polarisopt.runners.base import JobStatus
+    from polarisopt.runners.local import LocalRunner
+
+    sim = _PreWrittenOutputsSimulator(function="quadratic")
+    ctx = StudyContext(
+        name="zombie",
+        space=space,
+        workspace=tmp_path,
+        store=SampleStore.open(tmp_path / "store.db", "study"),
+        runner=LocalRunner(),
+        simulator=sim,
+        metric=IdentityMetric(keys="value"),
+        rng=np.random.default_rng(0),
+        poll_interval=0.05,
+        orphan_threshold=3,
+    )
+
+    # Make runner.status always return UNKNOWN — simulating PBS losing
+    # the jobid from accounting.
+    def _always_unknown(self, job):  # noqa: ARG001
+        job.status = JobStatus.UNKNOWN
+        return job
+
+    monkeypatch.setattr(LocalRunner, "status", _always_unknown)
+
+    study = StaticDesignStudy(ctx, ManualDesign(points=[[0.5, 0.5]]), phase_name="zombie")
+    samples = study.run()
+    # Sample finishes via the in-flight disk-recovery path, not the
+    # orphan-threshold-marks-FAILED path.
+    assert len(samples) == 1
+    sample = samples[0]
+    assert sample.status is SampleStatus.FINISHED, (sample.status, sample.message)
+    assert sample.metric is not None
+
+
 def test_max_retries_exhausts_budget(
     tmp_path: Path, space: ParameterSpace,
 ) -> None:

@@ -58,6 +58,66 @@ def test_submit_raises_on_qsub_failure(tmp_path: Path, fake_shell) -> None:
         runner.submit(spec)
 
 
+def test_submit_retries_on_transient_qsub_error(tmp_path: Path, fake_shell) -> None:
+    """PBS user-limit errors (rc=38, "would exceed complex's per-user limit")
+    are transient. v0.15 retries with backoff instead of raising
+    immediately — the master holds the sample in submission rather than
+    marking it FAILED.
+    """
+    # First call fails with the transient pattern; second succeeds.
+    fake_shell.responses.append(
+        _ok(rc=38, stderr="qsub: would exceed complex's per-user limit"),
+    )
+    fake_shell.responses.append(_ok(stdout="7609770.imgt1\n"))
+    runner = PBSRunner(
+        shell_runner=fake_shell,
+        # Zero backoff for tests — same logic, no wall clock.
+        submit_retry_backoff_s=(0, 0, 0),
+    )
+    spec = JobSpec(name="x", command="echo hi", cwd=tmp_path / "r")
+    job = runner.submit(spec)
+    assert job.task_id == "7609770.imgt1"
+    # Two qsub calls were made — the original + the retry.
+    qsub_calls = [c for c in fake_shell.calls if c[0] == "qsub"]
+    assert len(qsub_calls) == 2
+
+
+def test_submit_does_not_retry_on_permanent_qsub_error(
+    tmp_path: Path, fake_shell,
+) -> None:
+    """Non-transient errors (invalid queue, bad account) raise immediately."""
+    fake_shell.responses.append(
+        _ok(rc=1, stderr="qsub: Unknown queue compute_bogus"),
+    )
+    runner = PBSRunner(
+        shell_runner=fake_shell,
+        submit_retry_backoff_s=(0, 0, 0),
+    )
+    spec = JobSpec(name="x", command="echo hi", cwd=tmp_path / "r")
+    with pytest.raises(RunnerError, match="qsub failed"):
+        runner.submit(spec)
+    qsub_calls = [c for c in fake_shell.calls if c[0] == "qsub"]
+    assert len(qsub_calls) == 1  # no retry
+
+
+def test_submit_exhausts_backoff_then_raises(tmp_path: Path, fake_shell) -> None:
+    """A persistently transient error eventually raises after the schedule
+    is exhausted — not infinite retry."""
+    for _ in range(10):
+        fake_shell.responses.append(
+            _ok(rc=38, stderr="qsub: would exceed complex's per-user limit"),
+        )
+    runner = PBSRunner(
+        shell_runner=fake_shell,
+        submit_retry_backoff_s=(0, 0),  # 2 retries
+    )
+    spec = JobSpec(name="x", command="echo hi", cwd=tmp_path / "r")
+    with pytest.raises(RunnerError, match="qsub failed"):
+        runner.submit(spec)
+    qsub_calls = [c for c in fake_shell.calls if c[0] == "qsub"]
+    assert len(qsub_calls) == 3  # original + 2 retries
+
+
 def test_submit_raises_on_empty_qsub_output(tmp_path: Path, fake_shell) -> None:
     fake_shell.responses.append(_ok(stdout="\n\n"))
     runner = PBSRunner(shell_runner=fake_shell)

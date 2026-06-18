@@ -345,6 +345,26 @@ def test_single_iteration_assertion_catches_extra_iteration_dir(
         sim.collect_output(sample)
 
 
+def test_cleanup_on_failure_default_true_for_polaris_convergence(
+    tmp_path: Path, runner_script: Path,
+) -> None:
+    """v0.15 flips the default — polaris_convergence stages 1.5–3 GB
+    per sample, so leaving FAILED workspaces around fills the disk.
+    Base PolarisSimulator stays False (forensic-preservation default).
+    """
+    sim = _make_sim(tmp_path, runner_script)
+    assert sim.cleanup_on_failure is True
+
+
+def test_cleanup_on_failure_can_be_overridden_explicitly(
+    tmp_path: Path, runner_script: Path,
+) -> None:
+    """The default flip doesn't lock users out of forensic preservation —
+    explicit False survives."""
+    sim = _make_sim(tmp_path, runner_script, cleanup_on_failure=False)
+    assert sim.cleanup_on_failure is False
+
+
 def test_disable_async_callback_default_on(
     tmp_path: Path, runner_script: Path
 ) -> None:

@@ -126,13 +126,35 @@ class Study(ABC):
         d.mkdir(parents=True, exist_ok=True)
         return d
 
-    def _log_heartbeat(self, outstanding: dict[int, Job], batch_started: float) -> None:
+    def _try_disk_recovery_inline(self, sample: Sample) -> bool:
+        """Attempt to harvest outputs from disk for a single in-flight sample.
+
+        Thin wrapper around :func:`polarisopt.studies.ops._try_recover_from_disk`
+        — kept here so the import stays local to the recovery path and
+        doesn't pull `ops` into module-level imports (avoids circulars).
+        Returns True if the sample transitioned to FINISHED.
+        """
+        from polarisopt.studies.ops import _try_recover_from_disk
+        ctx = self.ctx
+        return _try_recover_from_disk(sample, ctx.simulator, ctx.metric, ctx.store)
+
+    def _log_heartbeat(
+        self,
+        outstanding: dict[int, Job],
+        batch_started: float,
+        transitions: dict[str, int] | None = None,
+    ) -> None:
         """INFO-log a one-line summary of every still-running sample.
 
         Fires periodically inside :meth:`_evaluate_batch`'s poll loop so
         that long-running batches don't go silent between state
-        transitions (a poll cycle on a 24h ABM run might only log on
-        submit + finish, leaving the user blind in between).
+        transitions.
+
+        ``transitions`` (v0.15) carries the FINISHED / FAILED / RECOVERED
+        deltas since the previous heartbeat — surfaces a stalled-master
+        signal even when the runner-side counts haven't moved (e.g. PBS
+        accounting tells us 14 are RUNNING but disk says we should have
+        already harvested 8 of them).
         """
         elapsed_total = time.monotonic() - batch_started
         # Cluster samples by status so 100-sample batches stay readable.
@@ -142,11 +164,21 @@ class Study(ABC):
         summary = ", ".join(
             f"{status}={len(sids)}" for status, sids in sorted(by_status.items())
         )
+        delta = ""
+        if transitions:
+            delta = " — " + ", ".join(
+                f"+{n} {label} since last"
+                for label, n in transitions.items()
+                if n > 0
+            )
+            if not any(n > 0 for n in transitions.values()):
+                delta = " — 0 transitions since last (master may be stalled)"
         log.info(
-            "[heartbeat] %d sample(s) outstanding after %s — %s",
+            "[heartbeat] %d sample(s) outstanding after %s — %s%s",
             len(outstanding),
             _fmt_elapsed(elapsed_total),
             summary,
+            delta,
         )
 
     def _cancel_outstanding(
@@ -216,14 +248,37 @@ class Study(ABC):
         unknown_counts: dict[int, int] = {sid: 0 for sid in outstanding}
         batch_started = time.monotonic()
         last_heartbeat = batch_started
+        sid_to_sample = {s.id: s for s in samples if s.id is not None}
+        # Heartbeat transition deltas — reset on each heartbeat emit.
+        deltas: dict[str, int] = {"FINISHED": 0, "FAILED": 0, "RECOVERED": 0}
         try:
             while outstanding:
                 for sid, job in list(outstanding.items()):
                     ctx.runner.status(job)
                     if job.status.is_terminal():
+                        if job.status is JobStatus.FINISHED:
+                            deltas["FINISHED"] += 1
+                        elif job.status is JobStatus.FAILED:
+                            deltas["FAILED"] += 1
                         outstanding.pop(sid)
                         continue
                     if job.status is JobStatus.UNKNOWN:
+                        # Disk-first self-heal (v0.15+). Before treating
+                        # UNKNOWN as a step toward "orphan", try to harvest
+                        # outputs from disk — the job almost always finished
+                        # cleanly and PBS / Slurm just lost it from accounting.
+                        # Same logic resume runs at startup, now also in-flight
+                        # so the master doesn't need a restart to self-heal.
+                        sample = sid_to_sample.get(sid)
+                        if sample is not None and self._try_disk_recovery_inline(sample):
+                            log.info(
+                                "sample %s: recovered from disk after UNKNOWN status",
+                                sid,
+                            )
+                            job.status = JobStatus.FINISHED
+                            deltas["RECOVERED"] += 1
+                            outstanding.pop(sid)
+                            continue
                         unknown_counts[sid] = unknown_counts.get(sid, 0) + 1
                         if (
                             ctx.orphan_threshold > 0
@@ -248,8 +303,11 @@ class Study(ABC):
                         ctx.heartbeat_interval > 0
                         and now - last_heartbeat >= ctx.heartbeat_interval
                     ):
-                        self._log_heartbeat(outstanding, batch_started)
+                        self._log_heartbeat(outstanding, batch_started, deltas)
                         last_heartbeat = now
+                        # Reset deltas; next heartbeat reports activity
+                        # since this one.
+                        deltas = {"FINISHED": 0, "FAILED": 0, "RECOVERED": 0}
                     time.sleep(ctx.poll_interval)
         except KeyboardInterrupt:
             log.warning(
@@ -262,6 +320,10 @@ class Study(ABC):
         # 3) Collect metrics
         for sample in samples:
             if sample.status is SampleStatus.FAILED:
+                continue
+            # In-flight disk recovery (v0.15) may have already promoted
+            # the sample to FINISHED with the metric set. Don't re-collect.
+            if sample.status is SampleStatus.FINISHED:
                 continue
             assert sample.id is not None
             job = jobs.get(sample.id)
