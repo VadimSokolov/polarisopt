@@ -315,15 +315,28 @@ Vadim Sokolov at George Mason University
 <span id="cb1-25"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">generator</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> acquisition</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">surrogate</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> gp</span><span class="kw">},</span><span class="at"> </span><span class="fu">acquisition</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> qei</span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span></span>
 <span id="cb1-26"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">stop</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> any</span><span class="kw">,</span><span class="at"> </span><span class="fu">criteria</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> max_iter</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">n</span><span class="kw">:</span><span class="at"> </span><span class="dv">12</span><span class="kw">}},</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> epsilon</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">epsilon</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.01</span><span class="kw">}}</span><span class="at"> </span><span class="kw">]</span><span class="at"> </span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
+<section id="params.yaml-the-knobs" class="slide level2 smaller">
+<h2><code>params.yaml</code>: the knobs</h2>
+<p>That <code>source:</code> field points at this file, a <strong>flat list of records</strong>, one per parameter:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb2-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="co"># Each record: the knob, which POLARIS JSON holds it, and the search bounds.</span></span>
+<span id="cb2-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> auto_asc</span><span class="kw">,</span><span class="at">          </span><span class="fu">file</span><span class="kw">:</span><span class="at"> ModeChoice.json</span><span class="kw">,</span><span class="at">        </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="fl">-2.0</span><span class="kw">,</span><span class="at">  </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="fl">2.0</span><span class="kw">,</span><span class="at">   </span><span class="fu">type</span><span class="kw">:</span><span class="at"> float </span><span class="kw">}</span></span>
+<span id="cb2-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> transit_ivtt</span><span class="kw">,</span><span class="at">      </span><span class="fu">file</span><span class="kw">:</span><span class="at"> ModeChoice.json</span><span class="kw">,</span><span class="at">        </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.05</span><span class="kw">,</span><span class="at"> </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.01</span><span class="kw">,</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> float </span><span class="kw">}</span></span>
+<span id="cb2-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> dest_dist_coeff</span><span class="kw">,</span><span class="at">   </span><span class="fu">file</span><span class="kw">:</span><span class="at"> DestinationChoice.json</span><span class="kw">,</span><span class="at"> </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.30</span><span class="kw">,</span><span class="at"> </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="fl">-0.05</span><span class="kw">,</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> float </span><span class="kw">}</span></span>
+<span id="cb2-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> activity_duration</span><span class="kw">,</span><span class="at"> </span><span class="fu">file</span><span class="kw">:</span><span class="at"> ActivityChoice.json</span><span class="kw">,</span><span class="at">    </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.5</span><span class="kw">,</span><span class="at">   </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="fl">4.0</span><span class="kw">,</span><span class="at">   </span><span class="fu">type</span><span class="kw">:</span><span class="at"> float </span><span class="kw">}</span></span>
+<span id="cb2-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">-</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> max_destinations</span><span class="kw">,</span><span class="at">  </span><span class="fu">file</span><span class="kw">:</span><span class="at"> DestinationChoice.json</span><span class="kw">,</span><span class="at"> </span><span class="fu">min</span><span class="kw">:</span><span class="at"> </span><span class="dv">5</span><span class="kw">,</span><span class="at">     </span><span class="fu">max</span><span class="kw">:</span><span class="at"> </span><span class="dv">30</span><span class="kw">,</span><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> int   </span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="fragment">
+<p>polarisopt injects each sampled value into the named JSON before every run (<code>type</code> is <code>float</code> by default, or <code>int</code>). Adding a knob is <strong>one line here</strong>, no code. Want it in the study file instead? Drop the same list under <code>inline:</code> (what the taxi demo does).</p>
+</div>
+</section>
 <section id="run-it" class="slide level2">
 <h2>Run it</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> validate study.yaml     <span class="co"># schema + plugin-option check (&lt;1s)</span></span>
-<span id="cb2-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> plan     study.yaml     <span class="co"># stage sample 0, render the sbatch script, submit nothing</span></span>
-<span id="cb2-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> run      study.yaml     <span class="co"># submit + poll the whole study</span></span>
-<span id="cb2-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> status   study.yaml <span class="at">-v</span>  <span class="co"># per-sample table: jobid, runtime, last log line</span></span>
-<span id="cb2-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> resume   study.yaml     <span class="co"># pick up an interrupted run</span></span>
-<span id="cb2-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> best     study.yaml     <span class="co"># winning sample's inputs + metric (--json to pipe)</span></span>
-<span id="cb2-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> retry-failed study.yaml <span class="at">--run</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> validate study.yaml     <span class="co"># schema + plugin-option check (&lt;1s)</span></span>
+<span id="cb3-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> plan     study.yaml     <span class="co"># stage sample 0, render the sbatch script, submit nothing</span></span>
+<span id="cb3-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> run      study.yaml     <span class="co"># submit + poll the whole study</span></span>
+<span id="cb3-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> status   study.yaml <span class="at">-v</span>  <span class="co"># per-sample table: jobid, runtime, last log line</span></span>
+<span id="cb3-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> resume   study.yaml     <span class="co"># pick up an interrupted run</span></span>
+<span id="cb3-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> best     study.yaml     <span class="co"># winning sample's inputs + metric (--json to pipe)</span></span>
+<span id="cb3-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> retry-failed study.yaml <span class="at">--run</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="fragment">
 <p><code>validate</code> and <code>plan</code> catch the typo class — a wrong plugin name, an option that isn’t in the constructor — in <strong>one second</strong>, instead of after a 30-second stage in a real run.</p>
 </div>
@@ -425,25 +438,34 @@ Vadim Sokolov at George Mason University
 </tbody>
 </table>
 </section>
-<section id="same-study-laptop-cluster" class="slide level2">
+<section id="same-study-laptop-cluster" class="slide level2 smaller">
 <h2>Same study, laptop → cluster</h2>
 <p>Only the <strong>runner</strong> changes. The simulator, parameters, metric, and phases are untouched.</p>
 <div class="columns">
-<div class="column" style="width:50%;">
+<div class="column" style="width:30%;">
 <p><strong>Laptop</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb3-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">runner</span><span class="kw">:</span></span>
-<span id="cb3-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> local</span></span>
-<span id="cb3-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</div><div class="column" style="width:50%;">
-<p><strong>Crossover (LCRC)</strong></p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb4-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">runner</span><span class="kw">:</span></span>
-<span id="cb4-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> slurm</span></span>
-<span id="cb4-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
-<span id="cb4-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">default_resources</span><span class="kw">:</span></span>
-<span id="cb4-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">partition</span><span class="kw">:</span><span class="at"> TPS</span></span>
-<span id="cb4-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">account</span><span class="kw">:</span><span class="at"> tps</span></span>
-<span id="cb4-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">time</span><span class="kw">:</span><span class="at"> </span><span class="st">"04:00:00"</span></span>
-<span id="cb4-8"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">mem</span><span class="kw">:</span><span class="at"> 64G</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb4-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> local</span></span>
+<span id="cb4-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div><div class="column" style="width:35%;">
+<p><strong>Crossover (Slurm)</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb5-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">runner</span><span class="kw">:</span></span>
+<span id="cb5-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> slurm</span></span>
+<span id="cb5-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
+<span id="cb5-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">default_resources</span><span class="kw">:</span></span>
+<span id="cb5-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">partition</span><span class="kw">:</span><span class="at"> TPS</span></span>
+<span id="cb5-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">account</span><span class="kw">:</span><span class="at"> tps</span></span>
+<span id="cb5-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">time</span><span class="kw">:</span><span class="at"> </span><span class="st">"04:00:00"</span></span>
+<span id="cb5-8"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">mem</span><span class="kw">:</span><span class="at"> 64G</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div><div class="column" style="width:35%;">
+<p><strong>Improv / Bebop (PBS)</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb6-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">runner</span><span class="kw">:</span></span>
+<span id="cb6-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> pbs</span></span>
+<span id="cb6-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
+<span id="cb6-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">default_resources</span><span class="kw">:</span></span>
+<span id="cb6-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">queue</span><span class="kw">:</span><span class="at"> compute</span></span>
+<span id="cb6-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">account</span><span class="kw">:</span><span class="at"> POLARIS</span></span>
+<span id="cb6-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">walltime</span><span class="kw">:</span><span class="at"> </span><span class="st">"04:00:00"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div></div>
 <div class="fragment">
 <p>Develop and debug a study on your laptop in seconds; ship the <em>same file</em> to the cluster for the real run.</p>
@@ -543,24 +565,24 @@ Vadim Sokolov at George Mason University
 <p>A <code>Simulator</code> turns a sample into a job and reads its output back. Register it through an entry point — <code>pip install</code>, and <code>type: taxi</code> works in any YAML.</p>
 <div class="columns">
 <div class="column" style="width:58%;">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb5-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">@simulator_registry.register</span>(<span class="st">"taxi"</span>)</span>
-<span id="cb5-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TaxiSimulator(Simulator):</span>
-<span id="cb5-3"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> prepare(<span class="va">self</span>, sample, space, workspace):</span>
-<span id="cb5-4"><a href="" aria-hidden="true" tabindex="-1"></a>        params <span class="op">=</span> space.values_dict(sample.inputs)</span>
-<span id="cb5-5"><a href="" aria-hidden="true" tabindex="-1"></a>        (workspace <span class="op">/</span> <span class="st">"inputs.json"</span>).write_text(</span>
-<span id="cb5-6"><a href="" aria-hidden="true" tabindex="-1"></a>            json.dumps({<span class="st">"params"</span>: params, <span class="st">"seed"</span>: ...}))</span>
-<span id="cb5-7"><a href="" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> JobSpec(</span>
-<span id="cb5-8"><a href="" aria-hidden="true" tabindex="-1"></a>            command<span class="op">=</span><span class="st">"python -m taxidemo.runner "</span></span>
-<span id="cb5-9"><a href="" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"inputs.json outputs.json"</span>,</span>
-<span id="cb5-10"><a href="" aria-hidden="true" tabindex="-1"></a>            cwd<span class="op">=</span>workspace)</span>
-<span id="cb5-11"><a href="" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb5-12"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> collect_output(<span class="va">self</span>, sample):</span>
-<span id="cb5-13"><a href="" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> json.loads(</span>
-<span id="cb5-14"><a href="" aria-hidden="true" tabindex="-1"></a>            (sample.folder <span class="op">/</span> <span class="st">"outputs.json"</span>).read_text())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">@simulator_registry.register</span>(<span class="st">"taxi"</span>)</span>
+<span id="cb7-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> TaxiSimulator(Simulator):</span>
+<span id="cb7-3"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> prepare(<span class="va">self</span>, sample, space, workspace):</span>
+<span id="cb7-4"><a href="" aria-hidden="true" tabindex="-1"></a>        params <span class="op">=</span> space.values_dict(sample.inputs)</span>
+<span id="cb7-5"><a href="" aria-hidden="true" tabindex="-1"></a>        (workspace <span class="op">/</span> <span class="st">"inputs.json"</span>).write_text(</span>
+<span id="cb7-6"><a href="" aria-hidden="true" tabindex="-1"></a>            json.dumps({<span class="st">"params"</span>: params, <span class="st">"seed"</span>: ...}))</span>
+<span id="cb7-7"><a href="" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> JobSpec(</span>
+<span id="cb7-8"><a href="" aria-hidden="true" tabindex="-1"></a>            command<span class="op">=</span><span class="st">"python -m taxidemo.runner "</span></span>
+<span id="cb7-9"><a href="" aria-hidden="true" tabindex="-1"></a>                    <span class="st">"inputs.json outputs.json"</span>,</span>
+<span id="cb7-10"><a href="" aria-hidden="true" tabindex="-1"></a>            cwd<span class="op">=</span>workspace)</span>
+<span id="cb7-11"><a href="" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-12"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> collect_output(<span class="va">self</span>, sample):</span>
+<span id="cb7-13"><a href="" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> json.loads(</span>
+<span id="cb7-14"><a href="" aria-hidden="true" tabindex="-1"></a>            (sample.folder <span class="op">/</span> <span class="st">"outputs.json"</span>).read_text())</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div><div class="column" style="width:42%;">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode toml code-with-copy"><code class="sourceCode toml"><span id="cb6-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="co"># pyproject.toml</span></span>
-<span id="cb6-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">polarisopt.simulators"</span><span class="kw">]</span></span>
-<span id="cb6-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="dt">taxi</span> <span class="op">=</span> <span class="st">"taxidemo.plugin"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode toml code-with-copy"><code class="sourceCode toml"><span id="cb8-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="co"># pyproject.toml</span></span>
+<span id="cb8-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">[project.entry-points."</span><span class="dt">polarisopt.simulators"</span><span class="kw">]</span></span>
+<span id="cb8-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="dt">taxi</span> <span class="op">=</span> <span class="st">"taxidemo.plugin"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="fragment">
 <p>The master stays POLARIS-free: it only ever sees a <code>JobSpec</code> in and a dict out. The same contract wraps the POLARIS binary.</p>
 </div>
@@ -569,17 +591,17 @@ Vadim Sokolov at George Mason University
 <section id="write-your-own-metric" class="slide level2 smaller">
 <h2>Write your own metric</h2>
 <p>A <code>Metric</code> turns simulator outputs into the number the optimizer chases. Here is taxidemo’s calibration metric — the toy analog of POLARIS’s <code>link_moe</code>.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb7-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">@metric_registry.register</span>(<span class="st">"output_match"</span>)</span>
-<span id="cb7-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> OutputMatchMetric(Metric):</span>
-<span id="cb7-3"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Mean squared relative error between outputs and observed targets. 0 = perfect."""</span></span>
-<span id="cb7-4"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> compute(<span class="va">self</span>, output) <span class="op">-&gt;</span> np.ndarray:</span>
-<span id="cb7-5"><a href="" aria-hidden="true" tabindex="-1"></a>        errors <span class="op">=</span> [((output[k] <span class="op">-</span> t) <span class="op">/</span> <span class="va">self</span>._scales[k]) <span class="op">**</span> <span class="dv">2</span></span>
-<span id="cb7-6"><a href="" aria-hidden="true" tabindex="-1"></a>                  <span class="cf">for</span> k, t <span class="kw">in</span> <span class="va">self</span>._targets.items()]</span>
-<span id="cb7-7"><a href="" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> np.asarray([<span class="bu">float</span>(np.mean(errors))])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb8-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">metric</span><span class="kw">:</span></span>
-<span id="cb8-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> output_match</span></span>
-<span id="cb8-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
-<span id="cb8-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">targets_file</span><span class="kw">:</span><span class="at"> ~/taxidemo-runs/calibration-targets.json</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb9-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">@metric_registry.register</span>(<span class="st">"output_match"</span>)</span>
+<span id="cb9-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> OutputMatchMetric(Metric):</span>
+<span id="cb9-3"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="co">"""Mean squared relative error between outputs and observed targets. 0 = perfect."""</span></span>
+<span id="cb9-4"><a href="" aria-hidden="true" tabindex="-1"></a>    <span class="kw">def</span> compute(<span class="va">self</span>, output) <span class="op">-&gt;</span> np.ndarray:</span>
+<span id="cb9-5"><a href="" aria-hidden="true" tabindex="-1"></a>        errors <span class="op">=</span> [((output[k] <span class="op">-</span> t) <span class="op">/</span> <span class="va">self</span>._scales[k]) <span class="op">**</span> <span class="dv">2</span></span>
+<span id="cb9-6"><a href="" aria-hidden="true" tabindex="-1"></a>                  <span class="cf">for</span> k, t <span class="kw">in</span> <span class="va">self</span>._targets.items()]</span>
+<span id="cb9-7"><a href="" aria-hidden="true" tabindex="-1"></a>        <span class="cf">return</span> np.asarray([<span class="bu">float</span>(np.mean(errors))])</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb10-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">metric</span><span class="kw">:</span></span>
+<span id="cb10-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> output_match</span></span>
+<span id="cb10-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
+<span id="cb10-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">targets_file</span><span class="kw">:</span><span class="at"> ~/taxidemo-runs/calibration-targets.json</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="fragment">
 <p>Swap <code>output_match</code> → <code>link_moe</code> and the <em>exact same study</em> calibrates real POLARIS link volumes.</p>
 </div>
@@ -596,14 +618,14 @@ Vadim Sokolov at George Mason University
 </ol>
 </div>
 <div class="fragment">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb9-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">phases</span><span class="kw">:</span></span>
-<span id="cb9-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> calibrate</span></span>
-<span id="cb9-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> sequential</span></span>
-<span id="cb9-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">minimize</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb9-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">warm_up</span><span class="kw">:</span><span class="at">   </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> lhs</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">n</span><span class="kw">:</span><span class="at"> </span><span class="dv">16</span><span class="at"> </span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span></span>
-<span id="cb9-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">generator</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> acquisition</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">surrogate</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> gp</span><span class="kw">},</span><span class="at"> </span><span class="fu">acquisition</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> qei</span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span></span>
-<span id="cb9-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">stop</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> any</span><span class="kw">,</span><span class="at"> </span><span class="fu">criteria</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> max_iter</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">n</span><span class="kw">:</span><span class="at"> </span><span class="dv">12</span><span class="kw">}},</span></span>
-<span id="cb9-8"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">                                   </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> epsilon</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">epsilon</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.02</span><span class="kw">}}</span><span class="at"> </span><span class="kw">]</span><span class="at"> </span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb11-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">phases</span><span class="kw">:</span></span>
+<span id="cb11-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">name</span><span class="kw">:</span><span class="at"> calibrate</span></span>
+<span id="cb11-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">type</span><span class="kw">:</span><span class="at"> sequential</span></span>
+<span id="cb11-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">minimize</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb11-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">warm_up</span><span class="kw">:</span><span class="at">   </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> lhs</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">n</span><span class="kw">:</span><span class="at"> </span><span class="dv">16</span><span class="at"> </span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span></span>
+<span id="cb11-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">generator</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> acquisition</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">surrogate</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> gp</span><span class="kw">},</span><span class="at"> </span><span class="fu">acquisition</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> qei</span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span><span class="at"> </span><span class="kw">}</span></span>
+<span id="cb11-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">stop</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="at"> </span><span class="fu">type</span><span class="kw">:</span><span class="at"> any</span><span class="kw">,</span><span class="at"> </span><span class="fu">criteria</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at"> </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> max_iter</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">n</span><span class="kw">:</span><span class="at"> </span><span class="dv">12</span><span class="kw">}},</span></span>
+<span id="cb11-8"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">                                   </span><span class="kw">{</span><span class="fu">type</span><span class="kw">:</span><span class="at"> epsilon</span><span class="kw">,</span><span class="at"> </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{</span><span class="fu">epsilon</span><span class="kw">:</span><span class="at"> </span><span class="fl">0.02</span><span class="kw">}}</span><span class="at"> </span><span class="kw">]</span><span class="at"> </span><span class="kw">}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div>
 </section></section>
 <section>
@@ -657,22 +679,22 @@ Vadim Sokolov at George Mason University
 </section>
 <section id="running-on-argonne-hpc" class="slide level2 smaller">
 <h2>Running on Argonne HPC</h2>
-<p>Argonne users run the <em>same study YAML</em> on <strong>LCRC Crossover</strong> — one <code>sbatch</code> per sample.</p>
+<p>Argonne users run the <em>same study YAML</em> on <strong>LCRC Crossover</strong> (Slurm) — one <code>sbatch</code> per sample; the <code>pbs</code> runner targets <strong>Improv / Bebop</strong> the same way.</p>
 <div class="columns">
 <div class="column" style="width:56%;">
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb10-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">runner</span><span class="kw">:</span></span>
-<span id="cb10-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> slurm</span></span>
-<span id="cb10-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
-<span id="cb10-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">default_resources</span><span class="kw">:</span></span>
-<span id="cb10-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">partition</span><span class="kw">:</span><span class="at"> TPS</span></span>
-<span id="cb10-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">account</span><span class="kw">:</span><span class="at"> tps</span></span>
-<span id="cb10-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">time</span><span class="kw">:</span><span class="at"> </span><span class="st">"04:00:00"</span></span>
-<span id="cb10-8"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">nodes</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
-<span id="cb10-9"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">cpus_per_task</span><span class="kw">:</span><span class="at"> </span><span class="dv">32</span></span>
-<span id="cb10-10"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">mem</span><span class="kw">:</span><span class="at"> 64G</span></span>
-<span id="cb10-11"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">setup_commands</span><span class="kw">:</span><span class="co">               # run before the binary</span></span>
-<span id="cb10-12"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="kw">-</span><span class="at"> </span><span class="st">"module load singularity"</span></span>
-<span id="cb10-13"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="kw">-</span><span class="at"> </span><span class="st">"conda activate polaris_xover"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb12-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">runner</span><span class="kw">:</span></span>
+<span id="cb12-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> slurm</span></span>
+<span id="cb12-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
+<span id="cb12-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">default_resources</span><span class="kw">:</span></span>
+<span id="cb12-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">partition</span><span class="kw">:</span><span class="at"> TPS</span></span>
+<span id="cb12-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">account</span><span class="kw">:</span><span class="at"> tps</span></span>
+<span id="cb12-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">time</span><span class="kw">:</span><span class="at"> </span><span class="st">"04:00:00"</span></span>
+<span id="cb12-8"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">nodes</span><span class="kw">:</span><span class="at"> </span><span class="dv">1</span></span>
+<span id="cb12-9"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">cpus_per_task</span><span class="kw">:</span><span class="at"> </span><span class="dv">32</span></span>
+<span id="cb12-10"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">mem</span><span class="kw">:</span><span class="at"> 64G</span></span>
+<span id="cb12-11"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">setup_commands</span><span class="kw">:</span><span class="co">               # run before the binary</span></span>
+<span id="cb12-12"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="kw">-</span><span class="at"> </span><span class="st">"module load singularity"</span></span>
+<span id="cb12-13"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">        </span><span class="kw">-</span><span class="at"> </span><span class="st">"conda activate polaris_xover"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div><div class="column" style="width:44%;">
 <ul>
 <li><code>setup_commands</code> load modules / activate the env on the compute node — clean simulator/runner separation.</li>
@@ -687,22 +709,22 @@ Vadim Sokolov at George Mason University
 <div class="column" style="width:50%;">
 <h3 id="data-movement-globus">Data movement — Globus</h3>
 <p>Regional models live on the <strong>VMS</strong> shared drive; runs happen on <strong><code>/lcrc</code></strong> scratch. The <code>anl</code> / <code>globus</code> transfer plugins (via polaris-studio) stage them automatically.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb11-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">simulator</span><span class="kw">:</span></span>
-<span id="cb11-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> polaris</span></span>
-<span id="cb11-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
-<span id="cb11-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">model_source</span><span class="kw">:</span><span class="at"> /mnt/VMS/.../Region_2050</span></span>
-<span id="cb11-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">transfer</span><span class="kw">:</span></span>
-<span id="cb11-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">type</span><span class="kw">:</span><span class="at"> anl</span><span class="co">        # Globus VMS ⇄ /lcrc</span></span>
-<span id="cb11-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode yaml code-with-copy"><code class="sourceCode yaml"><span id="cb13-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">simulator</span><span class="kw">:</span></span>
+<span id="cb13-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">type</span><span class="kw">:</span><span class="at"> polaris</span></span>
+<span id="cb13-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">  </span><span class="fu">options</span><span class="kw">:</span></span>
+<span id="cb13-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">model_source</span><span class="kw">:</span><span class="at"> /mnt/VMS/.../Region_2050</span></span>
+<span id="cb13-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">    </span><span class="fu">transfer</span><span class="kw">:</span></span>
+<span id="cb13-6"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">type</span><span class="kw">:</span><span class="at"> anl</span><span class="co">        # Globus VMS ⇄ /lcrc</span></span>
+<span id="cb13-7"><a href="" aria-hidden="true" tabindex="-1"></a><span class="at">      </span><span class="fu">options</span><span class="kw">:</span><span class="at"> </span><span class="kw">{}</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div><div class="column" style="width:50%;">
 <h3 id="coming-from-eq-sql">Coming from EQ-SQL?</h3>
 <p>A drop-in shim for <code>polaris.hpc.eqsql</code> — same <code>insert_task</code> / <code>Task</code> surface, but <strong>plain <code>sbatch</code>/<code>squeue</code></strong> underneath. No Postgres, no worker pool, no cross-user contamination.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb12-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> polarisopt <span class="im">import</span> eqsql_compat</span>
-<span id="cb12-2"><a href="" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> eqsql_compat.open_queue(ws) <span class="im">as</span> q:</span>
-<span id="cb12-4"><a href="" aria-hidden="true" tabindex="-1"></a>    task <span class="op">=</span> q.insert_task(</span>
-<span id="cb12-5"><a href="" aria-hidden="true" tabindex="-1"></a>        definition<span class="op">=</span>{...}, exp_id<span class="op">=</span><span class="st">"study"</span>).value</span>
-<span id="cb12-6"><a href="" aria-hidden="true" tabindex="-1"></a>    task.status, task.get_logs(), task.cancel()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb14-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="im">from</span> polarisopt <span class="im">import</span> eqsql_compat</span>
+<span id="cb14-2"><a href="" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="cf">with</span> eqsql_compat.open_queue(ws) <span class="im">as</span> q:</span>
+<span id="cb14-4"><a href="" aria-hidden="true" tabindex="-1"></a>    task <span class="op">=</span> q.insert_task(</span>
+<span id="cb14-5"><a href="" aria-hidden="true" tabindex="-1"></a>        definition<span class="op">=</span>{...}, exp_id<span class="op">=</span><span class="st">"study"</span>).value</span>
+<span id="cb14-6"><a href="" aria-hidden="true" tabindex="-1"></a>    task.status, task.get_logs(), task.cancel()</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </div></div>
 <div class="fragment">
 <p>Argonne integrations install with <code>pip install polarisopt[anl]</code>.</p>
@@ -726,16 +748,16 @@ Vadim Sokolov at George Mason University
 </ul>
 </div></div>
 <div class="fragment">
-<p>Battle-tested on live POLARIS calibration since <strong>v0.6 (May 2026)</strong>; additive, no breaking changes through <strong>v0.11</strong>.</p>
+<p>Battle-tested on live POLARIS calibration since <strong>v0.6 (May 2026)</strong>; additive, no breaking changes to date.</p>
 </div>
 </section>
 <section id="getting-started" class="slide level2 smaller">
 <h2>Getting started</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/VadimSokolov/polarisopt</span>
-<span id="cb13-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> polarisopt</span>
-<span id="cb13-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> <span class="st">'.[bo]'</span>                 <span class="co"># core + BoTorch / GPyTorch</span></span>
-<span id="cb13-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> <span class="st">'taxidemo[notebooks]'</span>   <span class="co"># the taxi demo (this talk)</span></span>
-<span id="cb13-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> run taxidemo/studies/lhs-local.yaml</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb15-1"><a href="" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone https://github.com/VadimSokolov/polarisopt</span>
+<span id="cb15-2"><a href="" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> polarisopt</span>
+<span id="cb15-3"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> <span class="st">'.[bo]'</span>                 <span class="co"># core + BoTorch / GPyTorch</span></span>
+<span id="cb15-4"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">pip</span> install <span class="at">-e</span> <span class="st">'taxidemo[notebooks]'</span>   <span class="co"># the taxi demo (this talk)</span></span>
+<span id="cb15-5"><a href="" aria-hidden="true" tabindex="-1"></a><span class="ex">polarisopt</span> run taxidemo/studies/lhs-local.yaml</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <div class="columns">
 <div class="column" style="width:50%;">
 <p><strong>Docs</strong></p>
@@ -758,7 +780,7 @@ Vadim Sokolov at George Mason University
 <h2>Takeaways</h2>
 <ul>
 <li class="fragment">PolarisOpt = <strong>DoE + Bayesian optimization</strong> for expensive POLARIS models — calibration <em>and</em> exploration.</li>
-<li class="fragment">A study is <strong>one YAML file</strong>; the same file runs on a laptop or a Slurm cluster.</li>
+<li class="fragment">A study is <strong>one YAML file</strong>; the same file runs on a laptop, a Slurm cluster, or a PBS cluster.</li>
 <li class="fragment"><strong>Everything is a plugin</strong> — simulators, metrics, surrogates, designs — added via entry points, never core edits.</li>
 <li class="fragment"><strong>Master/slave + SampleStore</strong> → studies survive crashes and resume.</li>
 <li class="fragment">The <strong>taxi demo</strong> exercises the entire stack in seconds; the workflow <em>is</em> the real POLARIS workflow.</li>
