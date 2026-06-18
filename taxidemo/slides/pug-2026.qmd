@@ -21,19 +21,23 @@ format:
       theme: neutral
 ---
 
-## The setting {.smaller}
+## The setting
 
-A calibrated POLARIS model is the product of **many full simulation runs**.
+```{mermaid}
+%%| fig-width: 9
+graph LR
+    I1["Choice model<br/>parameters"] --> P
+    I2["Network<br/>configuration"] --> P
+    I3["Transit<br/>settings"] --> P
+    P["POLARIS"] --> O["Network<br/>performance"]
 
-- A single full-region iteration takes **hours** of wall-clock time and **60+ GB** of memory.
-- Dozens of behavioral parameters are scattered across POLARIS JSON config files.
-- Whether a parameter set matches the observed link counts can be answered only by *running the model*.
+    classDef box fill:#ffffff,stroke:#1a6fb5,stroke-width:1.5px,color:#1a3a5c;
+    classDef model fill:#1a3a5c,stroke:#1a3a5c,stroke-width:1.5px,color:#ffffff;
+    class I1,I2,I3,O box;
+    class P model;
+```
 
-This is the **expensive black-box** regime:
-
-> evaluations are expensive, gradients are unavailable, and the simulator is stochastic.
-
-**PolarisOpt** is the library that chooses which evaluations to run, for **calibration** (matching observed data) and **exploration** (screening, optimization, and sensitivity analysis).
+A single run costs **hours** and **60+ GB**. **PolarisOpt** chooses which inputs to run, for **calibration** and **exploration**.
 
 ## What PolarisOpt is {.smaller}
 
@@ -247,8 +251,6 @@ for the real run.
 
 ## Why a toy simulator? {.smaller}
 
-POLARIS is the real target but is too slow to demonstrate live. The demo needs a
-stand-in that is **fast** but still exercises the same structure.
 
 ::: {.columns}
 ::: {.column width="55%"}
