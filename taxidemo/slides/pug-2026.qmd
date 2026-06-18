@@ -25,21 +25,15 @@ format:
 
 A calibrated POLARIS model is the product of **many full simulation runs**.
 
-::: {.fragment}
 - A single full-region iteration takes **hours** of wall-clock time and **60+ GB** of memory.
 - Dozens of behavioral parameters are scattered across POLARIS JSON config files.
 - Whether a parameter set matches the observed link counts can be answered only by *running the model*.
-:::
 
-::: {.fragment}
 This is the **expensive black-box** regime:
 
 > evaluations are expensive, gradients are unavailable, and the simulator is stochastic.
-:::
 
-::: {.fragment}
 **PolarisOpt** is the library that chooses which evaluations to run, for **calibration** (matching observed data) and **exploration** (screening, optimization, and sensitivity analysis).
-:::
 
 ## What PolarisOpt is {.smaller}
 
@@ -66,9 +60,7 @@ Modular **design-of-experiments** and **Bayesian optimization** for POLARIS.
 :::
 :::
 
-::: {.fragment}
 A study is configured in **YAML** and run from the **CLI** or **Python**. Every evaluation is persisted to **SQLite**, so a study survives a crash and can **resume**.
-:::
 
 ## The sequential design loop
 
@@ -87,9 +79,7 @@ graph LR
     class D,R,S,M,ST,SU,X box;
 ```
 
-::: {.fragment}
 Each box is a **swappable plugin**. The loop is the same whether the black box is a 6-hour regional POLARIS run or a 0.3-second taxi simulation.
-:::
 
 ## A study is one YAML file {.smaller}
 
@@ -135,9 +125,7 @@ That `source:` field points at this file, a **flat list of records**, one per pa
 - { name: max_destinations,  file: DestinationChoice.json, min: 5,     max: 30,    type: int   }
 ```
 
-::: {.fragment}
 polarisopt injects each sampled value into the named JSON before every run (`type` is `float` by default, or `int`). Adding a parameter is **one line here**, with no code change. The same list can go directly under `inline:` in the study YAML, which is what the taxi demo does.
-:::
 
 ## Run it
 
@@ -151,11 +139,9 @@ polarisopt best     study.yaml     # winning sample's inputs + metric (--json to
 polarisopt retry-failed study.yaml --run
 ```
 
-::: {.fragment}
 `validate` and `plan` catch mistakes such as a wrong plugin name or an option the
 constructor does not accept in about **a second**, rather than after a 30-second
 stage in a real run.
-:::
 
 ## Master / slave architecture {.smaller}
 
@@ -254,10 +240,8 @@ runner:
 :::
 :::
 
-::: {.fragment}
 Develop and debug a study on a laptop, then run the *same file* on the cluster
 for the real run.
-:::
 
 # Demonstrating it: the Taxi simulator {background-color="#1a3a5c"}
 
@@ -282,10 +266,8 @@ A pure-Python, **seedable** port of Amazon's
 :::
 :::
 
-::: {.fragment}
 It uses the same `Simulator`, `Metric`, and `Runner` contracts as a real POLARIS
 study, so the demonstrated workflow matches the real one, only faster.
-:::
 
 ## Five demo workflows {.smaller}
 
@@ -297,11 +279,9 @@ study, so the demonstrated workflow matches the real one, only faster.
 | 3 | **Bayesian optimization** | GP + qEI, maximize profit | laptop → Crossover |
 | 4 | **Calibration** | inverse problem, custom metric | laptop → today's demo |
 
-::: {.fragment}
 Verified end-to-end (seed 42): default settings earn about **6,000** profit,
 a 64-sample LHS screen finds **15,645**, and the 32-evaluation BO study finds
 **16,834** and stops on a plateau.
-:::
 
 ## Bayesian optimization, concretely {.smaller}
 
@@ -342,10 +322,8 @@ class TaxiSimulator(Simulator):
 taxi = "taxidemo.plugin"
 ```
 
-::: {.fragment}
 The master stays independent of POLARIS: it only sees a `JobSpec` going in and a
 dict coming out. The same contract wraps the POLARIS binary.
-:::
 :::
 :::
 
@@ -371,24 +349,19 @@ metric:
     targets_file: ~/taxidemo-runs/calibration-targets.json
 ```
 
-::: {.fragment}
 Replacing `output_match` with `link_moe` makes the same study calibrate real POLARIS link volumes.
-:::
 
 ## Calibration: the inverse problem {.smaller}
 
 Optimization asks which inputs maximize profit. Calibration asks a different
 question: which inputs reproduce the **observed data**?
 
-::: {.fragment}
 We validate the pipeline with a **parameter-recovery test**:
 
 1. Pick *true* parameters; simulate synthetic "field data" (seeds the calibration never sees).
 2. **Hide** the truth and calibrate against the data alone, minimizing `output_match`.
 3. Compare what we recover to the truth.
-:::
 
-::: {.fragment}
 ```yaml
 phases:
   - name: calibrate
@@ -399,7 +372,6 @@ phases:
     stop: { type: any, criteria: [ {type: max_iter, options: {n: 12}},
                                    {type: epsilon, options: {epsilon: 0.02}} ] }
 ```
-:::
 
 # Live demo {background-color="#1a3a5c"}
 
@@ -438,16 +410,12 @@ DEMO (~8 min). Kernel = the taxidemo venv (python3).
 :::
 :::
 
-::: {.fragment}
 > The discrepancy plot and the data-space table are the report card; the
 > parameter table tells you *which* of the data-consistent explanations got picked.
-:::
 
-::: {.fragment}
 **The same situation arises with the real model.** Link counts alone rarely pin down every
 behavioral parameter. The remedy is to observe more, or to **screen first** (Morris) and
 calibrate only the parameters the data responds to.
-:::
 
 ## Running on Argonne HPC {.smaller}
 
@@ -513,9 +481,7 @@ with eqsql_compat.open_queue(ws) as q:
 :::
 :::
 
-::: {.fragment}
 Argonne integrations install with `pip install polarisopt[anl]`.
-:::
 
 ## Built for real HPC runs {.smaller}
 
@@ -534,10 +500,8 @@ The taxi demo runs through the same production machinery as a full-region study.
 :::
 :::
 
-::: {.fragment}
 In use on live POLARIS calibration since **v0.6 (May 2026)**; additive, with no
 breaking changes to date.
-:::
 
 ## Getting started {.smaller}
 
@@ -569,16 +533,12 @@ polarisopt run taxidemo/studies/lhs-local.yaml
 
 ## Takeaways {.smaller}
 
-::: {.incremental}
 - PolarisOpt provides **design of experiments and Bayesian optimization** for expensive POLARIS models, for both calibration and exploration.
 - A study is **one YAML file**; the same file runs on a laptop, a Slurm cluster, or a PBS cluster.
 - **Everything is a plugin.** Simulators, metrics, surrogates, and designs are added via entry points, not core edits.
 - **Master/slave plus the SampleStore** let studies survive crashes and resume.
 - The **taxi demo** runs the entire stack in seconds, using the same workflow as a real POLARIS study.
 - Calibration is an **inverse problem**, and PolarisOpt makes the identifiability question explicit.
-:::
 
-::: {.fragment}
 ### Thank you. Questions?
 `github.com/VadimSokolov/polarisopt`
-:::
