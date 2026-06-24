@@ -346,24 +346,26 @@ def resume(
 def _check_resume_drift(cfg, store) -> None:
     """Raise ClickException if any existing sample's recorded fingerprint
     differs from the current simulator+runner config.
+
+    v0.17+: error includes a field-level diff (recorded → current) when
+    any drifted sample has the ``config_snapshot`` extra. Falls back to
+    a hash-only message for pre-v0.17 samples.
     """
     from polarisopt.studies.ops import (
         EXTRA_FINGERPRINT_KEY,
+        _format_drift_message,
         simulator_config_fingerprint,
     )
     current_fp = simulator_config_fingerprint(cfg)
+    all_samples = store.list()
     drifted = [
-        s for s in store.list()
+        s for s in all_samples
         if (rec := s.extra.get(EXTRA_FINGERPRINT_KEY)) is not None
         and rec != current_fp
     ]
     if drifted:
-        recorded = sorted({s.extra.get(EXTRA_FINGERPRINT_KEY) for s in drifted})
         raise click.ClickException(
-            f"simulator/runner config has changed since {len(drifted)} "
-            f"existing sample(s) ran (recorded: {recorded}; current: "
-            f"{current_fp!r}). Pass --force to resume under the new config, "
-            f"or use a distinct workspace per variant."
+            _format_drift_message(drifted, cfg, len(all_samples), "existing sample"),
         )
 
 

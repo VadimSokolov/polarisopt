@@ -262,6 +262,48 @@ def test_recover_from_disk_sweeps_running_and_failed(tmp_path: Path) -> None:
     assert len(final_cancelled) == 0
 
 
+def test_recover_from_disk_fires_post_success_hooks(tmp_path: Path) -> None:
+    """v0.17: disk-recovered samples also run results_transfer +
+    cleanup_after_success — same hooks the live-master FINISHED path
+    runs. Without this, recovery skipped them and the v0.16
+    "ephemeral per-sample disk" pattern broke for any sample that
+    came back via disk recovery.
+    """
+    from polarisopt.studies.ops import _try_recover_from_disk
+
+    workspace = tmp_path / "ws"
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(_yaml(workspace, runner_type="local"))
+    cfg = load_study_config(cfg_path)
+    workspace.mkdir(parents=True, exist_ok=True)
+    store = SampleStore.open(workspace_layout(workspace)["db"], cfg.name)
+    s = store.add(Sample(phase="p", inputs=np.array([0.5])))
+    s.status = SampleStatus.RUNNING
+    s.folder = workspace / "experiments" / "sim-000000"
+    _write_mock_output(s.folder, value=0.25)
+    store.update(s)
+
+    hook_calls: list[tuple[str, int]] = []
+
+    class _HookyMock:
+        # Quack like a Simulator for the hook-detection getattr.
+        def collect_output(self, sample):
+            import json as _json
+            return _json.loads((sample.folder / "outputs.json").read_text())
+
+        def transfer_results(self, sample, output):
+            hook_calls.append(("transfer", sample.id))
+
+        def cleanup_after_success(self, sample):
+            hook_calls.append(("cleanup", sample.id))
+
+    from polarisopt.metrics import IdentityMetric
+    ok = _try_recover_from_disk(s, _HookyMock(), IdentityMetric(keys="value"), store)
+    assert ok is True
+    # Both hooks fired exactly once, in the documented order.
+    assert hook_calls == [("transfer", s.id), ("cleanup", s.id)]
+
+
 def test_recover_from_disk_skips_samples_without_artifacts(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     cfg_path = tmp_path / "c.yaml"

@@ -240,6 +240,103 @@ def test_cli_retry_failed_force_flag(tmp_path: Path) -> None:
     assert "retried 2 sample(s)" in res.output
 
 
+def test_retry_failed_drift_message_shows_field_level_diff(tmp_path: Path) -> None:
+    """v0.17: ConfigDriftError includes a recorded → current diff when
+    the sample has a config_snapshot in extra. Previously you only got
+    the hash and had to guess what changed.
+    """
+    from polarisopt.studies.ops import EXTRA_CONFIG_SNAPSHOT_KEY
+
+    workspace = tmp_path / "ws"
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(_yaml(workspace))
+    cfg = load_study_config(cfg_path)
+    store, ids = _seed_with_failed(workspace, cfg.name)
+    # Stamp the first failed sample with a snapshot that differs from
+    # the current YAML in a recognizable field.
+    s = store.get(ids[0])
+    s.extra[EXTRA_FINGERPRINT_KEY] = "stale-fingerprint"
+    s.extra[EXTRA_CONFIG_SNAPSHOT_KEY] = {
+        "simulator": {
+            "type": "mock",
+            "options": {"function": "rosenbrock"},  # current YAML says quadratic
+        },
+        "runner": {"type": "local", "options": {}},
+    }
+    store.update(s)
+
+    with pytest.raises(ConfigDriftError) as exc_info:
+        retry_failed(cfg, store=store)
+    msg = str(exc_info.value)
+    # Diff shows the actual field that changed.
+    assert "simulator.options.function" in msg
+    assert "rosenbrock" in msg
+    assert "quadratic" in msg
+
+
+def test_retry_failed_drift_diff_recurses_into_nested_dicts(tmp_path: Path) -> None:
+    """v0.17 (CodeRabbit fix): the diff must descend into nested options
+    like default_resources, not blob-compare whole sub-dicts."""
+    from polarisopt.studies.ops import _diff_config_snapshots
+
+    recorded = {
+        "simulator": {"type": "mock", "options": {"function": "quadratic"}},
+        "runner": {
+            "type": "slurm",
+            "options": {
+                "default_resources": {
+                    "partition": "bdwall",
+                    "mem": "64G",
+                    "time": "01:00:00",
+                },
+            },
+        },
+    }
+    current = {
+        "simulator": {"type": "mock", "options": {"function": "quadratic"}},
+        "runner": {
+            "type": "slurm",
+            "options": {
+                "default_resources": {
+                    "partition": "TPS",      # changed
+                    "mem": "64G",            # unchanged
+                    "time": "02:00:00",      # changed
+                    "exclusive": True,       # added
+                    # "account" not present — would be (added)
+                },
+            },
+        },
+    }
+    diff = _diff_config_snapshots(recorded, current)
+    # Each leaf gets its own line — not a single blob diff on default_resources.
+    assert any("default_resources.partition" in line and "TPS" in line for line in diff)
+    assert any("default_resources.time" in line and "02:00:00" in line for line in diff)
+    assert any("default_resources.exclusive" in line and "added" in line for line in diff)
+    # Unchanged leaves are NOT in the diff.
+    assert not any("default_resources.mem" in line for line in diff)
+
+
+def test_retry_failed_drift_message_falls_back_when_no_snapshot(tmp_path: Path) -> None:
+    """Pre-v0.17 samples have only a fingerprint, no snapshot. Drift
+    error still works — just with a hash-only message, plus a hint
+    explaining why no diff is available."""
+    workspace = tmp_path / "ws"
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(_yaml(workspace))
+    cfg = load_study_config(cfg_path)
+    store, ids = _seed_with_failed(workspace, cfg.name)
+    for sid in ids[:2]:
+        s = store.get(sid)
+        s.extra[EXTRA_FINGERPRINT_KEY] = "stale"  # no snapshot
+        store.update(s)
+
+    with pytest.raises(ConfigDriftError) as exc_info:
+        retry_failed(cfg, store=store)
+    msg = str(exc_info.value)
+    assert "stale" in msg
+    assert "No field-level diff" in msg
+
+
 def test_cli_retry_failed_no_failures(tmp_path: Path) -> None:
     workspace = tmp_path / "ws"
     workspace.mkdir()

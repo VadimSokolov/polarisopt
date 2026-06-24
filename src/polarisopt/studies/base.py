@@ -82,6 +82,12 @@ class StudyContext:
         Recorded on every sample at submit so
         :func:`polarisopt.studies.ops.retry_failed` can refuse to mix
         runs across edited configs. ``None`` to skip recording.
+    config_snapshot :
+        Full dict the fingerprint was hashed from (v0.17+). Stored
+        alongside the fingerprint on every sample so
+        ``ConfigDriftError`` can show the field-level diff between
+        recorded and current config, not just "hashes differ".
+        ``None`` to skip snapshot recording (fingerprint still works).
     max_retries :
         Number of automatic retries to attempt on a sample that hits a
         FAILED transition (transient OOM, node failure, timeout, etc.).
@@ -105,6 +111,7 @@ class StudyContext:
     orphan_threshold: int = 3
     heartbeat_interval: float = 300.0
     config_fingerprint: str | None = None
+    config_snapshot: dict | None = None
     max_retries: int = 0
 
 
@@ -125,6 +132,59 @@ class Study(ABC):
         d = self.ctx.workspace / "experiments"
         d.mkdir(parents=True, exist_ok=True)
         return d
+
+    def _finalize_terminal_sample(
+        self, sample: Sample, job: Job, deltas: dict[str, int],
+    ) -> None:
+        """Transition a sample to its terminal SampleStore state.
+
+        Called from inside the poll loop as soon as ``job.status`` goes
+        terminal. Was previously deferred to a post-loop "step 3" — that
+        meant a slow last-sample blocked metric collection for the rest
+        of the batch (the v0.15 stuck-master bug). Per-sample finalize
+        means each sample makes progress independently.
+
+        Mutates ``sample`` in-place and increments the heartbeat
+        ``deltas`` counter so a working master shows non-zero progress
+        in the heartbeat log.
+        """
+        ctx = self.ctx
+        if job.status is JobStatus.FAILED:
+            sample.status = SampleStatus.FAILED
+            sample.message = job.message or "runner reported FAILED"
+            ctx.store.update(sample)
+            deltas["FAILED"] += 1
+            return
+        if job.status is JobStatus.CANCELLED:
+            sample.status = SampleStatus.CANCELLED
+            sample.message = job.message or "runner reported CANCELLED"
+            ctx.store.update(sample)
+            return
+        # FINISHED — try collect_output + metric.
+        try:
+            output = ctx.simulator.collect_output(sample)
+            sample.metric = ctx.metric.compute(output)
+        except Exception as exc:
+            log.exception("collect/metric failed for sample %s", sample.id)
+            sample.status = SampleStatus.FAILED
+            sample.message = f"metric failed: {exc}"
+            ctx.store.update(sample)
+            deltas["FAILED"] += 1
+            return
+        sample.status = SampleStatus.FINISHED
+        # Clear any stale message left by prior retry attempts ("auto-retry
+        # 1/3", etc.) — a FINISHED row shouldn't carry the audit text from
+        # how it got there. The retry history is preserved in
+        # sample.extra["retry_log"] for users who want the audit trail.
+        sample.message = None
+        if isinstance(output, dict) and "runtime_s" in output:
+            with contextlib.suppress(TypeError, ValueError):
+                sample.runtime_s = float(output["runtime_s"])
+        ctx.store.update(sample)
+        deltas["FINISHED"] += 1
+        # Post-success hooks fire immediately so disk pressure stays low
+        # and remote-storage pushes don't pile up at the end of a batch.
+        self._post_success_hooks(sample, output)
 
     def _post_success_hooks(self, sample: Sample, output: dict) -> None:
         """Run results_transfer + cleanup_after_success on a FINISHED sample.
@@ -187,9 +247,12 @@ class Study(ABC):
 
         ``transitions`` (v0.15) carries the FINISHED / FAILED / RECOVERED
         deltas since the previous heartbeat — surfaces a stalled-master
-        signal even when the runner-side counts haven't moved (e.g. PBS
-        accounting tells us 14 are RUNNING but disk says we should have
-        already harvested 8 of them).
+        signal even when the runner-side counts haven't moved.
+
+        v0.17: also queries the SampleStore for samples that have been
+        RUNNING for more than 1 hour and emits a separate WARNING line
+        if any are stale. The "is the master doing anything?" question
+        becomes self-evident in the log.
         """
         elapsed_total = time.monotonic() - batch_started
         # Cluster samples by status so 100-sample batches stay readable.
@@ -215,6 +278,46 @@ class Study(ABC):
             summary,
             delta,
         )
+        self._warn_on_stale_running()
+
+    def _warn_on_stale_running(self, stale_threshold_s: float = 3600.0) -> None:
+        """Query the store for RUNNING samples whose updated_at is more
+        than ``stale_threshold_s`` seconds in the past, and WARN if any.
+
+        Acts as a canary against bugs the inline finalize fix can't
+        catch (e.g. a sample whose ``collect_output`` hangs indefinitely
+        without raising). Best-effort — query failure logs DEBUG, not
+        WARNING, so a busted store doesn't spam.
+        """
+        from datetime import datetime
+
+        from polarisopt.utils._compat import UTC
+
+        try:
+            running = self.ctx.store.list(status=SampleStatus.RUNNING)
+        except Exception:  # noqa: BLE001
+            log.debug("stale-running scan: store.list failed", exc_info=True)
+            return
+        if not running:
+            return
+        now = datetime.now(UTC)
+        stale_ids: list[int] = []
+        for s in running:
+            if s.updated_at is None or s.id is None:
+                continue
+            updated = s.updated_at
+            if updated.tzinfo is None:
+                updated = updated.replace(tzinfo=UTC)
+            if (now - updated).total_seconds() >= stale_threshold_s:
+                stale_ids.append(s.id)
+        if stale_ids:
+            log.warning(
+                "[heartbeat] WARNING: %d sample(s) RUNNING >%.0fh in SampleStore: %s "
+                "— consider polarisopt recover-from-disk if the master is stuck.",
+                len(stale_ids),
+                stale_threshold_s / 3600,
+                sorted(stale_ids)[:20],  # cap to first 20 to keep the log line readable
+            )
 
     def _cancel_outstanding(
         self,
@@ -257,9 +360,15 @@ class Study(ABC):
             sample.folder = self._experiments_dir() / f"sim-{sample.id:06d}"
             if ctx.config_fingerprint is not None:
                 # Record the config the sample was run under so a later
-                # retry-failed can refuse if the user edits the YAML.
-                from polarisopt.studies.ops import EXTRA_FINGERPRINT_KEY
+                # retry-failed / resume can refuse (and DIFF, v0.17+) if
+                # the user edits the YAML.
+                from polarisopt.studies.ops import (
+                    EXTRA_CONFIG_SNAPSHOT_KEY,
+                    EXTRA_FINGERPRINT_KEY,
+                )
                 sample.extra[EXTRA_FINGERPRINT_KEY] = ctx.config_fingerprint
+                if ctx.config_snapshot is not None:
+                    sample.extra[EXTRA_CONFIG_SNAPSHOT_KEY] = ctx.config_snapshot
             spec = ctx.simulator.prepare(sample, ctx.space, sample.folder)
             try:
                 job = ctx.runner.submit(spec)
@@ -291,10 +400,20 @@ class Study(ABC):
                 for sid, job in list(outstanding.items()):
                     ctx.runner.status(job)
                     if job.status.is_terminal():
-                        if job.status is JobStatus.FINISHED:
-                            deltas["FINISHED"] += 1
-                        elif job.status is JobStatus.FAILED:
-                            deltas["FAILED"] += 1
+                        # v0.17: per-sample finalize INSIDE the poll loop.
+                        # Previously we only popped from outstanding here
+                        # and deferred collect_output + metric.compute +
+                        # store.update to a "step 3" after the entire
+                        # batch finished. That meant one hung sample held
+                        # 15 already-FINISHED siblings in RUNNING state in
+                        # the SampleStore until the last one returned
+                        # (the v0.15-shipped "self-heal" only covered the
+                        # UNKNOWN path, not the FINISHED-but-not-collected
+                        # path). Now each sample makes progress
+                        # independently.
+                        sample = sid_to_sample.get(sid)
+                        if sample is not None:
+                            self._finalize_terminal_sample(sample, job, deltas)
                         outstanding.pop(sid)
                         continue
                     if job.status is JobStatus.UNKNOWN:
@@ -302,8 +421,6 @@ class Study(ABC):
                         # UNKNOWN as a step toward "orphan", try to harvest
                         # outputs from disk — the job almost always finished
                         # cleanly and PBS / Slurm just lost it from accounting.
-                        # Same logic resume runs at startup, now also in-flight
-                        # so the master doesn't need a restart to self-heal.
                         sample = sid_to_sample.get(sid)
                         if sample is not None and self._try_disk_recovery_inline(sample):
                             log.info(
@@ -329,6 +446,10 @@ class Study(ABC):
                             job.message = (
                                 f"job orphaned (Slurm lost track of jobid={job.task_id})"
                             )
+                            # Per-sample finalize on the FAILED transition.
+                            sample = sid_to_sample.get(sid)
+                            if sample is not None:
+                                self._finalize_terminal_sample(sample, job, deltas)
                             outstanding.pop(sid)
                     else:
                         unknown_counts[sid] = 0
@@ -352,47 +473,22 @@ class Study(ABC):
             self._cancel_outstanding(samples, jobs, outstanding)
             raise
 
-        # 3) Collect metrics
+        # 3) (v0.17+) Per-sample finalize now runs inline in step 2 as soon
+        # as each job goes terminal. The old "wait for the whole batch then
+        # collect all" pattern is gone — it produced the v0.15-era
+        # stuck-in-RUNNING-after-PBS-says-FINISHED zombies because a single
+        # slow sample blocked metric collection for the other 15 in its
+        # batch. Defensive sweep below catches any sample that somehow
+        # ended up RUNNING after the loop (shouldn't happen post-refactor;
+        # warns and falls back to disk recovery if it does).
         for sample in samples:
-            if sample.status is SampleStatus.FAILED:
+            if sample.status is not SampleStatus.RUNNING:
                 continue
-            # In-flight disk recovery (v0.15) may have already promoted
-            # the sample to FINISHED with the metric set. Don't re-collect.
-            if sample.status is SampleStatus.FINISHED:
-                continue
-            assert sample.id is not None
-            job = jobs.get(sample.id)
-            if job is None:
-                continue
-            if job.status is JobStatus.FAILED:
-                sample.status = SampleStatus.FAILED
-                sample.message = job.message or "runner reported FAILED"
-                ctx.store.update(sample)
-                continue
-            if job.status is JobStatus.CANCELLED:
-                sample.status = SampleStatus.CANCELLED
-                sample.message = job.message or "runner reported CANCELLED"
-                ctx.store.update(sample)
-                continue
-            try:
-                output = ctx.simulator.collect_output(sample)
-                sample.metric = ctx.metric.compute(output)
-            except Exception as exc:
-                log.exception("collect/metric failed for sample %s", sample.id)
-                sample.status = SampleStatus.FAILED
-                sample.message = f"metric failed: {exc}"
-                ctx.store.update(sample)
-                continue
-            sample.status = SampleStatus.FINISHED
-            if "runtime_s" in output:
-                with contextlib.suppress(TypeError, ValueError):
-                    sample.runtime_s = float(output["runtime_s"])
-            ctx.store.update(sample)
-            # Post-success hooks (v0.16): push outputs to durable storage
-            # before optional workspace cleanup. Both are best-effort —
-            # if either raises, sample stays FINISHED. The metric is
-            # already committed; storage is defense-in-depth.
-            self._post_success_hooks(sample, output)
+            log.warning(
+                "sample %s exited poll loop still RUNNING; falling back to disk recovery",
+                sample.id,
+            )
+            self._try_disk_recovery_inline(sample)
 
         # 4) Auto-retry FAILED samples up to ctx.max_retries times. Catches
         # transient failures (OOM on a contended node, node failure, time

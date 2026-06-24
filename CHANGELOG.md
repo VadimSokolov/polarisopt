@@ -2,6 +2,78 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.17.0 — 2026-06-19
+
+The DFW DOE agent reported a 2-hour stuck-master incident *after* v0.15
+shipped its "self-healing live master" claim — same symptom: 16
+samples finished cleanly in PBS, master kept polling on a 5-min
+heartbeat without ever transitioning them in the SampleStore. Audit
+revealed v0.15's in-flight reconcile only covered the UNKNOWN path,
+not the FINISHED-but-not-yet-collected path. v0.17 fixes the actual
+root cause.
+
+### Bug fixes
+
+- **Per-sample finalize in the poll loop.** Previously
+  `_evaluate_batch` followed "submit all → poll until all terminate
+  → collect everyone in step 3." A single slow / hung sample held
+  every already-FINISHED sibling in SampleStore RUNNING until the
+  whole batch completed. v0.17 finalizes each sample (collect_output
+  + metric.compute + store.update + post-success hooks) inline as
+  soon as its job goes terminal. One hung sample no longer blocks
+  the other 15. The deferred "step 3" is replaced by a defensive
+  sweep that warns + falls back to disk recovery if any sample
+  somehow exited the poll loop still RUNNING (shouldn't happen
+  post-refactor).
+- **Disk-recovered samples now also run post-success hooks.** The
+  v0.16 inconsistency: a sample harvested by `_try_recover_from_disk`
+  (via in-flight UNKNOWN reconcile or `polarisopt resume`'s
+  reconcile / recover-from-disk) skipped `transfer_results` +
+  `cleanup_after_success`, defeating the v0.16 "ephemeral
+  per-sample disk" pattern for any sample that came back via the
+  disk-recovery path. Both hooks now fire after a successful disk
+  recovery, in the same order the live-master FINISHED path uses.
+
+### Added
+
+- **Field-level diff in `ConfigDriftError`.** Previously `retry-failed`
+  / `resume --force`-gated errors only said "fingerprints differ"
+  (`recorded: ['925e9ca21b23e32e']; current: 'a379e80dc175e379'`)
+  and the operator had to guess what changed. v0.17 stores a
+  `config_snapshot` dict on every sample at submit time and shows
+  the recorded → current diff in the error:
+  ```text
+  Field-level diff (recorded → current), based on sample 73:
+    simulator.options.population_scale_factor: 0.05 → 0.01
+    runner.options.heartbeat_interval: 300.0 → 60.0
+  ```
+  Pre-v0.17 samples without a snapshot fall back to the hash-only
+  message with an explanation of why the diff isn't available.
+- **Stale-running canary in heartbeats.** At each heartbeat, the
+  master queries the store for samples with `status=RUNNING` and
+  `updated_at > 1 hour` old. If any, emits a separate WARNING line
+  with the IDs and a pointer at `polarisopt recover-from-disk`.
+  Compounds with the per-sample finalize fix: post-v0.17, a
+  stale-running entry is a real stall, not the deferred-collection
+  artifact it was in v0.15/v0.16.
+
+### Internal
+
+- **`simulator_config_payload(config)`** extracted from
+  `simulator_config_fingerprint` so the snapshot and the hash feed
+  off the same dict shape. Anything that drifts in the snapshot
+  drifts in the fingerprint and vice-versa.
+
+### Known gap / deferred
+
+- **PBS user-limit aware submission** (item 3 from the agent's batch).
+  Today a batch larger than the per-user concurrent-job limit thrashes
+  the v0.15 transient-backoff path and can permanently fail the last
+  few submissions. Workaround: set `phase.batch_size` below the
+  cluster's per-user limit. Proper auto-detect (`qstat -Bf` parse +
+  paced submission) deferred to a future release; it needs more
+  architecture than this batch.
+
 ## 0.16.0 — 2026-06-18
 
 Ephemeral per-sample disk. v0.14 made FAILED workspaces cleanable

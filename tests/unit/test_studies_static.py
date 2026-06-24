@@ -225,6 +225,55 @@ def test_inflight_disk_recovery_on_unknown(
     assert sample.metric is not None
 
 
+class _PostSuccessTrackingSimulator(MockSimulator):
+    """Tracks which post-success hooks fire to verify v0.17 per-sample
+    finalize calls them inline (not at end-of-batch)."""
+
+    def __init__(self, **kw) -> None:
+        super().__init__(**kw)
+        self.success_hook_calls: list[int] = []
+
+    def cleanup_after_success(self, sample) -> None:
+        self.success_hook_calls.append(sample.id)
+
+
+def test_per_sample_finalize_fires_post_success_hooks_inline(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """v0.17 regression: post-success hooks fire as each sample
+    finalizes inside the poll loop, not deferred to end-of-batch.
+
+    Pre-v0.17 the hooks fired in "step 3" after the loop. Per-sample
+    finalize means they fire as soon as collect_output succeeds — so
+    a 100-sample batch doesn't pile up 100 transfer + cleanup calls
+    at the end.
+    """
+    sim = _PostSuccessTrackingSimulator(function="quadratic")
+    ctx = StudyContext(
+        name="hooks",
+        space=space,
+        workspace=tmp_path,
+        store=SampleStore.open(tmp_path / "store.db", "study"),
+        runner=LocalRunner(),
+        simulator=sim,
+        metric=IdentityMetric(keys="value"),
+        rng=np.random.default_rng(0),
+        poll_interval=0.05,
+        heartbeat_interval=0,
+    )
+    study = StaticDesignStudy(
+        ctx,
+        ManualDesign(points=[[0.5, 0.5], [0.2, 0.7], [0.8, 0.3]]),
+        phase_name="hooks",
+    )
+    samples = study.run()
+    assert len(samples) == 3
+    for s in samples:
+        assert s.status is SampleStatus.FINISHED, f"{s.id}: {s.message}"
+    # Every sample's success hook fired exactly once.
+    assert sorted(sim.success_hook_calls) == [s.id for s in samples]
+
+
 def test_max_retries_exhausts_budget(
     tmp_path: Path, space: ParameterSpace,
 ) -> None:

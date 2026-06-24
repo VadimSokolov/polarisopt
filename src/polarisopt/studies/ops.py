@@ -29,6 +29,7 @@ from polarisopt.utils.logging import get_logger
 from polarisopt.utils.paths import workspace_layout
 
 EXTRA_FINGERPRINT_KEY = "config_fingerprint"
+EXTRA_CONFIG_SNAPSHOT_KEY = "config_snapshot"  # v0.17+
 
 # Runner options that affect orchestrator behavior (polling cadence, log
 # verbosity, retry policy) but not simulation outcomes. Excluded from the
@@ -37,6 +38,23 @@ EXTRA_FINGERPRINT_KEY = "config_fingerprint"
 _ORCHESTRATOR_RUNNER_OPTIONS = frozenset(
     {"poll_interval", "orphan_threshold", "heartbeat_interval", "max_retries"}
 )
+
+
+def simulator_config_payload(config: StudyConfig) -> dict:
+    """Build the dict that the fingerprint hashes and the snapshot stores.
+
+    Same shape both feed off, so the snapshot is exactly what the
+    fingerprint covers — a drift in the snapshot dict is exactly a drift
+    in the fingerprint (and vice-versa).
+    """
+    runner_opts = {
+        k: v for k, v in config.runner.options.items()
+        if k not in _ORCHESTRATOR_RUNNER_OPTIONS
+    }
+    return {
+        "simulator": {"type": config.simulator.type, "options": dict(config.simulator.options)},
+        "runner": {"type": config.runner.type, "options": runner_opts},
+    }
 
 
 def simulator_config_fingerprint(config: StudyConfig) -> str:
@@ -54,16 +72,106 @@ def simulator_config_fingerprint(config: StudyConfig) -> str:
     different next sample, not stale-result contamination), ``phases``,
     ``parameters``, ``metric``.
     """
-    runner_opts = {
-        k: v for k, v in config.runner.options.items()
-        if k not in _ORCHESTRATOR_RUNNER_OPTIONS
-    }
-    payload = {
-        "simulator": {"type": config.simulator.type, "options": config.simulator.options},
-        "runner": {"type": config.runner.type, "options": runner_opts},
-    }
-    blob = json.dumps(payload, sort_keys=True, default=str).encode()
+    blob = json.dumps(
+        simulator_config_payload(config), sort_keys=True, default=str,
+    ).encode()
     return hashlib.sha256(blob).hexdigest()[:16]
+
+
+def _format_drift_message(
+    drifted: list[Sample], config: StudyConfig, total: int, sample_label: str,
+) -> str:
+    """Build the ConfigDriftError message shared by retry_failed + resume.
+
+    Includes the field-level diff if any drifted sample has the
+    ``config_snapshot`` extra (v0.17+). Pre-v0.17 samples fall back to
+    the hash-only message — same as the old behavior.
+    """
+    current_fp = simulator_config_fingerprint(config)
+    current_payload = simulator_config_payload(config)
+    # Pick the most-recent drifted sample with a snapshot — that gives
+    # the most useful diff against the current YAML.
+    sample_with_snapshot: Sample | None = None
+    for s in drifted:
+        snap = s.extra.get(EXTRA_CONFIG_SNAPSHOT_KEY)
+        if snap is not None:
+            sample_with_snapshot = s
+            break
+    head = (
+        f"simulator/runner config has changed since {len(drifted)} of "
+        f"{total} {sample_label}(s) ran "
+        f"(current fingerprint: {current_fp!r})."
+    )
+    suffix = (
+        " Pass force=True (CLI: --force) to proceed under the new config, "
+        "or start a fresh workspace to keep the run history clean."
+    )
+    if sample_with_snapshot is None:
+        recorded_hashes = sorted({s.extra.get(EXTRA_FINGERPRINT_KEY) for s in drifted})
+        return (
+            f"{head} Recorded fingerprints: {recorded_hashes}. "
+            f"(No field-level diff available — samples pre-date v0.17 "
+            f"config-snapshot recording.){suffix}"
+        )
+    diff_lines = _diff_config_snapshots(
+        sample_with_snapshot.extra[EXTRA_CONFIG_SNAPSHOT_KEY],
+        current_payload,
+    )
+    if not diff_lines:
+        # Snapshot matches but hash differs — shouldn't happen, but report.
+        return (
+            f"{head} Recorded snapshot matches current config field-by-field "
+            f"but fingerprint differs (likely a serialization edge case). "
+            f"{suffix}"
+        )
+    diff_block = "\n  ".join(diff_lines)
+    return (
+        f"{head}\nField-level diff (recorded → current), based on "
+        f"sample {sample_with_snapshot.id}:\n  {diff_block}{suffix}"
+    )
+
+
+def _diff_config_snapshots(recorded: dict, current: dict) -> list[str]:
+    """Return field-level diff lines between two config snapshots.
+
+    Walks ``simulator.options`` and ``runner.options`` independently
+    and emits one line per leaf field that changed / was added / was
+    removed. Recurses through nested dicts (e.g.
+    ``runner.options.default_resources``) so the diff points at
+    individual leaves rather than blob-comparing whole sub-dicts.
+    Empty list = identical.
+
+    Format::
+
+        simulator.options.population_scale_factor: 0.05 → 0.01
+        runner.options.default_resources.partition: bdwall → TPS
+        runner.options.heartbeat_interval: (removed)
+        simulator.options.cleanup_on_failure: (added) True
+    """
+    def _walk(prefix: str, rec_opts: dict, cur_opts: dict) -> list[str]:
+        out: list[str] = []
+        for key in sorted(set(rec_opts) | set(cur_opts)):
+            path = f"{prefix}.{key}"
+            if key not in rec_opts:
+                out.append(f"{path}: (added) {cur_opts[key]!r}")
+            elif key not in cur_opts:
+                out.append(f"{path}: (removed)")
+            else:
+                rv, cv = rec_opts[key], cur_opts[key]
+                if isinstance(rv, dict) and isinstance(cv, dict):
+                    out.extend(_walk(path, rv, cv))
+                elif rv != cv:
+                    out.append(f"{path}: {rv!r} → {cv!r}")
+        return out
+
+    lines: list[str] = []
+    for top in ("simulator", "runner"):
+        rec = recorded.get(top, {})
+        cur = current.get(top, {})
+        if rec.get("type") != cur.get("type"):
+            lines.append(f"{top}.type: {rec.get('type')!r} → {cur.get('type')!r}")
+        lines.extend(_walk(f"{top}.options", rec.get("options") or {}, cur.get("options") or {}))
+    return lines
 
 log = get_logger(__name__)
 
@@ -236,15 +344,8 @@ def retry_failed(
             and recorded != current_fp
         ]
         if drifted:
-            recorded_set = sorted({
-                s.extra.get(EXTRA_FINGERPRINT_KEY) for s in drifted
-            })
             raise ConfigDriftError(
-                f"simulator/runner config has changed since {len(drifted)} of "
-                f"{len(candidates)} failed sample(s) ran (recorded fingerprints: "
-                f"{recorded_set}; current: {current_fp!r}). "
-                f"Pass force=True (CLI: --force) to retry under the new config, "
-                f"or start a fresh workspace to keep the run history clean."
+                _format_drift_message(drifted, config, len(candidates), "failed sample"),
             )
 
     retried: list[Sample] = []
@@ -294,6 +395,29 @@ def _try_recover_from_disk(
         with contextlib.suppress(TypeError, ValueError):
             sample.runtime_s = float(output["runtime_s"])
     store.update(sample)
+    # v0.17: also fire the post-success hooks the live-master FINISHED path
+    # runs (results_transfer + cleanup_after_success). Without this, a
+    # disk-recovered sample skips remote-storage push + workspace cleanup,
+    # which defeats the v0.16 "ephemeral per-sample disk" pattern.
+    # Best-effort: hooks raising don't undo the FINISHED transition.
+    transfer_hook = getattr(simulator, "transfer_results", None)
+    if callable(transfer_hook):
+        try:
+            transfer_hook(sample, output)
+        except Exception:  # noqa: BLE001
+            log.exception(
+                "transfer_results raised during disk recovery for sample %s",
+                sample.id,
+            )
+    cleanup_hook = getattr(simulator, "cleanup_after_success", None)
+    if callable(cleanup_hook):
+        try:
+            cleanup_hook(sample)
+        except Exception:  # noqa: BLE001
+            log.exception(
+                "cleanup_after_success raised during disk recovery for sample %s",
+                sample.id,
+            )
     return True
 
 

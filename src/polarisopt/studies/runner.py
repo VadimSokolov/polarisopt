@@ -23,7 +23,7 @@ from polarisopt.samples.store import SampleStore
 from polarisopt.simulator.base import make_simulator
 from polarisopt.stop.base import make_stop
 from polarisopt.studies.base import StudyContext, StudyError
-from polarisopt.studies.ops import simulator_config_fingerprint
+from polarisopt.studies.ops import simulator_config_fingerprint, simulator_config_payload
 from polarisopt.studies.sequential import SequentialDesignStudy, SequentialPhase
 from polarisopt.studies.static import StaticDesignStudy
 from polarisopt.utils.logging import get_logger
@@ -65,6 +65,7 @@ class StudyRunner:
             raise StudyError(f"max_retries must be >= 0, got {self.max_retries}")
         self.runner = make_runner({"type": config.runner.type, "options": runner_options})
         self.config_fingerprint: str = simulator_config_fingerprint(config)
+        self.config_snapshot: dict = simulator_config_payload(config)
         self.simulator = make_simulator({"type": config.simulator.type, "options": config.simulator.options})
         self.metric = make_metric({"type": config.metric.type, "options": config.metric.options})
 
@@ -88,6 +89,7 @@ class StudyRunner:
                 orphan_threshold=self.orphan_threshold,
                 heartbeat_interval=self.heartbeat_interval,
                 config_fingerprint=self.config_fingerprint,
+                config_snapshot=self.config_snapshot,
                 max_retries=self.max_retries,
             )
             if isinstance(phase, StaticPhaseConfig):
