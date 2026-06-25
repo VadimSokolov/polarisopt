@@ -10,6 +10,7 @@ one focused "how do I X?" question.
 - [Run on PBS](run-on-pbs.md) — qsub resources for clusters running PBS Pro (Improv, Bebop)
 - [Use Globus for file transfer](use-globus.md) — the `anl` Transfer backend
 - [Migrate from EQSQL](migrate-from-eqsql.md) — drop-in compat shim + new API
+- [Monitor a running study](monitor-a-study.md) — status, logs, heartbeat interpretation, recovery decision tree
 - [Debug failed samples](debug-failed-samples.md) — logs, store queries, common failure modes
 - [Common mistakes](common-mistakes.md) — option typos and the `validate` / `plan` workflow that catches them
 - [Use from a notebook](use-from-notebook.md) — the programmatic API mirror of the CLI; `SampleStore` analysis helpers; read-while-running pattern

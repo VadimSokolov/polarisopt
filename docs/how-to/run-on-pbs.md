@@ -75,13 +75,7 @@ Slurm's `#SBATCH`.
 
 ## Monitoring
 
-```bash
-polarisopt status study.yaml          # per-phase counts
-polarisopt logs   study.yaml 42       # stdout + stderr for sample 42
-polarisopt logs   study.yaml 42 --binary --iteration=abm_init
-```
-
-Conventional PBS tools also work — every sample's PBS jobid
+Conventional PBS tools work — every sample's PBS jobid
 (`<number>.<hostname>`, e.g. `7609762.imgt1`) is in the SampleStore
 as `samples.runner_task_id`:
 
@@ -94,6 +88,11 @@ qdel <jobid>                          # or use `polarisopt cancel`
 `qstat -fx` is the PBS equivalent of Slurm's `sacct` — the `-x` flag
 includes history for completed jobs, which `qstat <jobid>` (without
 `-f -x`) won't show after job termination.
+
+For polarisopt-side monitoring — `status -v`, the binary's
+`polaris_progress.log`, heartbeat interpretation, and the
+recovery-decision tree — see
+[Monitor a running study](monitor-a-study.md).
 
 ## Slurm-to-PBS translation table
 

@@ -87,13 +87,7 @@ cd /.../sim-000042
 
 ## Monitoring
 
-```bash
-polarisopt status study.yaml          # per-phase counts
-polarisopt logs   study.yaml 42       # stdout + stderr for sample 42
-polarisopt logs   study.yaml 42 -f    # tail -f the largest log
-```
-
-Conventional Slurm tools also work — every sample's Slurm jobid is in
+Conventional Slurm tools work — every sample's Slurm jobid is in
 the SampleStore (`samples.runner_task_id`):
 
 ```bash
@@ -101,6 +95,11 @@ squeue -u $USER                       # all your jobs
 sacct  -j <jobid> --format=...        # accounting
 scancel <jobid>                       # or use `polarisopt cancel`
 ```
+
+For polarisopt-side monitoring — `status -v`, the binary's
+`polaris_progress.log`, heartbeat interpretation, and the
+recovery-decision tree — see
+[Monitor a running study](monitor-a-study.md).
 
 ## Submitting the master itself as a Slurm job
 

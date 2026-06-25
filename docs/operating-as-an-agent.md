@@ -26,6 +26,11 @@ Always `validate` and `plan` before submitting. Both are sub-30-second
 checks; they catch a class of mistakes that otherwise burn 30+ minutes
 of staging + a Slurm allocation per try.
 
+For the *monitoring* side of the loop (interpreting `status`, the
+heartbeat output, and the recovery decision tree) see
+[Monitor a running study](how-to/monitor-a-study.md). That page also
+documents the notebook-side live dashboard pattern for long runs.
+
 ## Workspace conventions
 
 `workspace:` is where the SampleStore + per-sample folders live. **Tag

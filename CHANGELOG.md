@@ -2,6 +2,31 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.17.2 — 2026-06-25
+
+Docs-only release. Consolidates the monitoring story — previously
+scattered across `operating-as-an-agent.md`, `run-on-slurm.md`,
+`use-from-notebook.md`, `debug-failed-samples.md`, `restart.md`, plus
+inferred-from-changelog material about the v0.15 heartbeat deltas
+and v0.17 stale-running canary.
+
+### Documentation
+
+- **New `docs/how-to/monitor-a-study.md`.** Covers: quick check
+  with `status` + `status -v`, live tail of the binary's
+  `polaris_progress.log`, per-iteration progress on sequential/BO
+  phases, `polarisopt best` (single-obj) + `pareto_front` (multi-obj),
+  heartbeat interpretation table (what `+N FINISHED since last`
+  means, when "0 transitions since last" is a stall), the v0.17
+  stale-running WARNING, a recovery decision tree mapping symptoms
+  to `retry-failed` / `resume` / `recover-from-disk`, and a
+  copy-pasteable notebook live-dashboard loop.
+- **Cross-links.** `operating-as-an-agent.md` (after the canonical
+  loop block), `run-on-slurm.md` and `run-on-pbs.md` (Monitoring
+  sections now hand off to the new page after the scheduler-native
+  `squeue`/`qstat` recipes), `how-to/index.md` (new entry between
+  Run-on-Slurm and Debug-failed-samples).
+
 ## 0.17.1 — 2026-06-25
 
 Hot fix. v0.17 introduced a regression that interacts badly with
