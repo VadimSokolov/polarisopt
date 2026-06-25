@@ -262,6 +262,40 @@ def test_recover_from_disk_sweeps_running_and_failed(tmp_path: Path) -> None:
     assert len(final_cancelled) == 0
 
 
+def test_try_recover_from_disk_is_idempotent_on_finished(tmp_path: Path) -> None:
+    """v0.17.1: calling _try_recover_from_disk on an already-FINISHED
+    sample returns True without re-running collect_output. Prevents
+    the cleaned-workspace race that downgrades samples."""
+    from polarisopt.studies.ops import _try_recover_from_disk
+
+    workspace = tmp_path / "ws"
+    cfg_path = tmp_path / "c.yaml"
+    cfg_path.write_text(_yaml(workspace, runner_type="local"))
+    cfg = load_study_config(cfg_path)
+    workspace.mkdir(parents=True, exist_ok=True)
+    store = SampleStore.open(workspace_layout(workspace)["db"], cfg.name)
+    s = store.add(Sample(phase="p", inputs=np.array([0.5])))
+    s.status = SampleStatus.FINISHED
+    s.metric = np.array([0.42])
+    s.folder = workspace / "experiments" / "sim-000000"
+    # Note: workspace folder doesn't exist (cleanup_on_success would have
+    # deleted it). Pre-v0.17.1 this would: check folder.exists() → False
+    # → return False. v0.17.1 short-circuits on FINISHED before the folder
+    # check, returning True.
+    store.update(s)
+
+    class _BoomSim:
+        """Would raise if asked to collect_output — should NOT be called."""
+        def collect_output(self, _sample):
+            raise AssertionError("collect_output must not be called on FINISHED sample")
+
+    from polarisopt.metrics import IdentityMetric
+    ok = _try_recover_from_disk(s, _BoomSim(), IdentityMetric(keys="value"), store)
+    assert ok is True
+    # Metric stays untouched.
+    assert (s.metric == [0.42]).all()
+
+
 def test_recover_from_disk_fires_post_success_hooks(tmp_path: Path) -> None:
     """v0.17: disk-recovered samples also run results_transfer +
     cleanup_after_success — same hooks the live-master FINISHED path

@@ -225,6 +225,117 @@ def test_inflight_disk_recovery_on_unknown(
     assert sample.metric is not None
 
 
+def test_finalize_terminal_sample_is_idempotent(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """v0.17.1 regression: calling _finalize_terminal_sample twice on the
+    same sample must be a no-op the second time. Without the idempotence
+    guard the second call re-runs collect_output (against a workspace
+    that cleanup_on_success may have deleted) and DOWNGRADES the sample
+    from FINISHED to FAILED with "scenario file missing".
+
+    Reproduces the bug the DFW DOE agent hit in iter 2 of a BO loop:
+    12 of ~32 samples ended up marked FAILED with empty metric, but
+    their results were on VMS and the binary had run successfully.
+    """
+    from polarisopt.runners.base import Job, JobSpec, JobStatus
+
+    sim = MockSimulator(function="quadratic")
+    ctx = StudyContext(
+        name="idempotence",
+        space=space,
+        workspace=tmp_path,
+        store=SampleStore.open(tmp_path / "store.db", "study"),
+        runner=LocalRunner(),
+        simulator=sim,
+        metric=IdentityMetric(keys="value"),
+        rng=np.random.default_rng(0),
+        poll_interval=0.05,
+        heartbeat_interval=0,
+    )
+    # Run one sample through to FINISHED.
+    study = StaticDesignStudy(
+        ctx, ManualDesign(points=[[0.5, 0.5]]), phase_name="idempotence",
+    )
+    samples = study.run()
+    [s] = samples
+    assert s.status is SampleStatus.FINISHED
+    finished_metric = s.metric
+
+    # Now simulate the bug: delete the workspace (mimicking
+    # cleanup_on_success), then call _finalize_terminal_sample again with
+    # job.status=FINISHED. Pre-v0.17.1 this would re-run collect_output,
+    # fail with "scenario file missing", and DOWNGRADE the sample to
+    # FAILED. With the guard the call is a no-op and FINISHED is preserved.
+    import shutil
+    shutil.rmtree(s.folder)
+    fake_job = Job(
+        spec=JobSpec(name="x", command="", cwd=s.folder),
+        task_id="reused",
+        status=JobStatus.FINISHED,
+    )
+    deltas: dict[str, int] = {"FINISHED": 0, "FAILED": 0, "RECOVERED": 0}
+    study._finalize_terminal_sample(s, fake_job, deltas)
+
+    # FINISHED stays FINISHED — no downgrade, no clobbered metric.
+    assert s.status is SampleStatus.FINISHED, s.message
+    assert s.metric is not None
+    assert (s.metric == finished_metric).all()
+    # The duplicate call did not count toward the "actually transitioned"
+    # heartbeat delta.
+    assert deltas["FAILED"] == 0
+    assert deltas["FINISHED"] == 0
+
+
+def test_finalize_terminal_sample_preserves_finished_when_re_collect_raises(
+    tmp_path: Path, space: ParameterSpace, monkeypatch,
+) -> None:
+    """Defense-in-depth: even if the idempotence guard is somehow
+    bypassed and collect_output raises, a sample already FINISHED in
+    the store must not be downgraded to FAILED. The exception handler
+    re-reads the store row and refuses to overwrite a FINISHED record.
+    """
+    from polarisopt.runners.base import Job, JobSpec, JobStatus
+
+    sim = MockSimulator(function="quadratic")
+    ctx = StudyContext(
+        name="defense",
+        space=space,
+        workspace=tmp_path,
+        store=SampleStore.open(tmp_path / "store.db", "study"),
+        runner=LocalRunner(),
+        simulator=sim,
+        metric=IdentityMetric(keys="value"),
+        rng=np.random.default_rng(0),
+        poll_interval=0.05,
+        heartbeat_interval=0,
+    )
+    study = StaticDesignStudy(
+        ctx, ManualDesign(points=[[0.5, 0.5]]), phase_name="defense",
+    )
+    [s] = study.run()
+    assert s.status is SampleStatus.FINISHED
+    # Bypass the idempotence guard by flipping the in-memory status to
+    # RUNNING (mimicking a coding bug). The STORE row stays FINISHED.
+    s.status = SampleStatus.RUNNING
+    # Force collect_output to raise.
+    def _boom(_self_sample):
+        raise RuntimeError("scenario file missing in /lcrc/...")
+    monkeypatch.setattr(sim, "collect_output", _boom)
+    fake_job = Job(
+        spec=JobSpec(name="x", command="", cwd=s.folder),
+        task_id="reused",
+        status=JobStatus.FINISHED,
+    )
+    deltas: dict[str, int] = {"FINISHED": 0, "FAILED": 0, "RECOVERED": 0}
+    study._finalize_terminal_sample(s, fake_job, deltas)
+
+    # In-memory sample is healed back to FINISHED from the store row.
+    assert s.status is SampleStatus.FINISHED
+    # FAILED delta was NOT incremented for this duplicate call.
+    assert deltas["FAILED"] == 0
+
+
 class _PostSuccessTrackingSimulator(MockSimulator):
     """Tracks which post-success hooks fire to verify v0.17 per-sample
     finalize calls them inline (not at end-of-batch)."""

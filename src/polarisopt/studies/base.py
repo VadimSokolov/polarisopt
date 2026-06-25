@@ -147,8 +147,32 @@ class Study(ABC):
         Mutates ``sample`` in-place and increments the heartbeat
         ``deltas`` counter so a working master shows non-zero progress
         in the heartbeat log.
+
+        v0.17.1: idempotent. If the sample is already in a terminal
+        state (FINISHED/FAILED/CANCELLED) this method returns
+        immediately without re-running collect_output. The
+        previously-shipped behavior would re-collect against a
+        possibly-cleaned-up workspace (after cleanup_on_success ran)
+        and DOWNGRADE the sample from FINISHED to FAILED with
+        "metric failed: scenario file missing". Even if a duplicate
+        call slips through, FINISHED is now sticky — the exception
+        handler refuses to overwrite a previously-FINISHED row.
         """
         ctx = self.ctx
+        # v0.17.1 idempotence guard. We don't fully understand which
+        # path triggers a duplicate call (the poll loop's
+        # outstanding.pop should prevent it), but the defensive
+        # guard prevents the symptom regardless.
+        if sample.status in {
+            SampleStatus.FINISHED,
+            SampleStatus.FAILED,
+            SampleStatus.CANCELLED,
+        }:
+            log.debug(
+                "sample %s already terminal (%s); skipping duplicate finalize",
+                sample.id, sample.status.value,
+            )
+            return
         if job.status is JobStatus.FAILED:
             sample.status = SampleStatus.FAILED
             sample.message = job.message or "runner reported FAILED"
@@ -165,6 +189,27 @@ class Study(ABC):
             output = ctx.simulator.collect_output(sample)
             sample.metric = ctx.metric.compute(output)
         except Exception as exc:
+            # v0.17.1: re-read the store row before downgrading. If a
+            # prior call already committed FINISHED, refuse to flip to
+            # FAILED — the workspace is probably gone because
+            # cleanup_on_success ran, and the "scenario file missing"
+            # error is the expected consequence, not a real failure.
+            try:
+                committed = ctx.store.get(sample.id) if sample.id is not None else None
+            except Exception:  # noqa: BLE001
+                committed = None
+            if committed is not None and committed.status is SampleStatus.FINISHED:
+                log.warning(
+                    "sample %s: collect_output failed (%s) but store row is "
+                    "already FINISHED — preserving FINISHED (likely workspace "
+                    "was cleaned up by cleanup_on_success between two "
+                    "_finalize_terminal_sample calls)",
+                    sample.id, exc,
+                )
+                sample.status = SampleStatus.FINISHED
+                sample.metric = committed.metric
+                sample.message = committed.message
+                return
             log.exception("collect/metric failed for sample %s", sample.id)
             sample.status = SampleStatus.FAILED
             sample.message = f"metric failed: {exc}"

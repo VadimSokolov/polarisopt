@@ -376,7 +376,14 @@ def _try_recover_from_disk(
     This is the path the master would have taken at finish time if it
     hadn't died. Used by :func:`reconcile_running` and
     :func:`recover_from_disk`.
+
+    v0.17.1: idempotent. If the sample is already FINISHED, returns
+    True immediately without re-running collect_output. Prevents the
+    workspace-cleanup-then-recollect race documented for
+    ``_finalize_terminal_sample``.
     """
+    if sample.status is SampleStatus.FINISHED:
+        return True
     if sample.folder is None or not sample.folder.exists():
         return False
     try:

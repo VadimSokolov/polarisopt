@@ -2,6 +2,51 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.17.1 — 2026-06-25
+
+Hot fix. v0.17 introduced a regression that interacts badly with
+v0.16's `cleanup_on_success` hook. The DFW DOE agent reported iter
+2 of a BO loop losing 12 of ~32 samples: each marked FAILED with
+``metric failed: scenario file missing in /lcrc/POLARIS/...`` even
+though the binary ran successfully and the results were already on
+VMS via `results_transfer`.
+
+### Bug fix
+
+- **`_finalize_terminal_sample` is now idempotent.** If the sample
+  is already in a terminal state (FINISHED / FAILED / CANCELLED),
+  the call returns immediately without re-running `collect_output`.
+  Without this guard, a duplicate call against a workspace that
+  `cleanup_on_success` had already deleted would raise "scenario
+  file missing" and **downgrade the sample from FINISHED to FAILED**,
+  silently clobbering the metric.
+- **FINISHED is sticky even if the guard is bypassed.** If
+  `collect_output` raises inside `_finalize_terminal_sample`, we
+  re-read the store row before marking FAILED. If the row is
+  already FINISHED (some prior call committed it), we preserve
+  FINISHED and log a WARNING. Defense in depth — operational
+  invariant is "FINISHED never goes backwards to FAILED."
+- **`_try_recover_from_disk` short-circuits on FINISHED.** Same
+  pattern: returns True immediately for an already-FINISHED sample
+  without re-running `collect_output`. Prevents the same workspace-
+  cleanup race in the disk-recovery path.
+
+### What I don't know
+
+The exact trigger that produces the duplicate `_finalize_terminal_sample`
+call is unclear from reading the v0.17 code paths — `outstanding.pop(sid)`
+in the poll loop should prevent re-processing. The defensive guards
+prevent the symptom regardless. If you run with debug logging and
+catch a ``sample N already terminal; skipping duplicate finalize``
+message, please report back so the root cause can be pinned down.
+
+### Workaround for users still on v0.17.0
+
+Set `cleanup_on_success: false` on the simulator in the YAML. The
+bug requires workspace deletion to trigger — without it the
+duplicate finalize is a no-op even without the v0.17.1 guard.
+Quota will grow but the data won't be lost.
+
 ## 0.17.0 — 2026-06-19
 
 The DFW DOE agent reported a 2-hour stuck-master incident *after* v0.15
