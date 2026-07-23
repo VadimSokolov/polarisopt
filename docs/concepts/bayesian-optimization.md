@@ -44,7 +44,7 @@ Each step in the BO algorithm is a separate ABC:
 |---|---|---|---|
 | Initial design | `Design` | `phases[].warm_up` | `lhs`, `morris`, `sobol`, `manual` |
 | Model | `Surrogate` | `phases[].generator.options.surrogate` | `gp` |
-| Sample picker | `AcquisitionFunction` | `phases[].generator.options.acquisition` | `ei`, `qei`, `qehvi` |
+| Sample picker | `AcquisitionFunction` | `phases[].generator.options.acquisition` | `ei`, `qei`, `qehvi`, `qlognei` |
 | Batch chooser | `SampleGenerator` | `phases[].generator` | `acquisition`, `random` |
 | Stop | `StoppingCriterion` | `phases[].stop` | `max_iter`, `epsilon`, `plateau`, `hypervolume`, `any`, `all` |
 
@@ -91,6 +91,50 @@ need to do. For `q = 1` they reduce to single-point semantics.
 
 The analytic `ei` is single-point only — use `qei` (with q=1 if you
 want) for the standard recommendation.
+
+## Noise-aware BO (`qlognei`)
+
+`qei` treats each observed value as ground truth: `best_f = min(Y)`.
+That works when the objective is deterministic (Branin, high-fidelity
+simulators). It breaks when the objective is a noisy realisation of an
+unknown mean — a stochastic simulator, POLARIS at low
+`population_scale_factor`, or any run whose metric has measurable
+seed-to-seed variance. Then a "favorable seed" outlier gets picked as
+the incumbent, BO chases that noisy minimum, and the loop never
+converges to the true optimum.
+
+`qlognei` (BoTorch's `qLogNoisyExpectedImprovement`) fixes this by
+computing EI relative to the **posterior over the previously-evaluated
+points** — treating each observed value as one noisy draw from an
+unknown mean rather than the mean itself.
+
+```yaml
+generator:
+  type: acquisition
+  options:
+    surrogate: { type: gp, options: {} }
+    acquisition:
+      type: qlognei
+      options:
+        mc_samples: 128
+        prune_baseline: true       # BoTorch default; drops unlikely-incumbent baseline points
+```
+
+Use `qlognei` when:
+
+- Repeat evaluations at the same input give visibly different metric values.
+- The best-so-far chase never converges — each iteration picks a new
+  "winner" that turns out to be a lucky seed on re-evaluation.
+- You've measured a non-negligible noise std (e.g. via Sobol
+  replication or a dedicated noise-estimation phase).
+
+For deterministic simulators, `qei` remains the right choice — no
+advantage from noise modelling if there's no noise.
+
+**Related lever (not yet a plugin):** if you have a measured noise
+level, an observation-noise-aware surrogate (`FixedNoiseGP` instead of
+`SingleTaskGP`) lets the surrogate use your measurement instead of
+inferring it from residuals. Flagged for a future release.
 
 ## Minimize vs. maximize
 

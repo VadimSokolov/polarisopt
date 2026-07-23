@@ -55,4 +55,9 @@ class AcquisitionGenerator(SampleGenerator):
         surrogate.fit(ctx.X, ctx.Y)
 
         acq = make_acquisition(self.acquisition_spec, surrogate=surrogate, minimize=self.minimize)
-        return acq.optimize(ctx.space, q=q, observed_Y=ctx.Y, rng=ctx.rng)
+        # v0.18: forward observed_X too — noise-aware acquisitions (qlognei)
+        # need it as X_baseline. Existing acquisitions (ei, qei, qehvi)
+        # accept-and-ignore per the ABC contract.
+        return acq.optimize(
+            ctx.space, q=q, observed_Y=ctx.Y, rng=ctx.rng, observed_X=ctx.X,
+        )

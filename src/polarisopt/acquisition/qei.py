@@ -60,6 +60,7 @@ class QEIAcquisition(AcquisitionFunction):
         q: int,
         observed_Y: np.ndarray,
         rng: np.random.Generator,
+        observed_X: np.ndarray | None = None,  # v0.18: accepted for signature parity; unused
     ) -> np.ndarray:
         if q < 1:
             raise AcquisitionError(f"q must be >= 1, got {q}")

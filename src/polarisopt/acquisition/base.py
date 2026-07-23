@@ -44,12 +44,58 @@ class AcquisitionFunction(ABC):
         q: int,
         observed_Y: np.ndarray,
         rng: np.random.Generator,
+        observed_X: np.ndarray | None = None,
     ) -> np.ndarray:
         """Return the next ``q`` input vectors, shape ``(q, ndim)``.
 
-        ``observed_Y`` is the (n, m) matrix of objective values seen so far,
-        used to set acquisition baselines (e.g. ``best_f`` for EI, reference
-        point for qEHVI). Acquisition implementations are free to ignore it.
+        Parameters
+        ----------
+        space
+            Parameter space defining bounds and (for mixed-type spaces)
+            categorical/integer structure that the optimizer must respect.
+        q
+            Batch size — number of candidate input vectors to return.
+        observed_Y
+            ``(n, m)`` matrix of objective values seen so far. Used to
+            set acquisition baselines (e.g. ``best_f`` for EI, reference
+            point for qEHVI). Acquisition implementations are free to
+            ignore it.
+        rng
+            Numpy random generator. Acquisition implementations that
+            perform stochastic optimization (multi-start, MC sampling)
+            should route their entropy through this generator so runs
+            are reproducible from the study seed.
+        observed_X
+            ``(n, ndim)`` matrix of input vectors matching ``observed_Y``
+            (v0.18+). Required by noise-aware acquisitions like
+            ``qlognei`` (which uses it as ``X_baseline`` for
+            posterior-based incumbent inference). Ignored by
+            acquisitions that compute their baseline from ``observed_Y``
+            alone (e.g. ``qei`` / ``qehvi``). Passed as a keyword with a
+            ``None`` default for backwards compatibility with pre-v0.18
+            acquisition plugins that don't accept it.
+
+        Returns
+        -------
+        numpy.ndarray
+            ``(q, ndim)`` matrix of proposed input vectors, in the same
+            column ordering as ``observed_X`` / ``space``.
+
+        Raises
+        ------
+        AcquisitionError
+            Concrete subclasses may raise this when the caller supplies
+            an unusable input — e.g. missing ``observed_X`` for a
+            noise-aware acquisition, a multi-objective surrogate for a
+            single-objective acquisition, or an infeasible reference
+            point for qEHVI.
+
+        Notes
+        -----
+        The orchestrator's convention is minimization when
+        ``self.minimize`` is True. Implementations that wrap a
+        maximization-native BoTorch acquisition must sign-flip via
+        ``GenericMCObjective`` or equivalent.
         """
 
 

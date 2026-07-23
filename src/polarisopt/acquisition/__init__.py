@@ -19,7 +19,7 @@ def _autoload_optional() -> None:
     import contextlib
 
     with contextlib.suppress(ImportError):
-        from polarisopt.acquisition import ei, qehvi, qei  # noqa: F401
+        from polarisopt.acquisition import ei, qehvi, qei, qlognei  # noqa: F401
 
 
 _autoload_optional()

@@ -2,6 +2,70 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.18.0 — 2026-07-23
+
+Noise-aware Bayesian optimization. The DFW calibration agent's
+Quarto report identified this as the blocking issue: at 1%
+population scale factor the observed metric has std ≈ 0.00167,
+so `qei`'s "observed value = ground truth" assumption picks
+favorable-seed outliers as the incumbent and the BO loop chases
+noise rather than the true optimum. Phase 3A (10D BO), Phase 3C
+(4D BO), and Phase 3D all confirmed apparent improvements were
+within seed noise — no amount of dimensionality reduction or
+surrogate swap fixes this without a noise-aware acquisition.
+
+### Added
+
+- **`qlognei`** — new acquisition plugin wrapping BoTorch's
+  `qLogNoisyExpectedImprovement`. Treats each observation as one
+  noisy draw from an unknown mean rather than the mean itself;
+  computes EI relative to the posterior over previously-evaluated
+  points (X_baseline). Options:
+  `mc_samples` (default 128), `num_restarts` / `raw_samples`
+  (BoTorch defaults), `prune_baseline` (default True — BoTorch
+  drops unlikely-incumbent baseline points for speed),
+  `cache_root` (default True — BoTorch's cache-root optimization).
+- **`AcquisitionFunction.optimize()` now accepts `observed_X`** as
+  a keyword-only argument. Required by `qlognei` (raises
+  `AcquisitionError` if missing). Ignored by `ei`/`qei`/`qehvi`
+  (accepted for signature parity, backwards-compatible). Wired
+  through `AcquisitionGenerator` so YAML studies just pick
+  `type: qlognei` and it works.
+
+### Documentation
+
+- **`docs/concepts/bayesian-optimization.md`** — new "Noise-aware
+  BO (qlognei)" section with the when-to-use / when-not-to-use
+  guidance and a YAML snippet. Also notes the (deferred)
+  observation-noise-aware surrogate variant as the next lever.
+
+### Deferred / next release
+
+- **`FixedNoiseGP`-based surrogate** — today's `gp` plugin uses
+  `SingleTaskGP` which infers noise from residuals. For studies
+  with a measured noise level (like the DFW calibration's
+  σ = 0.00167 from Phase 3B.0), letting the surrogate use the
+  measurement instead of inferring it would improve posterior
+  quality. Separate release; needs a new plugin registered as
+  `fixed_noise_gp` with an `observation_noise: float` YAML option
+  (also accept an anchored prior on `WhiteKernel.noise_level` in the
+  existing `gp` plugin as a lighter-touch variant).
+- **First-class `seed_per_sample` runner option** — currently a
+  project-local shim in `polarisopt_runner.py` computes
+  `effective_seed = base_seed + sim_id` for POLARIS RNG-noise studies
+  (Phase 3B.0 / 3D pattern). Multi-seed same-input replication is
+  the standard first diagnostic for any noisy-simulator BO; belongs
+  in `polarisopt.simulator.polaris_convergence` proper, wired
+  through the YAML.
+- **`polarisopt sensitivity <run.yaml>` subcommand** — post-hoc
+  GP-Sobol analysis on any completed SampleStore. Fit a
+  Matern-ARD GP on the observed (X, y), run SALib Sobol on
+  surrogate predictions, report ranked S₁/ST plus GP length-scales
+  (the "poor person's variable-importance" check the DFW agent
+  used to find that 6 of 10 DFW parameters were flat). Would
+  surface dimensionality-reduction opportunities automatically
+  after every BO run.
+
 ## 0.17.3 — 2026-06-25
 
 Hot fix: wheel build was broken. Downstream users hitting
