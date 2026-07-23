@@ -65,11 +65,26 @@ class ChoiceShareMetric(Metric):
     aggregation:
         - ``sum_abs``: scalar = sum(|sim_share - tgt_share|) per category
         - ``rmse``: scalar = sqrt(mean((sim - tgt)^2))
+        - ``cross_entropy``: scalar = -sum(tgt_share * log(sim_share)); the
+          standard loss for probability-vector matching. Zero-target categories
+          drop out; zero-sim categories on positive-target ones are clipped
+          at ``eps`` (default 1e-12) to keep the loss finite.
+        - ``kl_divergence``: scalar = sum(tgt_share * log(tgt_share / sim_share));
+          cross-entropy minus the (constant) entropy of the target. Useful when
+          you want the loss to be zero at the perfect match instead of the
+          target's entropy. Same eps-clipping as ``cross_entropy``.
         - ``vector``: per-category absolute error vector (multi-objective)
     source_key:
         Key in the simulator output dict naming the SQLite path
         (default ``"demand_db"``).
+    eps:
+        Numerical floor used only for ``cross_entropy`` / ``kl_divergence``
+        when a simulated share is zero on a positive-target category
+        (default 1e-12). Ignored by other aggregations.
     """
+
+    _SCALAR_AGGREGATIONS = ("sum_abs", "rmse", "cross_entropy", "kl_divergence")
+    _VALID_AGGREGATIONS = (*_SCALAR_AGGREGATIONS, "vector")
 
     def __init__(
         self,
@@ -80,15 +95,22 @@ class ChoiceShareMetric(Metric):
         count_col: str = "count",
         aggregation: str = "sum_abs",
         source_key: str = "demand_db",
+        eps: float = 1e-12,
     ) -> None:
         self.target_db = Path(target_db)
         self.sql = sql
         self.category_col = category_col
         self.count_col = count_col
-        if aggregation not in ("sum_abs", "rmse", "vector"):
-            raise ValueError(f"unknown aggregation: {aggregation!r}")
+        if aggregation not in self._VALID_AGGREGATIONS:
+            raise ValueError(
+                f"unknown aggregation: {aggregation!r} "
+                f"(expected one of {self._VALID_AGGREGATIONS})"
+            )
         self.aggregation = aggregation
         self.source_key = source_key
+        if not (isinstance(eps, (int, float)) and np.isfinite(eps) and eps > 0):
+            raise ValueError(f"eps must be a positive finite scalar, got {eps!r}")
+        self.eps = float(eps)
         self._target_cache: dict[str, float] | None = None
 
     @property
@@ -133,4 +155,17 @@ class ChoiceShareMetric(Metric):
             return np.array([abs(sim.get(k, 0.0) - tgt[k]) for k in target_keys])
         if self.aggregation == "rmse":
             return np.array([float(np.sqrt(np.mean(errs**2)))])
+        if self.aggregation in ("cross_entropy", "kl_divergence"):
+            # Only categories with positive target contribute (0 * log(x) = 0).
+            # Simulated shares floored at eps so log stays finite when the sim
+            # missed a target-present category entirely.
+            p_tgt = np.array([tgt[k] for k in keys if tgt.get(k, 0.0) > 0.0], dtype=float)
+            p_sim = np.array(
+                [max(sim.get(k, 0.0), self.eps) for k in keys if tgt.get(k, 0.0) > 0.0],
+                dtype=float,
+            )
+            if self.aggregation == "cross_entropy":
+                return np.array([float(-np.sum(p_tgt * np.log(p_sim)))])
+            # kl_divergence
+            return np.array([float(np.sum(p_tgt * np.log(p_tgt / p_sim)))])
         return np.array([float(np.sum(np.abs(errs)))])

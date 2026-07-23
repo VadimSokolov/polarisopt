@@ -139,3 +139,87 @@ def test_choice_share_missing_source_key(tmp_path: Path) -> None:
     metric = ChoiceShareMetric(target_db=target, sql="SELECT mode AS category, n AS count FROM mode_share")
     with pytest.raises(MetricError, match="demand_db"):
         metric.compute({})
+
+
+def test_choice_share_cross_entropy_identical_is_target_entropy(tmp_path: Path) -> None:
+    """CE(p||p) = H(p) — the entropy of the target."""
+    target = tmp_path / "target.sqlite"
+    sim = tmp_path / "sim.sqlite"
+    rows = [("auto", 80), ("walk", 10), ("transit", 10)]
+    _make_demand_db(target, rows)
+    _make_demand_db(sim, rows)
+    metric = ChoiceShareMetric(
+        target_db=target,
+        sql="SELECT mode AS category, n AS count FROM mode_share",
+        aggregation="cross_entropy",
+    )
+    out = metric.compute({"demand_db": str(sim)})
+    assert out.shape == (1,)
+    p = np.array([0.8, 0.1, 0.1])
+    expected = -float(np.sum(p * np.log(p)))
+    assert float(out[0]) == pytest.approx(expected, rel=1e-9)
+
+
+def test_choice_share_kl_divergence_identical_is_zero(tmp_path: Path) -> None:
+    """KL(p||p) = 0 — desirable for a "zero at perfect match" objective."""
+    target = tmp_path / "target.sqlite"
+    sim = tmp_path / "sim.sqlite"
+    rows = [("auto", 80), ("walk", 10), ("transit", 10)]
+    _make_demand_db(target, rows)
+    _make_demand_db(sim, rows)
+    metric = ChoiceShareMetric(
+        target_db=target,
+        sql="SELECT mode AS category, n AS count FROM mode_share",
+        aggregation="kl_divergence",
+    )
+    out = metric.compute({"demand_db": str(sim)})
+    assert out.shape == (1,)
+    assert float(out[0]) == pytest.approx(0.0, abs=1e-12)
+
+
+def test_choice_share_cross_entropy_zero_sim_clipped_at_eps(tmp_path: Path) -> None:
+    """A sim missing a target-present category doesn't blow up — clipped to eps."""
+    target = tmp_path / "target.sqlite"
+    sim = tmp_path / "sim.sqlite"
+    _make_demand_db(target, [("auto", 60), ("walk", 20), ("transit", 20)])
+    _make_demand_db(sim,    [("auto", 60), ("walk", 20)])  # transit missing
+    metric = ChoiceShareMetric(
+        target_db=target,
+        sql="SELECT mode AS category, n AS count FROM mode_share",
+        aggregation="cross_entropy",
+        eps=1e-6,
+    )
+    out = metric.compute({"demand_db": str(sim)})
+    # transit contribution: -0.2 * log(1e-6) ≈ 2.764 (large but finite)
+    assert np.isfinite(out[0])
+    assert float(out[0]) > 2.0
+    assert float(out[0]) < 5.0
+
+
+def test_choice_share_kl_zero_target_category_ignored(tmp_path: Path) -> None:
+    """Categories with p_target = 0 must not contribute (0 * log = 0)."""
+    target = tmp_path / "target.sqlite"
+    sim = tmp_path / "sim.sqlite"
+    # Target has no BIKE; sim reports some. KL(p||q) should ignore BIKE.
+    _make_demand_db(target, [("auto", 80), ("walk", 20)])
+    _make_demand_db(sim,    [("auto", 80), ("walk", 15), ("bike", 5)])
+    metric = ChoiceShareMetric(
+        target_db=target,
+        sql="SELECT mode AS category, n AS count FROM mode_share",
+        aggregation="kl_divergence",
+    )
+    out = metric.compute({"demand_db": str(sim)})
+    # KL = 0.8*log(0.8/0.8) + 0.2*log(0.2/0.15) = 0 + 0.2*log(4/3)
+    expected = 0.2 * float(np.log(0.2 / 0.15))
+    assert float(out[0]) == pytest.approx(expected, rel=1e-6)
+
+
+def test_choice_share_rejects_bad_aggregation() -> None:
+    with pytest.raises(ValueError, match="unknown aggregation"):
+        ChoiceShareMetric(target_db="/dev/null", sql="", aggregation="not_a_real_one")
+
+
+def test_choice_share_rejects_bad_eps() -> None:
+    for bad in (0, -1e-9, float("nan"), float("inf"), "1e-6"):
+        with pytest.raises(ValueError, match="eps"):
+            ChoiceShareMetric(target_db="/dev/null", sql="", eps=bad)  # type: ignore[arg-type]

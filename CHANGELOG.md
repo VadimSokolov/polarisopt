@@ -2,6 +2,41 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.20.0 — 2026-07-23
+
+Cross-entropy and KL-divergence aggregations for `choice_share`. Both are
+information-theoretic losses natural for probability-vector matching
+(mode shares, activity-type shares, any categorical distribution).
+Requested by the DFW calibration study — L1 (`sum_abs`) is scale-symmetric
+around each category and gives every mode equal weight, which under-
+weights the rare-mode signal that matters for real calibration; cross-
+entropy weights errors by target probability.
+
+### Added
+
+- **`aggregation: cross_entropy`** on the existing `choice_share` metric.
+  Computes `-Σ p_target(k) * log(p_sim(k))` over categories with
+  `p_target(k) > 0`. Categories where the sim reports zero on a
+  positive-target mode are clipped at `eps` (default 1e-12) to keep
+  the loss finite. At perfect match, cross-entropy equals the target's
+  entropy `H(p_target)` — not zero. When you want a zero-at-perfect
+  loss, use `kl_divergence`.
+- **`aggregation: kl_divergence`** — computes
+  `Σ p_target(k) * log(p_target(k) / p_sim(k))`. Same eps-clipping as
+  cross-entropy. Zero at perfect match; equals `cross_entropy - H(p_target)`.
+- **`eps`** parameter (default 1e-12) — the numerical floor used only
+  by `cross_entropy` / `kl_divergence` when a simulated share is zero
+  on a positive-target category. Rejects zero, negative, and non-finite
+  inputs at construction with a clear `ValueError`.
+
+### Tests
+
+- 6 new tests in `tests/unit/test_metrics_polaris.py` covering:
+  identity yields target-entropy for CE and zero for KL; missing-in-sim
+  category clipped at eps; zero-target categories ignored; `aggregation`
+  and `eps` validation.
+- 375 tests passing (was 369).
+
 ## 0.19.0 — 2026-07-23
 
 Anchored-noise GP surrogate. Companion to v0.18.0's `qlognei`: when
