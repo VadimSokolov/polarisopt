@@ -72,3 +72,66 @@ def test_gp_factory() -> None:
 def test_gp_rejects_bad_nu() -> None:
     with pytest.raises(ValueError):
         GPSurrogate(nu=1.0)
+
+
+def test_gp_rejects_bad_observation_noise() -> None:
+    with pytest.raises(ValueError):
+        GPSurrogate(observation_noise=0.0)
+    with pytest.raises(ValueError):
+        GPSurrogate(observation_noise=-1e-3)
+    with pytest.raises(ValueError):
+        GPSurrogate(observation_noise=float("inf"))
+    # Non-scalar shapes (list/array) and unconvertible objects all must
+    # raise ValueError with the same message shape, not a stray TypeError.
+    with pytest.raises(ValueError):
+        GPSurrogate(observation_noise=[1e-4, 2e-4])
+    with pytest.raises(ValueError):
+        GPSurrogate(observation_noise=np.array([[1e-4]]))
+    with pytest.raises(ValueError):
+        GPSurrogate(observation_noise="not a number")
+
+
+def test_gp_observation_noise_uses_fixed_likelihood() -> None:
+    from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
+
+    X, Y = _toy_data(m=1)
+    gp = GPSurrogate(observation_noise=1e-4)
+    gp.fit(X, Y)
+    assert isinstance(gp.model.likelihood, FixedNoiseGaussianLikelihood)
+
+
+def test_gp_no_observation_noise_uses_learned_likelihood() -> None:
+    from gpytorch.likelihoods import FixedNoiseGaussianLikelihood, GaussianLikelihood
+
+    X, Y = _toy_data(m=1)
+    gp = GPSurrogate()
+    gp.fit(X, Y)
+    # Default path stays on the learned homoskedastic likelihood, NOT the
+    # fixed-noise sibling (they both inherit from _GaussianLikelihoodBase).
+    assert isinstance(gp.model.likelihood, GaussianLikelihood)
+    assert not isinstance(gp.model.likelihood, FixedNoiseGaussianLikelihood)
+
+
+def test_gp_observation_noise_multi_obj() -> None:
+    from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
+
+    X, Y = _toy_data(m=2, n=14)
+    gp = GPSurrogate(observation_noise=1e-4)
+    gp.fit(X, Y)
+    # ModelListGP: each sub-model gets its own FixedNoiseGaussianLikelihood.
+    for sub in gp.model.models:
+        assert isinstance(sub.likelihood, FixedNoiseGaussianLikelihood)
+    mean, var = gp.predict(X[:3])
+    assert mean.shape == (3, 2)
+    assert var.shape == (3, 2)
+
+
+def test_gp_observation_noise_via_factory() -> None:
+    from gpytorch.likelihoods import FixedNoiseGaussianLikelihood
+
+    s = make_surrogate(
+        {"type": "gp", "options": {"nu": 2.5, "observation_noise": 2.79e-6}}
+    )
+    X, Y = _toy_data(m=1)
+    s.fit(X, Y)
+    assert isinstance(s.model.likelihood, FixedNoiseGaussianLikelihood)

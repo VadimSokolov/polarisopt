@@ -2,6 +2,62 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.19.0 — 2026-07-23
+
+Anchored-noise GP surrogate. Companion to v0.18.0's `qlognei`: when
+you have a measured noise variance from a repeat-evaluation study
+(POLARIS Phase 3B.0 pattern), pass it in and the GP treats noise as
+known instead of learning it from residuals. Prevents mis-attributing
+noise to signal (or vice-versa) when warmup is scarce.
+
+### Added
+
+- **`gp.options.observation_noise`** — new YAML option on the
+  existing `gp` surrogate plugin. Pass a positive scalar σ² in
+  original Y units; BoTorch swaps `GaussianLikelihood` for
+  `FixedNoiseGaussianLikelihood` and MLL fits only the kernel
+  hyperparameters. `Standardize` rescales the variance to
+  standardized-Y units automatically, so the user always passes
+  the raw measurement. Defaults to `None` (learn noise as before —
+  no behavior change for existing YAMLs).
+- Validation: rejects zero, negative, non-finite noise at
+  construction with a clear `ValueError`.
+- Multi-output support: each sub-model in the `ModelListGP` gets
+  its own `FixedNoiseGaussianLikelihood`.
+
+### Documentation
+
+- **`docs/concepts/bayesian-optimization.md`** — new
+  "Anchored-noise GP" subsection with the YAML shape, when-to-use
+  guidance, and a paired `qlognei + gp.observation_noise` example
+  (the strongest noise-aware setup polarisopt currently offers).
+  The previous "future release" pointer from v0.18.0's noise-aware
+  section now cross-links here.
+
+### Deferred / next release
+
+- **First-class `seed_per_sample` runner option** — currently a
+  project-local shim in `polarisopt_runner.py` computes
+  `effective_seed = base_seed + sim_id` for POLARIS RNG-noise studies
+  (Phase 3B.0 / 3D pattern). Multi-seed same-input replication is
+  the standard first diagnostic for any noisy-simulator BO; belongs
+  in `polarisopt.simulator.polaris_convergence` proper, wired
+  through the YAML.
+- **`polarisopt sensitivity <run.yaml>` subcommand** — post-hoc
+  GP-Sobol analysis on any completed SampleStore. Fit a
+  Matern-ARD GP on the observed (X, y), run SALib Sobol on
+  surrogate predictions, report ranked S₁/ST plus GP length-scales
+  (the "poor person's variable-importance" check the DFW agent
+  used to find that 6 of 10 DFW parameters were flat). Would
+  surface dimensionality-reduction opportunities automatically
+  after every BO run.
+- **Heteroscedastic GP surrogate** — DFW Phase 3D observed
+  measurably lower noise at sample 48's coords (std 0.00110)
+  vs sample 12's (std 0.00167). Today's `observation_noise` is
+  scalar / homoskedastic; a `HeteroskedasticSingleTaskGP` variant
+  would let the noise vary with X. Larger design change; separate
+  release.
+
 ## 0.18.0 — 2026-07-23
 
 Noise-aware Bayesian optimization. The DFW calibration agent's

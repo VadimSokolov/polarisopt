@@ -131,10 +131,71 @@ Use `qlognei` when:
 For deterministic simulators, `qei` remains the right choice — no
 advantage from noise modelling if there's no noise.
 
-**Related lever (not yet a plugin):** if you have a measured noise
-level, an observation-noise-aware surrogate (`FixedNoiseGP` instead of
-`SingleTaskGP`) lets the surrogate use your measurement instead of
-inferring it from residuals. Flagged for a future release.
+**Related lever (`observation_noise` on the `gp` surrogate):** if
+you have a measured noise variance, the `gp` plugin can use it as a
+known noise term instead of inferring one from residuals — see
+[Anchored-noise GP](#anchored-noise-gp) below. Use both together for
+the strongest noise-aware setup.
+
+## Anchored-noise GP
+
+The `gp` plugin has an `observation_noise` YAML option that swaps
+its learned homoskedastic noise term for a known, fixed one — use it
+when you've measured simulator noise separately.
+
+`GPSurrogate` (aka the `gp` plugin) defaults to a learned
+homoskedastic noise term — a `GaussianLikelihood` with a `noise`
+parameter fit by marginal-likelihood alongside the kernel
+hyperparameters. That's fine when data is plentiful, but with a
+scarce warmup the fitted noise can peg at the lower bound and get
+mis-attributed to signal, or vice-versa. If you've already measured
+the observation noise via a dedicated repeat-evaluation study
+(POLARIS Phase 3B.0 pattern: N runs at the same X with distinct
+seeds), pass the variance in:
+
+```yaml
+generator:
+  type: acquisition
+  options:
+    surrogate:
+      type: gp
+      options:
+        nu: 2.5
+        observation_noise: 2.79e-6   # sigma^2, in original Y units
+    acquisition:
+      type: qlognei
+      options: { mc_samples: 128 }
+```
+
+`observation_noise` is the variance (σ²), not the standard
+deviation. `Standardize` inside the plugin rescales it to
+standardized-Y units automatically, so pass the raw measurement.
+When set, BoTorch swaps `GaussianLikelihood` for
+`FixedNoiseGaussianLikelihood` and MLL fits only the kernel
+hyperparameters — the noise term is treated as known.
+
+Use when:
+
+- You have a measured noise floor. Rules of thumb — validate for
+  your simulator: 5 same-input repeats is a common starting point;
+  10+ tightens the estimate meaningfully. The estimate matters more
+  than any specific N.
+- Warmup is scarce and you don't trust MLL to disentangle noise
+  from signal. Heuristic: under ~10× parameters worth of warmup
+  samples in > ~5 dimensions is where anchoring starts to pay off;
+  again, verify by comparing the anchored vs learned run on the
+  same data.
+- You want the surrogate's aleatoric uncertainty to match what you
+  measured, so `qlognei`'s posterior over the incumbent is
+  correctly calibrated.
+
+Don't use when:
+
+- You haven't measured noise. A guess is worse than the learned
+  estimate.
+- The noise is heteroscedastic across the space (a heteroscedastic
+  GP is the fix — flagged for a future release; today's
+  `observation_noise` is scalar / homoskedastic).
 
 ## Minimize vs. maximize
 

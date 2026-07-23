@@ -52,11 +52,24 @@ class GPSurrogate(Surrogate):
     bounds : array-like of shape ``(d, 2)`` or None
         Optional explicit input bounds for the ``Normalize`` transform.
         If ``None``, BoTorch infers from training data.
+    observation_noise : float, optional
+        Measured observation-noise variance (σ²) in the original Y units.
+        When provided, the GP uses a ``FixedNoiseGaussianLikelihood`` with
+        this variance treated as known — replaces the default learned
+        homoskedastic noise term (v0.19+). Use this when you've measured
+        simulator noise via a dedicated repeat-evaluation study (e.g.
+        POLARIS Phase 3B.0 style: N runs at the same X with distinct
+        seeds), so the surrogate cannot mis-attribute noise to signal
+        when data is scarce. ``Standardize`` rescales the variance
+        alongside Y internally, so pass the raw σ². Must be positive
+        and finite; must be a single scalar (per-point noise is not
+        exposed yet). Default ``None`` → learn noise as before.
 
     Raises
     ------
     ValueError
-        If ``nu`` is not one of ``{0.5, 1.5, 2.5}``.
+        If ``nu`` is not one of ``{0.5, 1.5, 2.5}``, or if
+        ``observation_noise`` is not a positive finite scalar.
     SurrogateError
         If :meth:`fit` is called with fewer than 2 points or with
         non-finite inputs/targets.
@@ -74,9 +87,32 @@ class GPSurrogate(Surrogate):
     ((2, 1), (2, 1))
     """
 
-    def __init__(self, *, nu: float = 2.5, bounds: list[list[float]] | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        nu: float = 2.5,
+        bounds: list[list[float]] | None = None,
+        observation_noise: float | None = None,
+    ) -> None:
         if nu not in (0.5, 1.5, 2.5):
             raise ValueError(f"Matern nu must be one of {{0.5, 1.5, 2.5}}, got {nu}")
+        if observation_noise is not None:
+            try:
+                arr = np.asarray(observation_noise)
+                if arr.ndim != 0:
+                    raise ValueError("must be a scalar")
+                noise = float(arr)
+            except (TypeError, ValueError, OverflowError) as exc:
+                raise ValueError(
+                    f"observation_noise must be a positive finite scalar, got {observation_noise!r}"
+                ) from exc
+            if not np.isfinite(noise) or noise <= 0:
+                raise ValueError(
+                    f"observation_noise must be a positive finite scalar, got {observation_noise!r}"
+                )
+            self._observation_noise: float | None = noise
+        else:
+            self._observation_noise = None
         self._nu = float(nu)
         self._bounds_override: np.ndarray | None = (
             np.asarray(bounds, dtype=float) if bounds is not None else None
@@ -174,12 +210,17 @@ class GPSurrogate(Surrogate):
     ) -> SingleTaskGP:
         d = X_t.shape[-1]
         covar = ScaleKernel(MaternKernel(nu=self._nu, ard_num_dims=d))
-        model = SingleTaskGP(
+        kwargs: dict[str, Any] = dict(
             train_X=X_t,
             train_Y=Y_t,
             covar_module=covar,
             input_transform=input_transform,
             outcome_transform=Standardize(m=Y_t.shape[-1]),
         )
+        if self._observation_noise is not None:
+            # Fixed-noise path: BoTorch swaps in FixedNoiseGaussianLikelihood
+            # and Standardize rescales train_Yvar alongside train_Y automatically.
+            kwargs["train_Yvar"] = torch.full_like(Y_t, self._observation_noise)
+        model = SingleTaskGP(**kwargs)
         model.double()
         return model
