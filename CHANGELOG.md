@@ -2,6 +2,28 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.17.3 — 2026-06-25
+
+Hot fix: wheel build was broken. Downstream users hitting
+`pip install .` or `pip install <git-url>` saw
+`metadata-generation-failed`; only editable installs (`pip install -e`)
+worked. Merged from a fix branch pushed by a sibling agent.
+
+### Bug fix
+
+- **Remove redundant `[tool.hatch.build.targets.wheel.force-include]`
+  entry.** It mapped `src/polarisopt/examples → polarisopt/examples`,
+  but that directory already ships via `packages = ["src/polarisopt"]`
+  (hatchling includes non-Python data files inside packages). The
+  duplicate made hatchling refuse:
+  ```
+  ValueError: A second file is being added to the wheel archive at
+  the same path: polarisopt/examples/__init__.py
+  ```
+  Removed the force-include (and the empty shared-data table). Verified
+  the built wheel still contains all four bundled example YAMLs +
+  `examples/__init__.py`, no duplicates.
+
 ## 0.17.2 — 2026-06-25
 
 Docs-only release. Consolidates the monitoring story — previously
