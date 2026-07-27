@@ -33,6 +33,15 @@ simulator:
     transfer:
       type: local            # or "anl" (Globus via polaris-studio)
       options: {}
+    # Reclaim scratch after each successful sample, but keep just enough
+    # to re-score the metric later without re-running the simulator.
+    # Recommended for large studies (DFW: ~2.5 GB → ~100 MB per sample).
+    cleanup_on_success: true
+    keep_files_after_success:
+      - "*/*-Demand.sqlite"           # per-iteration Demand DB — choice_share source
+      - "*/summary.csv"               # POLARIS network summary (VMT/VHT)
+      - "*/popsyn_fit_results.csv"    # pop-synthesis fit stats
+      - "*/log/polaris_progress.log"
 ```
 
 Or for tests:

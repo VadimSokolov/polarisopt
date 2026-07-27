@@ -135,9 +135,31 @@ class PolarisSimulator(Simulator):
         When ``cleanup_on_success=True``, glob patterns (relative to
         the workspace) for files to preserve. Anything not matching is
         deleted. Empty list (the default) means full cleanup. Patterns
-        use :mod:`fnmatch` semantics on the relative path —
+        use ``pathlib.Path.glob`` semantics on the relative path —
         e.g. ``["DFW-Demand.sqlite", "log/*.log", "**/result.h5"]``.
         Parent directories of kept files are preserved.
+
+        Recommended preset for DFW-style POLARIS studies where you
+        want cheap metric-rescoring after a metric-code change
+        without re-running the simulator (DFW Phase 4A → 4A-v2 pattern
+        under v0.21's CE fix):
+
+        .. code-block:: yaml
+
+            cleanup_on_success: true
+            keep_files_after_success:
+              - "*/*-Demand.sqlite"         # per-iteration Demand DB — metric source
+              - "*/summary.csv"             # POLARIS network summary (VMT/VHT)
+              - "*/popsyn_fit_results.csv"  # pop-synthesis fit stats
+              - "*/log/polaris_progress.log"
+
+        On a 1% DFW build this preserves ~100 MB/sample (vs ~2.5 GB
+        with full workspace) while still dropping the huge
+        ``DFW-Result.h5`` / ``highway_skim_file.omx`` / ``DFW-Result.sqlite``
+        files that dominate quota pressure. `choice_share` metrics
+        with a v0.21+ aggregation can be re-computed directly from
+        the preserved per-iteration Demand DBs, no simulator re-run
+        required.
     results_transfer : dict or None
         Symmetric counterpart to ``transfer`` (which only handles
         staging IN). When set, after :meth:`collect_output` succeeds,
