@@ -105,7 +105,12 @@ metric:
   options:
     target_db: /path/to/target/Demand.sqlite
     sql: "SELECT mode AS category, COUNT(*) AS count FROM trip GROUP BY mode"
-    aggregation: sum_abs     # sum_abs | rmse | vector
+    aggregation: sum_abs     # sum_abs | rmse | cross_entropy | kl_divergence | jensen_shannon | vector
+    # For cross_entropy / kl_divergence, sim shares are add-alpha smoothed
+    # via (n_k + alpha) / (N + K * alpha). Default alpha=1 (Dirichlet(1)
+    # posterior mean). Set to 0 to disable and fall back to eps-clipping
+    # (v0.20 behavior, kept for reproducibility of older studies).
+    laplace_smoothing_alpha: 1.0
 ```
 
 ```yaml

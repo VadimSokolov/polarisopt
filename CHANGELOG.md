@@ -2,6 +2,76 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.21.0 — 2026-07-27
+
+Robust `choice_share.cross_entropy` and `kl_divergence` aggregations
++ new `jensen_shannon` aggregation. Fixes the bimodality artifact the
+DFW calibration study documented in Phase 4/5: with v0.20's fixed
+`eps=1e-12` floor, a sim that happened to report zero count on a
+target-positive category contributed `-target_k · log(1e-12) ≈
+27.6·target_k` to the CE — creating a bimodal metric distribution
+that noise-aware BO (v0.18 `qlognei`) cannot handle. The DFW
+analytical simulator (500 seeds × 5 parameter locations) showed
+excess kurtosis +10 to +23 with the v0.20 CE and −0.28 with the
+Laplace-smoothed variant.
+
+### Behavior change (opt-out available)
+
+The default numerical semantics of `cross_entropy` and
+`kl_divergence` have changed. **Studies that reproduced numeric
+values from v0.20 will see different scalar results** — they were
+the buggy ones. Add `laplace_smoothing_alpha: 0` in the metric
+options to preserve v0.20 semantics for reproducibility.
+
+### Added
+
+- **`laplace_smoothing_alpha`** — new metric option (default `1.0`)
+  applied to `cross_entropy` and `kl_divergence`. When positive,
+  smoothed sim shares are `(count_k + α) / (N_sim + K·α)` — the
+  posterior mean under a Dirichlet(α) prior. `α = 1.0` (default) is
+  add-one smoothing. `α = 0` disables smoothing and falls back to
+  the v0.20 `eps`-clipping path. Rejects negative / non-finite /
+  non-scalar inputs at construction with `ValueError`; `bool` also
+  rejected (bool-is-int in Python is a footgun here).
+- **`aggregation: jensen_shannon`** — new aggregation. Formula
+  `0.5·KL(p || m) + 0.5·KL(q || m)` where `m = 0.5·(p + q)`.
+  Bounded in `[0, ln 2]`, symmetric, needs no eps or smoothing
+  (zero-mass categories drop out naturally because `m_k = 0` iff
+  both `p_k = q_k = 0`). Recommended alternative to CE when you
+  want a bounded, symmetric metric.
+- **KL numerical stability** — `kl_divergence` now computes
+  `log(p) - log(q)` instead of `log(p / q)` (per CodeRabbit
+  guidance on the v0.20 review). Not observable at mode-share
+  magnitudes; correct across a wider range.
+
+### Documentation
+
+- **`docs/yaml-reference.md`** — extended the `choice_share` YAML
+  example with the new aggregations list and `laplace_smoothing_alpha`
+  option, including a note on the v0.20 opt-out path.
+- **Docstring** on `ChoiceShareMetric` rewritten: describes the
+  Laplace path, the eps opt-out, and the jensen_shannon aggregation.
+
+### Tests
+
+- 8 new tests in `test_metrics_polaris.py`: default-α semantics on
+  identity, regression test that the v0.20 bimodality blow-up does
+  NOT happen at default (`< 2.0` vs. v0.20's ~5.5 on the same
+  input), JS identity/bounded/symmetric/missing-category,
+  and `laplace_smoothing_alpha` validation (including bool).
+- 4 pre-existing v0.20 CE/KL tests updated to opt into
+  `laplace_smoothing_alpha=0` so their pure-math identities still
+  hold — this exercises the eps opt-out path as well.
+- Full suite: 383 passing (was 375).
+
+### Not shipped this release
+
+Skipped `poisson_nll` (DFW report ranked it lowest priority; deferrable
+without harm to Phase 4 recovery). Feedback items 2–5 in the DFW
+report (PBS backoff rc=38, Slurm master-submit surfacing, runner
+error detail, `polarisopt sensitivity` subcommand, first-class
+`seed_per_sample`) are still queued.
+
 ## 0.20.0 — 2026-07-23
 
 Cross-entropy and KL-divergence aggregations for `choice_share`. Both are
