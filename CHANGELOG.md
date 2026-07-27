@@ -2,6 +2,63 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.23.0 — 2026-07-27
+
+First-class `seed_per_sample` on `PolarisConvergenceSimulator`.
+Multi-seed same-input replication is the standard first diagnostic
+for any noisy-simulator BO (POLARIS Phase 3B.0 / 3D): run N samples
+at the same X with distinct POLARIS RNG seeds to measure the noise
+floor before BO commits to an acquisition. Previously this required
+a project-local shim in `polarisopt_runner.py` that parsed the
+sim id from the workspace directory name; now polarisopt owns the
+arithmetic.
+
+### Added
+
+- **`PolarisConvergenceSimulator(seed_per_sample=True)`** — new
+  keyword-only constructor arg. When enabled, `prepare()` computes
+  the effective POLARIS seed as `base_seed + sample.id` (base seed
+  read from `runner_options.get("seed", 0)`, defaults to 0 if
+  unset) and passes it to the runner as `--seed=<n>`. Each sample
+  at the same X gets a distinct POLARIS seed automatically.
+- **YAML shape:**
+  ```yaml
+  simulator:
+    type: polaris_convergence
+    options:
+      runner_script: /lcrc/.../polarisopt_runner.py
+      seed_per_sample: true      # v0.23+: polarisopt-side
+      runner_options:
+        seed: 100                # base seed; per-sample offset is added
+        population_scale_factor: 0.01
+  ```
+- **`--seed-per-sample` is NOT forwarded** to the runner script.
+  polarisopt computes the effective seed before submission, and if
+  the calibration-tree shim (which also honors `seed_per_sample`)
+  saw it, it would run the offset math a second time and
+  double-add. The `seed_per_sample` key is stripped from
+  `runner_options` if a migrating caller left it there.
+
+### Migration for existing calibration-tree users
+
+If your YAML currently sets `runner_options.seed_per_sample: true`
+(the pre-v0.23 shim path), you can either:
+- Leave it alone — the shim still works; polarisopt's new kwarg is
+  purely additive.
+- Migrate to the first-class form: move `seed_per_sample: true` out
+  of `runner_options` to the top-level `options.seed_per_sample`.
+  polarisopt handles the arithmetic and strips the runner_options
+  entry so nothing double-computes.
+
+### Tests
+
+- 5 new tests: effective seed computation across sample IDs,
+  base-seed defaults to 0 when unset, off-by-default preserves
+  the explicit base seed unchanged, top-level kwarg wins over
+  the legacy runner_options key (with strip), unsaved sample
+  (id=None) falls back to 0 offset.
+- Full suite: 391 passing (was 386).
+
 ## 0.22.0 — 2026-07-27
 
 Operational hardening for large PBS batches and post-mortems.

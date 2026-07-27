@@ -136,6 +136,18 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         ``True`` — "preserve artifacts" is the right stance for the
         calibration use case. Explicit
         ``runner_options.disable_async_callback`` overrides.
+    seed_per_sample : bool, optional
+        First-class support for POLARIS RNG-noise studies (v0.23+).
+        When ``True``, the effective seed passed to the runner as
+        ``--seed=<n>`` is ``runner_options["seed"] + sample.id``
+        (base seed defaults to 0 if not set). Each sample at the
+        same X gets a distinct POLARIS seed, enabling the
+        "N repeats at one point" pattern that's the standard first
+        diagnostic for any noisy-simulator BO (POLARIS Phase 3B.0 /
+        3D). ``--seed-per-sample`` itself is **not** forwarded to the
+        runner — polarisopt computes the effective seed before
+        submission, so downstream shims that also honor
+        ``seed_per_sample`` don't double-add. Default ``False``.
     Other parameters inherited from :class:`PolarisSimulator`.
 
     Notes
@@ -203,6 +215,7 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         "fixed_supply",
         "max_concurrent",
         "disable_async_callback",
+        "seed",
     })
 
     def unknown_runner_options(self) -> list[str]:
@@ -225,6 +238,7 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         env: dict[str, str] | None = None,
         single_iteration: bool = False,
         disable_async_callback: bool = True,
+        seed_per_sample: bool = False,
         **kw: Any,
     ) -> None:
         # polarislib workloads stage 1.5–3 GB per sample; if 100 FAILED
@@ -249,6 +263,14 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         self.setup_commands: list[str] = list(setup_commands or [])
         self.extra_env: dict[str, str] = dict(env or {})
         self.single_iteration: bool = bool(single_iteration)
+        self.seed_per_sample: bool = bool(seed_per_sample)
+        # If the caller also set ``seed_per_sample`` inside runner_options
+        # (older YAMLs targeting the project-local shim), the top-level
+        # kwarg takes precedence and we strip the runner_options entry so
+        # the shim doesn't ALSO compute the offset — polarisopt owns the
+        # arithmetic now.
+        if self.seed_per_sample:
+            self.runner_options.pop("seed_per_sample", None)
         if self.single_iteration:
             # The "ABM-only / choice-models-only" mode for calibration:
             # polarislib runs abm_init then stops, no follow-up
@@ -289,13 +311,26 @@ class PolarisConvergenceSimulator(PolarisSimulator):
                 missing,
             )
 
+        # Per-sample runner_options: start from the shared config, apply
+        # any per-sample overrides (currently just seed_per_sample) into
+        # a fresh copy so we don't mutate the constructor's dict.
+        per_sample_options: dict[str, Any] = dict(self.runner_options)
+        if self.seed_per_sample:
+            base_seed = int(per_sample_options.get("seed", 0) or 0)
+            offset = int(sample.id) if sample.id is not None else 0
+            per_sample_options["seed"] = base_seed + offset
+            log.info(
+                "seed_per_sample: base=%d + sim_id=%d -> POLARIS seed=%d",
+                base_seed, offset, per_sample_options["seed"],
+            )
+
         runner_argv = [
             shlex.quote(self.python_interpreter),
             shlex.quote(str(self.runner_script)),
             shlex.quote(str(workspace)),
             f"--threads={shlex.quote(self.num_threads)}",
         ]
-        for k, v in self.runner_options.items():
+        for k, v in per_sample_options.items():
             flag = "--" + str(k).replace("_", "-")
             # ``--flag=value`` is one shell token; quote the value to
             # survive spaces / shell metacharacters in user-supplied

@@ -234,6 +234,120 @@ def test_make_simulator_factory(tmp_path: Path, runner_script: Path) -> None:
     assert isinstance(sim, PolarisConvergenceSimulator)
 
 
+def _seed_from_command(command: str) -> int | None:
+    """Tokenize the JobSpec command and return the int value of --seed=<n>.
+
+    Substring `"--seed=100" in command` would false-match `--seed=1000`,
+    so parse it properly (CodeRabbit-flagged v0.23).
+    """
+    import shlex
+
+    for token in shlex.split(command):
+        if token.startswith("--seed="):
+            return int(token.split("=", 1)[1])
+    return None
+
+
+def _has_seed_per_sample_flag(command: str) -> bool:
+    import shlex
+
+    return any(t.startswith("--seed-per-sample") for t in shlex.split(command))
+
+
+def test_prepare_seed_per_sample_computes_effective_seed(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """v0.23: with seed_per_sample=True, each sample's --seed is
+    base_seed + sample.id — the standard multi-seed noise-study pattern
+    (POLARIS Phase 3B.0 / 3D)."""
+    sim = _make_sim(
+        tmp_path,
+        runner_script,
+        runner_options={"population_scale_factor": 0.01, "seed": 100},
+        seed_per_sample=True,
+    )
+    for sim_id, expected_seed in ((1, 101), (2, 102), (42, 142)):
+        spec = sim.prepare(
+            Sample(id=sim_id, inputs=np.array([0.5])),
+            space,
+            tmp_path / f"seed-{sim_id}",
+        )
+        assert _seed_from_command(spec.command) == expected_seed
+        # Explicitly NOT forwarded — polarisopt owns the arithmetic now,
+        # and the project-local shim (which also honors --seed-per-sample)
+        # must not run a second time and double-add the offset.
+        assert not _has_seed_per_sample_flag(spec.command)
+
+
+def test_prepare_seed_per_sample_defaults_base_to_zero(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """If no base seed is set in runner_options, we implicitly use 0."""
+    sim = _make_sim(
+        tmp_path, runner_script,
+        runner_options={"population_scale_factor": 0.01},
+        seed_per_sample=True,
+    )
+    spec = sim.prepare(
+        Sample(id=5, inputs=np.array([0.5])), space, tmp_path / "seed-nowhere-5",
+    )
+    assert _seed_from_command(spec.command) == 5
+
+
+def test_prepare_seed_per_sample_off_leaves_seed_alone(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """Default off: an explicit seed in runner_options passes through unchanged."""
+    sim = _make_sim(
+        tmp_path, runner_script,
+        runner_options={"population_scale_factor": 0.01, "seed": 100},
+    )
+    spec = sim.prepare(
+        Sample(id=7, inputs=np.array([0.5])), space, tmp_path / "seed-off-7",
+    )
+    # Not 107. Base seed passes through untouched.
+    assert _seed_from_command(spec.command) == 100
+
+
+def test_prepare_seed_per_sample_wins_over_runner_options_shim(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """Backwards compat: users migrating from the calibration-tree shim
+    might have both the top-level kwarg and runner_options['seed_per_sample']
+    set. The top-level wins; the runner_options entry is stripped so the
+    downstream shim doesn't ALSO compute the offset and double-add."""
+    sim = _make_sim(
+        tmp_path, runner_script,
+        runner_options={
+            "population_scale_factor": 0.01,
+            "seed": 200,
+            "seed_per_sample": True,  # legacy — polarisopt strips this
+        },
+        seed_per_sample=True,
+    )
+    spec = sim.prepare(
+        Sample(id=3, inputs=np.array([0.5])), space, tmp_path / "seed-migrate-3",
+    )
+    assert _seed_from_command(spec.command) == 203
+    assert not _has_seed_per_sample_flag(spec.command)
+
+
+def test_prepare_seed_per_sample_unsaved_sample_uses_zero(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """A sample with id=None (never persisted) shouldn't crash the offset
+    computation — fall back to 0."""
+    sim = _make_sim(
+        tmp_path, runner_script,
+        runner_options={"population_scale_factor": 0.01, "seed": 100},
+        seed_per_sample=True,
+    )
+    spec = sim.prepare(
+        Sample(id=None, inputs=np.array([0.5])), space, tmp_path / "seed-unsaved",
+    )
+    assert _seed_from_command(spec.command) == 100
+
+
 def test_default_output_dir_key_is_polarislib_correct(
     tmp_path: Path, runner_script: Path
 ) -> None:
