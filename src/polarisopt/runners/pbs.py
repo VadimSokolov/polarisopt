@@ -198,7 +198,13 @@ class PBSRunner(Runner):
     # queue limits, "PBS server busy", brief controller hiccups. After
     # the schedule is exhausted, the submit raises RunnerError as before.
     # Override per-instance for tests or aggressive clusters.
-    SUBMIT_RETRY_BACKOFF_S: tuple[int, ...] = (10, 30, 60, 120, 240)
+    #
+    # v0.22: extended to cover ~30 min total wait. DFW Phase 4C-screen
+    # lost 44/150 samples with the v0.21 schedule (~8 min total) — the
+    # per-user queue limit stayed saturated longer than that during
+    # peak-batch submission. The new schedule still exits deterministically
+    # after ~30 min so a truly wedged cluster surfaces the failure.
+    SUBMIT_RETRY_BACKOFF_S: tuple[int, ...] = (10, 30, 60, 120, 240, 300, 300, 300, 300)
 
     def __init__(
         self,
@@ -230,23 +236,32 @@ class PBSRunner(Runner):
             if result.returncode == 0:
                 break
             stderr_text = (result.stderr or "").strip()
+            stdout_text = (result.stdout or "").strip()
+            # v0.22: some PBS wrappers (site-specific qsub replacements,
+            # `apptainer exec` shims) route the queue-limit error to
+            # stdout instead of stderr. Feed both to the classifier so
+            # the retry loop fires on either surface. Belt-and-suspenders
+            # against a class of environments the v0.21 stderr-only
+            # match silently missed.
             if (
                 attempt < len(self._submit_backoff)
-                and _is_transient_qsub_error(result.returncode, stderr_text)
+                and _is_transient_qsub_error(
+                    result.returncode, stderr_text, stdout=stdout_text
+                )
             ):
                 wait = self._submit_backoff[attempt]
                 log.warning(
                     "PBSRunner.submit: transient qsub error (rc=%d, attempt %d/%d) "
                     "- retrying in %ds: %s",
                     result.returncode, attempt + 1, len(self._submit_backoff),
-                    wait, stderr_text,
+                    wait, stderr_text or stdout_text,
                 )
                 time.sleep(wait)
                 attempt += 1
                 continue
             raise RunnerError(
                 f"qsub failed (rc={result.returncode}): "
-                f"{stderr_text or (result.stdout or '').strip()}"
+                f"{stderr_text or stdout_text}"
             )
         # qsub prints just the jobid (``<number>.<server>``) on stdout.
         # Strip and take the last non-empty line in case a wrapper added
@@ -354,17 +369,32 @@ _TRANSIENT_QSUB_PATTERNS = (
 )
 
 
-def _is_transient_qsub_error(rc: int, stderr: str) -> bool:
+def _is_transient_qsub_error(rc: int, stderr: str, *, stdout: str | None = None) -> bool:
     """Decide whether a non-zero qsub should be retried with backoff.
 
-    Pattern-matching on the stderr text. PBS doesn't have a stable
-    machine-readable error code (rc 38 is the most common "limit"
-    case but the text varies by version), so we match strings that
-    polarisopt has observed correlating with transient cluster
-    state vs. permanent submission errors (bad queue, no account, etc.).
+    Pattern-matching on both stderr and stdout. PBS doesn't have a
+    stable machine-readable error code (rc 38 is the most common
+    "limit" case but the text varies by version and some sites'
+    qsub wrappers route the message to stdout instead of stderr),
+    so we lowercase-scan both surfaces for strings polarisopt has
+    observed correlating with transient cluster state vs. permanent
+    submission errors (bad queue, no account, etc.).
+
+    Parameters
+    ----------
+    rc
+        Non-zero qsub return code. Currently used only in the log
+        record; classification is text-based to stay portable across
+        PBS Pro versions.
+    stderr
+        qsub stderr, already stripped by the caller.
+    stdout
+        qsub stdout, already stripped. Optional for backwards
+        compatibility with pre-v0.22 callers; when omitted, only
+        stderr is inspected (the v0.21 behavior).
     """
-    text = stderr.lower()
-    return any(pat in text for pat in _TRANSIENT_QSUB_PATTERNS)
+    combined = f"{stderr}\n{stdout or ''}".lower()
+    return any(pat in combined for pat in _TRANSIENT_QSUB_PATTERNS)
 
 
 def _qstat_state_to_status(state: str) -> JobStatus:

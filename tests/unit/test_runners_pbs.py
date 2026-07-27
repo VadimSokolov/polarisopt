@@ -82,6 +82,32 @@ def test_submit_retries_on_transient_qsub_error(tmp_path: Path, fake_shell) -> N
     assert len(qsub_calls) == 2
 
 
+def test_submit_retries_on_transient_error_reported_via_stdout(
+    tmp_path: Path, fake_shell,
+) -> None:
+    """v0.22: some PBS wrappers route the queue-limit message to stdout
+    instead of stderr. The classifier now inspects both surfaces so the
+    retry loop fires either way — the v0.21 stderr-only match silently
+    missed this class of environments."""
+    fake_shell.responses.append(
+        _ok(
+            rc=38,
+            stderr="",
+            stdout="qsub: would exceed complex's per-user limit",
+        ),
+    )
+    fake_shell.responses.append(_ok(stdout="7609780.imgt1\n"))
+    runner = PBSRunner(
+        shell_runner=fake_shell,
+        submit_retry_backoff_s=(0, 0, 0),
+    )
+    spec = JobSpec(name="x", command="echo hi", cwd=tmp_path / "r")
+    job = runner.submit(spec)
+    assert job.task_id == "7609780.imgt1"
+    qsub_calls = [c for c in fake_shell.calls if c[0] == "qsub"]
+    assert len(qsub_calls) == 2
+
+
 def test_submit_does_not_retry_on_permanent_qsub_error(
     tmp_path: Path, fake_shell,
 ) -> None:

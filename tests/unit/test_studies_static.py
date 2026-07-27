@@ -287,6 +287,98 @@ def test_finalize_terminal_sample_is_idempotent(
     assert deltas["FINISHED"] == 0
 
 
+def test_finalize_failed_sample_appends_workspace_log_tail(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """v0.22: a FAILED sample now carries the tail of the workspace log
+    in ``sample.message`` so users don't have to sqlite3 + grep + tail
+    their way to the actual error. Reproduces the DFW-grid pain point.
+    """
+    from polarisopt.runners.base import Job, JobSpec, JobStatus
+
+    sim = MockSimulator(function="quadratic")
+    ctx = StudyContext(
+        name="tail-log",
+        space=space,
+        workspace=tmp_path,
+        store=SampleStore.open(tmp_path / "store.db", "study"),
+        runner=LocalRunner(),
+        simulator=sim,
+        metric=IdentityMetric(keys="value"),
+        rng=np.random.default_rng(0),
+        poll_interval=0.05,
+        heartbeat_interval=0,
+    )
+    study = StaticDesignStudy(
+        ctx, ManualDesign(points=[[0.5, 0.5]]), phase_name="tail-log",
+    )
+    [s] = study.run()
+    # Overwrite the successful terminal state with a fake FAILED one that
+    # carries a workspace containing a stderr log — the shape a real
+    # POLARIS failure would leave.
+    s.status = SampleStatus.RUNNING
+    s.message = None
+    (s.folder / "polaris.stderr.log").write_text(
+        "[info] loaded scenario\n[fatal] segfault in link_moe writer at t=17282\n"
+    )
+    fake_job = Job(
+        spec=JobSpec(name="x", command="", cwd=s.folder),
+        task_id="reused",
+        status=JobStatus.FAILED,
+        message="runner reported FAILED",
+    )
+    deltas: dict[str, int] = {"FINISHED": 0, "FAILED": 0, "RECOVERED": 0}
+    study._finalize_terminal_sample(s, fake_job, deltas)
+
+    assert s.status is SampleStatus.FAILED
+    assert s.message is not None
+    assert "runner reported FAILED" in s.message
+    assert "polaris.stderr.log" in s.message
+    assert "segfault in link_moe writer" in s.message
+    assert deltas["FAILED"] == 1
+
+
+def test_finalize_failed_sample_no_log_falls_back_to_base_message(
+    tmp_path: Path, space: ParameterSpace,
+) -> None:
+    """When the workspace has no logs (deleted, never wrote), the FAILED
+    message is just the base runner message — no crash."""
+    from polarisopt.runners.base import Job, JobSpec, JobStatus
+
+    sim = MockSimulator(function="quadratic")
+    ctx = StudyContext(
+        name="tail-nolog",
+        space=space,
+        workspace=tmp_path,
+        store=SampleStore.open(tmp_path / "store.db", "study"),
+        runner=LocalRunner(),
+        simulator=sim,
+        metric=IdentityMetric(keys="value"),
+        rng=np.random.default_rng(0),
+        poll_interval=0.05,
+        heartbeat_interval=0,
+    )
+    study = StaticDesignStudy(
+        ctx, ManualDesign(points=[[0.5, 0.5]]), phase_name="tail-nolog",
+    )
+    [s] = study.run()
+    s.status = SampleStatus.RUNNING
+    s.message = None
+    # Workspace exists but has no known log files.
+    for name in ("polaris.stderr.log", "polaris.stdout.log", "stderr.log", "stdout.log"):
+        (s.folder / name).unlink(missing_ok=True)
+    fake_job = Job(
+        spec=JobSpec(name="x", command="", cwd=s.folder),
+        task_id="reused",
+        status=JobStatus.FAILED,
+        message="qsub returned rc=1: bad account",
+    )
+    deltas: dict[str, int] = {"FINISHED": 0, "FAILED": 0, "RECOVERED": 0}
+    study._finalize_terminal_sample(s, fake_job, deltas)
+    assert s.status is SampleStatus.FAILED
+    assert s.message == "qsub returned rc=1: bad account"
+
+
 def test_finalize_terminal_sample_preserves_finished_when_re_collect_raises(
     tmp_path: Path, space: ParameterSpace, monkeypatch,
 ) -> None:

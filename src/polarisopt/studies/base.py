@@ -26,6 +26,56 @@ from polarisopt.utils.logging import get_logger
 log = get_logger(__name__)
 
 
+# Workspace log files a failing simulator is expected to leave behind.
+# Ordered by usefulness for post-mortem — polaris.stderr.log first (the
+# C++ engine's own stderr), then the stdout log, then the mock simulator's
+# names for the same. First hit wins; we don't concatenate to keep the
+# samples.message column readable.
+_WORKSPACE_LOG_CANDIDATES: tuple[str, ...] = (
+    "polaris.stderr.log",
+    "polaris.stdout.log",
+    "stderr.log",
+    "stdout.log",
+)
+# Cap so a runaway log doesn't blow up the SampleStore row.
+_LOG_TAIL_MAX_BYTES = 8_192
+
+
+def _tail_workspace_logs(folder: Path | None) -> str:
+    """Return a short human-readable tail from the first available log.
+
+    Best-effort helper for FAILED-sample post-mortems (v0.22). Reads
+    at most ``_LOG_TAIL_MAX_BYTES`` from the tail of the first log
+    that exists among ``_WORKSPACE_LOG_CANDIDATES``. Silently returns
+    an empty string on any I/O error so a broken workspace never
+    prevents the sample from finalizing.
+    """
+    if folder is None:
+        return ""
+    for name in _WORKSPACE_LOG_CANDIDATES:
+        path = folder / name
+        try:
+            if not path.is_file():
+                continue
+            # Measure size *after* opening — a concurrently-growing log
+            # cannot then push us past _LOG_TAIL_MAX_BYTES between stat
+            # and read. Explicit byte cap on fh.read() belt-and-suspenders
+            # this against any short-read weirdness.
+            with path.open("rb") as fh:
+                fh.seek(0, 2)
+                size = fh.tell()
+                fh.seek(max(0, size - _LOG_TAIL_MAX_BYTES))
+                raw = fh.read(_LOG_TAIL_MAX_BYTES)
+        except OSError:
+            continue
+        text = raw.decode("utf-8", errors="replace").rstrip()
+        if not text:
+            continue
+        header = f"--- tail of {name} ({min(size, _LOG_TAIL_MAX_BYTES)}/{size} bytes) ---"
+        return f"{header}\n{text}"
+    return ""
+
+
 def _fmt_elapsed(secs: float) -> str:
     if secs < 60:
         return f"{secs:.0f}s"
@@ -175,7 +225,17 @@ class Study(ABC):
             return
         if job.status is JobStatus.FAILED:
             sample.status = SampleStatus.FAILED
-            sample.message = job.message or "runner reported FAILED"
+            # v0.22: try to make the message actionable. Without this,
+            # a FAILED row said only "runner reported FAILED" and the
+            # user had to sqlite3+grep+tail their way to
+            # workspace/polaris.stderr.log by hand. Now we peek the
+            # workspace and, if we find a stderr/stdout log, append
+            # its tail to the message column. Non-fatal if the tail
+            # can't be read (workspace already cleaned up, disk gone,
+            # permissions weird): the base message still lands.
+            base = job.message or "runner reported FAILED"
+            tail = _tail_workspace_logs(sample.folder)
+            sample.message = f"{base}\n{tail}" if tail else base
             ctx.store.update(sample)
             deltas["FAILED"] += 1
             return

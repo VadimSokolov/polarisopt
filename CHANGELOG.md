@@ -2,6 +2,57 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.22.0 — 2026-07-27
+
+Operational hardening for large PBS batches and post-mortems.
+Both items were filed by the DFW calibration study: Phase 4C-screen
+lost 44/150 samples to un-retried queue-limit errors, and every
+FAILED sample required a manual `sqlite3` + `grep` + `tail` dance to
+find the actual error.
+
+### Changed
+
+- **PBS submit retry now inspects stdout as well as stderr.** Some
+  PBS wrappers (site-specific qsub replacements, apptainer shims)
+  route the `"would exceed complex's per-user limit"` message to
+  stdout, which the v0.21 stderr-only match silently missed —
+  submissions raised `RunnerError` on the first attempt instead of
+  entering the backoff loop. `_is_transient_qsub_error()` gained a
+  keyword-only `stdout` argument and inspects both surfaces; old
+  callers that pass only stderr keep working.
+- **PBS submit-retry backoff schedule extended** from
+  `(10, 30, 60, 120, 240)` (~8 min total) to
+  `(10, 30, 60, 120, 240, 300, 300, 300, 300)` (~30 min total). DFW
+  Phase 4C-screen saw the queue stay saturated for >10 min at peak
+  batch submission; the old schedule gave up too early. Still
+  deterministic — a truly wedged cluster surfaces after ~30 min
+  rather than looping forever.
+
+### Added
+
+- **Workspace log tail appended to `samples.message` on FAILED.**
+  `_finalize_terminal_sample()` now peeks
+  `workspace/polaris.stderr.log` (falling back to `polaris.stdout.log`,
+  then generic `stderr.log` / `stdout.log`) when a job goes FAILED
+  and appends up to 8 KB of the tail to `sample.message`.
+  Non-fatal — cleaned-up or unreadable workspaces silently degrade
+  to the previous "runner reported FAILED" message. The tail is
+  labeled with a header line naming the source file and byte range
+  so users see what they're looking at.
+
+### Tests
+
+- 3 new tests: stdout-only transient PBS error triggers retry,
+  workspace log tail is appended to message on FAILED, and the
+  no-log-available path still writes just the base message.
+- Full suite: 386 passing (was 383).
+
+### Not shipped this release
+
+Items 4a / 4b / 5 from the DFW report (first-class `seed_per_sample`,
+`polarisopt sensitivity` subcommand, heteroscedastic GP) shipped as
+subsequent releases; see the CHANGELOG entries for v0.23+.
+
 ## 0.21.0 — 2026-07-27
 
 Robust `choice_share.cross_entropy` and `kl_divergence` aggregations
