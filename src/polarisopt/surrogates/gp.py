@@ -52,27 +52,37 @@ class GPSurrogate(Surrogate):
     bounds : array-like of shape ``(d, 2)`` or None
         Optional explicit input bounds for the ``Normalize`` transform.
         If ``None``, BoTorch infers from training data.
-    observation_noise : float, optional
+    observation_noise : float or array-like of shape ``(n,)``, optional
         Measured observation-noise variance (σ²) in the original Y units.
         When provided, the GP uses a ``FixedNoiseGaussianLikelihood`` with
         this variance treated as known — replaces the default learned
-        homoskedastic noise term (v0.19+). Use this when you've measured
-        simulator noise via a dedicated repeat-evaluation study (e.g.
-        POLARIS Phase 3B.0 style: N runs at the same X with distinct
-        seeds), so the surrogate cannot mis-attribute noise to signal
-        when data is scarce. ``Standardize`` rescales the variance
-        alongside Y internally, so pass the raw σ². Must be positive
-        and finite; must be a single scalar (per-point noise is not
-        exposed yet). Default ``None`` → learn noise as before.
+        homoskedastic noise term.
+
+        - **Scalar (v0.19+)**: applies to every training point
+          (homoscedastic-with-known-noise). Use when you've measured a
+          single noise floor via a Phase 3B.0-style same-input repeat
+          study.
+        - **Array of length ``n`` (v0.25+)**: heteroscedastic — each
+          training point gets its own known noise variance in the
+          same row order as ``X`` / ``Y``. Use when noise varies
+          measurably with the input (POLARIS Phase 3D observed
+          std 0.00110 at one X vs 0.00167 at another). Row-count
+          mismatch against ``X`` at :meth:`fit` raises ``SurrogateError``.
+
+        ``Standardize`` rescales the variance alongside Y internally in
+        both cases, so pass the raw σ². Must be positive and finite.
+        Default ``None`` → learn noise as before.
 
     Raises
     ------
     ValueError
         If ``nu`` is not one of ``{0.5, 1.5, 2.5}``, or if
-        ``observation_noise`` is not a positive finite scalar.
+        ``observation_noise`` is not a positive finite scalar or 1-D
+        array of positive finite values.
     SurrogateError
         If :meth:`fit` is called with fewer than 2 points or with
-        non-finite inputs/targets.
+        non-finite inputs/targets, or if a per-point
+        ``observation_noise`` vector's length disagrees with ``X``.
 
     Examples
     --------
@@ -92,27 +102,50 @@ class GPSurrogate(Surrogate):
         *,
         nu: float = 2.5,
         bounds: list[list[float]] | None = None,
-        observation_noise: float | None = None,
+        observation_noise: float | list[float] | np.ndarray | None = None,
     ) -> None:
         if nu not in (0.5, 1.5, 2.5):
             raise ValueError(f"Matern nu must be one of {{0.5, 1.5, 2.5}}, got {nu}")
-        if observation_noise is not None:
+        self._observation_noise: float | np.ndarray | None
+        if observation_noise is None:
+            self._observation_noise = None
+        else:
             try:
-                arr = np.asarray(observation_noise)
-                if arr.ndim != 0:
-                    raise ValueError("must be a scalar")
-                noise = float(arr)
+                arr = np.asarray(observation_noise, dtype=float)
             except (TypeError, ValueError, OverflowError) as exc:
                 raise ValueError(
-                    f"observation_noise must be a positive finite scalar, got {observation_noise!r}"
+                    f"observation_noise must be a positive finite scalar or "
+                    f"1-D array of positive finite values, got {observation_noise!r}"
                 ) from exc
-            if not np.isfinite(noise) or noise <= 0:
+            if arr.ndim == 0:
+                noise = float(arr)
+                if not np.isfinite(noise) or noise <= 0:
+                    raise ValueError(
+                        f"observation_noise must be a positive finite scalar, "
+                        f"got {observation_noise!r}"
+                    )
+                self._observation_noise = noise
+            elif arr.ndim == 1:
+                # v0.25 heteroscedastic path: per-point noise vector.
+                if arr.size == 0:
+                    raise ValueError(
+                        "observation_noise vector must have at least one entry"
+                    )
+                if not np.all(np.isfinite(arr)) or np.any(arr <= 0):
+                    raise ValueError(
+                        f"observation_noise vector must contain only positive "
+                        f"finite values, got {observation_noise!r}"
+                    )
+                # Cache as immutable to make double-fits deterministic and
+                # to catch accidental mutation from the caller.
+                arr = arr.copy()
+                arr.setflags(write=False)
+                self._observation_noise = arr
+            else:
                 raise ValueError(
-                    f"observation_noise must be a positive finite scalar, got {observation_noise!r}"
+                    f"observation_noise must be a scalar or 1-D array, "
+                    f"got shape {arr.shape}"
                 )
-            self._observation_noise: float | None = noise
-        else:
-            self._observation_noise = None
         self._nu = float(nu)
         self._bounds_override: np.ndarray | None = (
             np.asarray(bounds, dtype=float) if bounds is not None else None
@@ -153,6 +186,18 @@ class GPSurrogate(Surrogate):
             raise SurrogateError("GPSurrogate.fit requires at least 2 training points")
         if not np.isfinite(X).all() or not np.isfinite(Y).all():
             raise SurrogateError("GPSurrogate.fit: X or Y contains non-finite values")
+        # v0.25 heteroscedastic path: per-point noise vector row count
+        # must match X. Caught here so the surrogate never silently
+        # fits with mis-aligned noise (which would produce a fit that
+        # runs but is semantically wrong).
+        if (
+            isinstance(self._observation_noise, np.ndarray)
+            and self._observation_noise.shape[0] != X.shape[0]
+        ):
+            raise SurrogateError(
+                f"observation_noise vector length {self._observation_noise.shape[0]} "
+                f"does not match X row count {X.shape[0]}"
+            )
 
         self._x_dim = X.shape[1]
         self._n_obj = Y.shape[1]
@@ -220,7 +265,18 @@ class GPSurrogate(Surrogate):
         if self._observation_noise is not None:
             # Fixed-noise path: BoTorch swaps in FixedNoiseGaussianLikelihood
             # and Standardize rescales train_Yvar alongside train_Y automatically.
-            kwargs["train_Yvar"] = torch.full_like(Y_t, self._observation_noise)
+            if isinstance(self._observation_noise, np.ndarray):
+                # v0.25 heteroscedastic: broadcast the length-N vector to
+                # match train_Y's (N, m_local) shape — the same per-point
+                # variance applies to every output column of THIS sub-model
+                # (multi-obj studies use a separate ModelListGP per column,
+                # each with its own sub-model, so this is the right shape).
+                yvar_col = torch.as_tensor(
+                    self._observation_noise, dtype=Y_t.dtype, device=Y_t.device,
+                ).unsqueeze(-1)
+                kwargs["train_Yvar"] = yvar_col.expand_as(Y_t).contiguous()
+            else:
+                kwargs["train_Yvar"] = torch.full_like(Y_t, self._observation_noise)
         model = SingleTaskGP(**kwargs)
         model.double()
         return model

@@ -2,6 +2,69 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.25.0 — 2026-07-27
+
+Heteroscedastic (per-point) `observation_noise` on the `gp`
+surrogate. Extends v0.19's scalar-noise path to also accept a
+length-N array — one known noise variance per training point,
+same row order as X. Enables the DFW-Phase-3D pattern of
+noise-varies-with-X studies.
+
+### Added
+
+- **`observation_noise`** on `GPSurrogate` now accepts a 1-D
+  array of length equal to the number of training points, in
+  addition to the scalar form from v0.19. Each entry becomes
+  that point's known noise variance under BoTorch's
+  `FixedNoiseGaussianLikelihood`. Row-count mismatch against X
+  raises `SurrogateError` at fit time.
+- **Defensive copy** on construction: the stored vector is
+  set read-only, so a caller mutating the passed-in array
+  cannot silently change the surrogate's noise after the fact.
+- **Multi-output support**: the per-point vector broadcasts to
+  each sub-model in the `ModelListGP` (same noise vector applies
+  to every output column, matching the shape assumption that
+  noise is a property of the observation, not the metric).
+
+### Documentation
+
+- **`docs/concepts/bayesian-optimization.md`** — new
+  "Heteroscedastic (per-point) noise (v0.25+)" subsection under
+  "Anchored-noise GP" with the YAML shape, when-to-use guidance,
+  and an explicit callout that the DFW report held this feature
+  pending Laplace-smoothed CE re-runs (Phase 3D's "noise varies
+  with X" observation may have been an artifact of v0.20's
+  eps-clipping bug that v0.21 fixed).
+
+### Behavior note
+
+`observation_noise=[1e-4, 2e-4]` (a Python list of length ≥ 2)
+was rejected as "must be a scalar" in v0.19–v0.24. It is now
+accepted as a per-point vector. Studies that were relying on the
+rejection to catch typos will see the input succeed; the fit-time
+row-count check catches the more likely real error.
+
+### Tests
+
+- 6 new tests: per-point vector fit uses `FixedNoiseGaussianLikelihood`,
+  row-count mismatch at fit surfaces `SurrogateError`, vector
+  entries validated for positive/finite/non-empty at construction,
+  2-D array rejected explicitly, multi-obj broadcasts vector to
+  each sub-model, defensive copy prevents post-construction mutation.
+- Updated `test_gp_rejects_bad_observation_noise` to reflect the new
+  API (1-D lists are now valid; 2-D arrays still rejected).
+- Full suite: 406 passing (was 400).
+
+### Ship recommendation
+
+Do not turn this on for production DFW BO without first re-running
+the Phase 3D-style variance study on Laplace-smoothed CE
+(v0.21). If that variance turns out to be flat across X after
+removing the metric artifact, `observation_noise` should stay
+scalar. If it's genuinely heteroscedastic, this option is the
+supported way to feed the per-X noise measurements into the
+surrogate.
+
 ## 0.24.0 — 2026-07-27
 
 `polarisopt sensitivity <config.yaml>` — post-hoc GP-Sobol

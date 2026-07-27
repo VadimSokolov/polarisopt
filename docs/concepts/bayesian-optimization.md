@@ -193,9 +193,42 @@ Don't use when:
 
 - You haven't measured noise. A guess is worse than the learned
   estimate.
-- The noise is heteroscedastic across the space (a heteroscedastic
-  GP is the fix — flagged for a future release; today's
-  `observation_noise` is scalar / homoskedastic).
+
+### Heteroscedastic (per-point) noise (v0.25+)
+
+If you've measured noise that varies with the input — e.g. POLARIS
+Phase 3D observed std 0.00110 at one X vs 0.00167 at another — pass
+`observation_noise` as a length-N array instead of a scalar. Each
+entry becomes that training point's known noise variance:
+
+```yaml
+generator:
+  type: acquisition
+  options:
+    surrogate:
+      type: gp
+      options:
+        observation_noise:
+          # one entry per training-point, same row order as X
+          - 1.10e-6      # sample 0 (measured via Phase 3B.0-style replicates)
+          - 2.79e-6      # sample 1
+          - 1.20e-6      # sample 2
+          - ...
+```
+
+Row count is checked at `fit()` time; a mismatch raises
+`SurrogateError` immediately rather than silently mis-aligning
+noise to samples. The natural way to produce the vector is a
+Phase 3B.0-style replication study at each of a handful of anchor
+X's, then a nearest-anchor variance for each real evaluation
+(or a full noise-vs-X GP fit outside polarisopt).
+
+Don't reach for this without evidence — a hand-picked
+heteroscedastic prior is worse than a well-fit homoscedastic one.
+The DFW calibration study explicitly held this feature pending
+Laplace-smoothed CE re-runs (its Phase 3D "noise varies with X"
+observation may have been an artifact of the eps-clipping bug
+that v0.21 fixed).
 
 ## Minimize vs. maximize
 
