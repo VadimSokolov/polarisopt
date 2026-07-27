@@ -857,6 +857,79 @@ def examples_copy(name: str, destination: Path, force: bool) -> None:
     click.echo(f"copied {name} -> {destination}")
 
 
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--phase", default=None, type=str,
+    help="Restrict to samples from one phase (e.g. the LHS warmup). "
+         "Default: all phases.",
+)
+@click.option(
+    "--n-sobol", default=8192, show_default=True, type=int,
+    help="Number of Sobol low-discrepancy points to evaluate the GP at. "
+         "SALib consumes n_sobol * (ndim + 2) surrogate predictions total.",
+)
+@click.option(
+    "--observation-noise", default=None, type=float,
+    help="If you've measured observation-noise variance (sigma^2) from a "
+         "same-input replication study (Phase 3B.0 pattern), pass it "
+         "here so the GP uses a FixedNoiseGaussianLikelihood.",
+)
+@click.option(
+    "--json", "as_json", is_flag=True,
+    help="Emit the ranked report as JSON (for pipes / notebooks) instead "
+         "of the human-readable table.",
+)
+def sensitivity(
+    config: Path,
+    phase: str | None,
+    n_sobol: int,
+    observation_noise: float | None,
+    as_json: bool,
+) -> None:
+    """Post-hoc GP-Sobol sensitivity analysis on a completed SampleStore.
+
+    Fits a Matern-ARD GP to the FINISHED (X, y) pairs from the study,
+    runs SALib's Sobol analysis on the surrogate, and prints ranked
+    first-order (S1) and total-effect (ST) indices along with the GP's
+    fitted length-scales. Dimensions with length-scale near the upper
+    prior bound are candidates for removal in a follow-up study.
+
+    Automates the Phase 3B.1 diagnostic from the DFW calibration report.
+    """
+    import json as _json
+
+    from polarisopt.studies.sensitivity import (
+        SensitivityError,
+        format_report,
+        report_as_dict,
+        run_sensitivity_analysis,
+    )
+
+    cfg = load_study_config(config)
+    layout = workspace_layout(Path(cfg.workspace))
+    store = SampleStore.open(layout["db"], cfg.name)
+    from polarisopt.studies.runner import _build_space
+    space = _build_space(cfg.parameters)
+
+    gp_kwargs: dict[str, float] = {}
+    if observation_noise is not None:
+        gp_kwargs["observation_noise"] = observation_noise
+
+    try:
+        report = run_sensitivity_analysis(
+            store, space,
+            phase=phase, n_sobol=n_sobol, gp_kwargs=gp_kwargs,
+        )
+    except SensitivityError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if as_json:
+        click.echo(_json.dumps(report_as_dict(report), indent=2))
+    else:
+        click.echo(format_report(report))
+
+
 def main() -> None:
     cli()
 

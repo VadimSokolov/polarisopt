@@ -2,6 +2,52 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.24.0 — 2026-07-27
+
+`polarisopt sensitivity <config.yaml>` — post-hoc GP-Sobol
+dimensionality analysis on any completed SampleStore. Automates
+the Phase 3B.1 diagnostic from the DFW calibration report: fit a
+Matern-ARD GP to the study's FINISHED (X, y) pairs, run SALib
+Sobol on the surrogate, and rank parameters by total-effect index
+(ST) alongside their fitted length-scales. Dimensions whose
+length-scale saturates at the upper prior bound are candidates for
+removal in a follow-up study.
+
+### Added
+
+- **`polarisopt sensitivity`** CLI subcommand:
+  ```
+  polarisopt sensitivity study.yaml
+  polarisopt sensitivity study.yaml --phase warmup --n-sobol 8192
+  polarisopt sensitivity study.yaml --observation-noise 2.79e-6
+  polarisopt sensitivity study.yaml --json > sensitivity.json
+  ```
+  Options:
+  - `--phase` — restrict to samples from one phase (e.g. LHS warmup).
+  - `--n-sobol` — SALib Sobol sample size (default 8192). SALib
+    consumes `n_sobol * (ndim + 2)` GP predictions total.
+  - `--observation-noise` — pass a measured `σ²` if you have one
+    (from a Phase 3B.0-style repeat-eval study) so the GP uses
+    `FixedNoiseGaussianLikelihood`.
+  - `--json` — emit ranked dict (for pipes / notebook consumption)
+    instead of the human-readable table.
+- **`polarisopt.studies.sensitivity` module** with
+  `run_sensitivity_analysis(store, space, ...) -> SensitivityReport`
+  and `format_report(report) / report_as_dict(report)` helpers.
+  Direct Python API for notebook usage without going through CLI.
+- **`SensitivityError`** raised on the actionable failure modes:
+  no FINISHED samples with metrics, multi-objective metric,
+  stored input width mismatched to current ParameterSpace.
+
+### Tests
+
+- 9 new tests: ranked-by-ST correctness on a synthetic
+  active-only-x0 problem, multi-obj rejection, empty-store
+  rejection, shape-mismatch rejection, formatted-table ordering,
+  JSON roundtrip, CLI table output, CLI JSON output, CLI clean
+  exit on empty store.
+- Full suite: 400 passing (was 391).
+
 ## 0.23.0 — 2026-07-27
 
 First-class `seed_per_sample` on `PolarisConvergenceSimulator`.
