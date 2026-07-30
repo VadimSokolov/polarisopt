@@ -7,6 +7,7 @@ from pathlib import Path
 import numpy as np
 
 from polarisopt.config.schema import (
+    HistoryMatchingPhaseConfig,
     ParametersConfig,
     SequentialPhaseConfig,
     StaticPhaseConfig,
@@ -23,6 +24,10 @@ from polarisopt.samples.store import SampleStore
 from polarisopt.simulator.base import make_simulator
 from polarisopt.stop.base import make_stop
 from polarisopt.studies.base import StudyContext, StudyError
+from polarisopt.studies.history_matching import (
+    HistoryMatchingStudy,
+    HistoryMatchingWavePhase,
+)
 from polarisopt.studies.ops import simulator_config_fingerprint, simulator_config_payload
 from polarisopt.studies.sequential import SequentialDesignStudy, SequentialPhase
 from polarisopt.studies.static import StaticDesignStudy
@@ -112,6 +117,23 @@ class StudyRunner:
                     minimize=phase.minimize,
                 )
                 study = SequentialDesignStudy(ctx, seq_phase)
+            elif isinstance(phase, HistoryMatchingPhaseConfig):
+                warm = make_design(
+                    {"type": phase.warm_up.type, "options": phase.warm_up.options}
+                )
+                output_dir = Path(phase.output_dir) if phase.output_dir else (
+                    Path(self.config.workspace) / "history_matching"
+                )
+                wave_phase = HistoryMatchingWavePhase(
+                    name=phase.name,
+                    warm_up=warm,
+                    emulator=phase.emulator,
+                    implausibility=phase.implausibility,
+                    moments_included=list(phase.moments_included),
+                    nroy_grid_size=int(phase.nroy_grid_size),
+                    output_dir=output_dir,
+                )
+                study = HistoryMatchingStudy(ctx, wave_phase)
             else:
                 raise StudyError(f"unknown phase config type: {type(phase).__name__}")
             log.info("Running phase %r", phase.name)

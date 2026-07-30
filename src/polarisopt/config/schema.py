@@ -99,7 +99,38 @@ class SequentialPhaseConfig(_Base):
     minimize: bool = True
 
 
-PhaseConfig = StaticPhaseConfig | SequentialPhaseConfig
+class HistoryMatchingPhaseConfig(_Base):
+    """One history-matching wave: warm-up (LHS) → per-moment GPs →
+    implausibility filter → NROY.
+
+    v0.31 P3. Vernon-Goldstein-Bower 2010 methodology. Consumes a
+    ``moment_set`` metric via the study's shared metric config.
+    """
+
+    name: str
+    type: Literal["history_matching"]
+    warm_up: DesignConfig
+    # Emulator: currently "gp_per_moment" (default) is the only shipped
+    # option. Extensions (deep-learning dim-reduction, single multi-output
+    # GP) may follow — the dict lets the caller pass extras verbatim.
+    emulator: dict[str, Any] = Field(
+        default_factory=lambda: {"type": "gp_per_moment", "options": {}}
+    )
+    # Implausibility spec: {type: max|second_max, cutoff: float,
+    # include_prior_terms: bool}
+    implausibility: dict[str, Any] = Field(
+        default_factory=lambda: {"type": "max", "cutoff": 3.0, "include_prior_terms": True}
+    )
+    # Subset of moment names to include this wave (empty = all).
+    moments_included: list[str] = Field(default_factory=list)
+    # NROY dense-grid size (Sobol) used to prune the retained region.
+    nroy_grid_size: int = 8192
+    # Wall path — where to write nroy_wave{N}.parquet artifacts.
+    # Default: <workspace>/history_matching/
+    output_dir: str | None = None
+
+
+PhaseConfig = StaticPhaseConfig | SequentialPhaseConfig | HistoryMatchingPhaseConfig
 
 
 class StudyConfig(_Base):

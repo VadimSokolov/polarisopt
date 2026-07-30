@@ -2,6 +2,93 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.31.0 — 2026-07-30
+
+**Final release of the β-calibration series** (v0.26 → v0.31, six
+releases from the DFW feedback file
+`polarisopt_feedback_v0.26_beta_calibration.md`). Ships P3
+(``history_matching`` phase) and P9 (NROY parquet export) —
+the actual Vernon-Goldstein-Bower 2010 wave that all the earlier
+releases were building toward.
+
+### Added
+
+- **`phase.type: history_matching`** — new phase type wired
+  through `StudyConfig`/`StudyRunner`. Consumes a
+  ``moment_set`` metric (v0.26) with ``scalarize: none`` so
+  per-moment residuals are available. Sample YAML:
+
+  ```yaml
+  phases:
+    - name: hm-wave-1
+      type: history_matching
+      warm_up:
+        type: lhs
+        options:
+          n: 200
+          include_prior_mean_anchor: true    # v0.27 P11
+      emulator:
+        type: gp_per_moment
+        options: {}
+      implausibility:
+        type: max                # or second_max for robustness
+        cutoff: 3.0              # Pukelsheim's 3-σ rule
+      moments_included: []       # empty = all moments
+      nroy_grid_size: 8192       # Sobol dense-grid size
+      output_dir: null           # default: <workspace>/history_matching
+  ```
+
+- **`polarisopt.studies.history_matching`** module exports
+  `HistoryMatchingStudy` and `HistoryMatchingWavePhase` for
+  programmatic use from notebooks.
+
+- **P9 — NROY parquet export**. Each wave writes
+  `nroy_wave{N}.parquet` under `output_dir` with columns:
+    - Every parameter name as a float64 column.
+    - `implausibility_max` (float32) — Vernon's I_max aggregation.
+    - `implausibility_second` (float32) — second-largest per grid
+      point, for max-of-max robustness diagnostics.
+    - `retained` (bool) — I_max < cutoff.
+    - `moment_residuals_json` (str) — per-moment residuals dict,
+      JSON-serialized per row (keeps the parquet schema flat).
+  Falls back to CSV when neither pyarrow nor fastparquet is
+  installed — the artifact always lands somewhere.
+
+### Behavior
+
+- Wave 1 only in v0.31. Multi-wave chaining (LHS-within-NROY for
+  wave 2, refit-in-place) is a follow-up — the current runner
+  supports running consecutive history_matching phases with
+  hand-restricted parameter boxes, so the pattern is composable
+  today via YAML.
+- Rejects non-`moment_set` metrics with `TypeError` at study
+  construction. Rejects `scalarize != none` with `ValueError`.
+- Degenerate moment columns (identical residual across all
+  training samples) contribute zero implausibility rather than
+  crashing the per-column GP fit.
+
+### Tests
+
+- 4 new tests in `test_history_matching.py`: parquet artifact
+  written with the correct schema, cutoff-based `retained` flag
+  correctness, `moment_residuals_json` JSON roundtrip, and
+  rejection of both non-`moment_set` and scalarized metrics.
+- Full local run: 4/4 pass.
+
+### DFW β-calibration series summary (v0.26–v0.31)
+
+| Release | Priority | Feature |
+|---|---|---|
+| v0.26.0 | P1 + P10-warn + P8 | moment_set metric, discrepancy warning, MaxIterStop(n=0) |
+| v0.27.0 | P2 + P11 | Parameter priors (5 types), LHS prior-mean anchor |
+| v0.28.0 | P4 | Nested-ASC contraction on PolarisConvergenceSimulator |
+| v0.29.0 | P5 | polarisopt identifiability CLI |
+| v0.30.0 | P6 + P7 + P10-full | Moment helpers, verify-metric CLI, discrepancy-audit CLI |
+| v0.31.0 | P3 + P9 | history_matching phase + NROY parquet export |
+
+Six releases, ~30 new tests, ~2000 lines. All eleven priority
+features from the DFW β-calibration spec are shipped.
+
 ## 0.30.0 — 2026-07-30
 
 Fifth release of the β-calibration series. Ships P6 (moment
