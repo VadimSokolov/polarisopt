@@ -43,11 +43,41 @@ class Parameter:
     ptype : ParameterType
         ``ParameterType.FLOAT`` (default) or ``ParameterType.INT``.
         Integer parameters are rounded by :meth:`clip`.
+    prior : Prior, optional
+        v0.27+ (P2). Optional prior distribution on this parameter,
+        as a :class:`polarisopt.parameters.Prior` instance
+        (``GaussianPrior`` / ``LogNormalPrior`` / ``TruncatedNormalPrior``
+        / ``UniformPrior`` / ``BetaPrior``). Consumed by:
+
+        - :class:`polarisopt.design.LHSDesign` (v0.27+ P11) as the
+          per-parameter anchor value when
+          ``include_prior_mean_anchor=True``.
+        - :func:`polarisopt.studies.identifiability.run_identifiability_analysis`
+          (v0.29+ P5) as the pin value when the parameter is flagged
+          as unidentified AND ``hold_at_prior_mean_if_unidentified``
+          is True.
+        - v0.31+ history-matching phases as a virtual moment
+          contributing ``((θ - prior.mean) / prior.std)²`` to the
+          max-implausibility.
+
+        A prior whose ``.mean`` falls outside ``[low, high]`` is
+        rejected at construction — almost always a config bug that
+        would silently pull LHS anchors and BO gradients out of the
+        search region.
+    hold_at_prior_mean_if_unidentified : bool, optional
+        v0.29+ (P5). When True AND a ``prior`` is set, the
+        ``polarisopt identifiability`` CLI's ``--auto-drop-to-prior-mean``
+        flag pins this parameter at ``prior.mean`` (rewriting the
+        study YAML) if the identifiability report classifies it as
+        unidentified (max first-order Sobol < threshold). Default
+        False — unidentified parameters are noted in the report but
+        left in the search space for the operator to decide.
 
     Raises
     ------
     ValueError
-        If ``high <= low``.
+        If ``high <= low``, or if ``prior.mean`` falls outside
+        ``[low, high]``.
 
     Examples
     --------
@@ -59,6 +89,16 @@ class Parameter:
     >>> q = Parameter("top_k", "DestinationChoice.json", 1, 10, ParameterType.INT)
     >>> q.clip(3.7)
     4
+
+    With a meta-analytic prior for a β-calibration study:
+
+    >>> from polarisopt.parameters import GaussianPrior
+    >>> p = Parameter(                                        # doctest: +SKIP
+    ...     "b_IVTT_Auto_Mean", "ModeChoiceModel.json",
+    ...     low=-0.30, high=-0.001,
+    ...     prior=GaussianPrior(mean=-0.10, std=0.035),
+    ...     hold_at_prior_mean_if_unidentified=True,
+    ... )
     """
 
     name: str

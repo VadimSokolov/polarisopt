@@ -2,6 +2,40 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.32.1 — 2026-07-30
+
+Docs-only patch. During the DFW agent's review of v0.26–v0.32 it
+came out that class docstrings and yaml-reference.md hadn't been
+updated for several of the new features — a downstream agent
+looking at the code would see the option in the signature but no
+docstring explaining intent / use pattern.
+
+### Documentation
+
+- **`Parameter` class docstring** — added `prior` and
+  `hold_at_prior_mean_if_unidentified` fields with description of
+  the three consumers (LHS anchor, identifiability pin, history-
+  matching virtual moment) and an example.
+- **`PolarisConvergenceSimulator` class docstring** — added
+  `nested_asc_contraction` field with the full dict shape, all
+  optional keys and their defaults, the split-of-concerns note
+  (polarisopt validates + forwards flags; runner invokes
+  polarislib), and a cross-reference to the v0.32 output-dir
+  resolution fix. Added a nested-ASC-on YAML example alongside
+  the existing standard example.
+- **`docs/yaml-reference.md`** — extended:
+    - `parameters.inline` block gets a full v0.27 `prior:` example
+      with all five prior-type shapes documented.
+    - `simulator` block adds a nested-ASC-on YAML variant.
+    - New "History matching (v0.31+)" subsection under `phases`
+      with the full field list.
+- **`docs/llms.txt`** — added the four β-calibration CLI
+  subcommands (`sensitivity`, `identifiability`, `verify-metric`,
+  `discrepancy-audit`) to the Quick-start section so an LLM-facing
+  index sees them at a glance.
+
+No code changes; ruff clean; 66 tests pass on the touched files.
+
 ## 0.32.0 — 2026-07-30
 
 Bug fix from the DFW Phase 7 identifiability run

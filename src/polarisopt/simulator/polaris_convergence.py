@@ -148,6 +148,44 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         runner — polarisopt computes the effective seed before
         submission, so downstream shims that also honor
         ``seed_per_sample`` don't double-add. Default ``False``.
+    nested_asc_contraction : dict, optional
+        v0.28+ (P4). Configures BLP-1995 nested-ASC contraction
+        (β outer / ASC inner) around every POLARIS run. polarisopt
+        validates the config shape here and forwards each field to
+        the runner script as ``--nested-asc-<key>=<value>`` flags;
+        the runner is expected to invoke polarislib's
+        ``runs.calibrate.mode_choice.calibrate`` iteratively after
+        each simulation. polarisopt does NOT import polarislib and
+        does NOT invoke the calibrator itself.
+
+        Shape (all fields except ``enabled`` are optional; validated
+        only when ``enabled=True``):
+
+        - ``enabled`` (bool, required): master switch.
+        - ``calibrator`` (str): dotted path to the polarislib
+          calibrator (documentation only — polarisopt doesn't call it).
+        - ``num_planned_activity_iterations`` (int, default 3):
+          contraction iterations per sample.
+        - ``step_size`` (float, default 2.0): ASC update step.
+        - ``target_csv_dir`` (str): where the runner reads target
+          shares from.
+        - ``cache_post_contraction`` (bool, default True): keep the
+          post-contraction ASCs for reproducibility.
+        - ``timeout_minutes`` (float, default 30).
+        - ``on_convergence_failure`` (str): ``use_last`` (default) or
+          ``mark_sample_failed``.
+
+        Unknown keys are rejected at construction — catches typos
+        like ``timout_minutes`` that would otherwise silently mean
+        "no timeout". Default ``None`` (feature off; no flags
+        forwarded, no config validation).
+
+        **v0.32 interaction with output-dir resolution**: when
+        enabled, polarislib names each contraction iteration
+        ``<db>_<iter>_calib_<N>``. :meth:`_resolve_output_dir`
+        skips those ``_calib_*`` dirs and returns the real DTA
+        iteration dir (fixes the DFW Phase 7 "all samples produce
+        empty Trip table" bug — see CHANGELOG v0.32.0).
     Other parameters inherited from :class:`PolarisSimulator`.
 
     Notes
@@ -182,6 +220,33 @@ class PolarisConvergenceSimulator(PolarisSimulator):
             output_db_filename: DFW-Demand.sqlite
             output_dir_key: ["Output controls", "output_dir_name"]
             num_threads: "16"
+
+    YAML with nested-ASC contraction on (v0.28+ / β-calibration):
+
+    .. code-block:: yaml
+
+        simulator:
+          type: polaris_convergence
+          options:
+            runner_script: /lcrc/.../run_scripts/polarisopt_runner.py
+            iteration_type: abm_init
+            single_iteration: true
+            runner_options:
+              population_scale_factor: 0.01
+            binary: /lcrc/.../polaris.sif
+            model_source: /lcrc/.../DFW_2050_20251028
+            scenario_file: scenario_abm.json
+            output_db_filename: DFW-Demand.sqlite
+            num_threads: "16"
+            nested_asc_contraction:
+              enabled: true
+              calibrator: polarislib.runs.calibrate.mode_choice.calibrate
+              num_planned_activity_iterations: 3
+              step_size: 2.0
+              target_csv_dir: calibration_targets
+              cache_post_contraction: true
+              timeout_minutes: 30
+              on_convergence_failure: use_last
     """
 
     # polarislib scenarios use ``output_dir_name``, not the base class's

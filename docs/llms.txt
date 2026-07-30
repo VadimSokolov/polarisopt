@@ -36,6 +36,21 @@ polarisopt abort study.yaml        # cancel all non-terminal samples
 polarisopt logs study.yaml 42 -f   # tail -f the sample's stdout/stderr
 ```
 
+β-calibration analysis (v0.24 sensitivity, v0.29 identifiability,
+v0.30 verify-metric / discrepancy-audit):
+
+```
+polarisopt sensitivity      study.yaml [--phase P] [--n-sobol N] [--observation-noise σ²] [--json]
+                                       # scalar-metric Sobol on FINISHED samples
+polarisopt identifiability  study.yaml [--phase P] [--n-sobol N] [--threshold T] [--json]
+                                       # per-moment Sobol on moment_set metric;
+                                       # --auto-drop-to-prior-mean pins unidentified params
+polarisopt verify-metric    study.yaml --reference-db path/to/target.sqlite [--tolerance T]
+                                       # asserts analytic identity of the metric on a reference DB
+polarisopt discrepancy-audit study.yaml
+                                       # fails if any moment_set moment has model_discrepancy_std <= 0
+```
+
 ## Architecture summary
 
 Master process (polarisopt run) holds:

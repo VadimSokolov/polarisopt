@@ -44,6 +44,35 @@ simulator:
       - "*/log/polaris_progress.log"
 ```
 
+Nested-ASC contraction (v0.28+ / β-calibration; BLP-1995 β outer,
+ASC inner). polarisopt validates the config shape and forwards
+`--nested-asc-<key>=<value>` flags to the runner; the runner (which
+imports polarislib) is expected to invoke
+`polarislib.runs.calibrate.mode_choice.calibrate` after each POLARIS
+run at candidate β:
+
+```yaml
+simulator:
+  type: polaris_convergence
+  options:
+    # ...standard fields as above...
+    nested_asc_contraction:
+      enabled: true
+      calibrator: polarislib.runs.calibrate.mode_choice.calibrate
+      num_planned_activity_iterations: 3
+      step_size: 2.0
+      target_csv_dir: calibration_targets
+      cache_post_contraction: true
+      timeout_minutes: 30
+      on_convergence_failure: use_last   # or mark_sample_failed
+```
+
+Off by default. Unknown keys are rejected — catches typos like
+`timout_minutes` early. v0.32 fixed a critical bug where
+`_resolve_output_dir` was picking polarislib's `_calib_N`
+contraction artifacts (empty Trip tables) as the "highest-numbered
+iteration"; that's now handled correctly when this feature is on.
+
 Or for tests:
 
 ```yaml
@@ -97,6 +126,33 @@ parameters:
 
 Each record names which POLARIS JSON file holds the variable and the
 search bounds. ``type`` may be ``float`` (default) or ``int``.
+
+**v0.27+ optional per-parameter fields** — used by β-calibration
+studies (v0.29 identifiability, v0.31 history matching, MAP wrappers):
+
+```yaml
+parameters:
+  inline:
+    - name: b_IVTT_Auto_Mean
+      file: config/choice_models/ModeChoiceModel.json
+      min: -0.30
+      max: -0.001
+      prior:
+        type: gaussian                       # gaussian | log_normal | truncated_normal | uniform | beta
+        mean: -0.10                          # ≈ VOT $10/hr at $18/hr median wage
+        std:  0.035                          # Small-Verhoef 2007 dispersion
+      hold_at_prior_mean_if_unidentified: true   # v0.29 auto-drop pins here
+```
+
+Prior-type shapes:
+- `gaussian`: `mean, std`
+- `log_normal`: `log_mean, log_std` (x > 0)
+- `truncated_normal`: `loc, scale, low, high`
+- `uniform`: `low, high`
+- `beta`: `alpha, beta` (x ∈ (0, 1))
+
+A prior whose `.mean` falls outside `[min, max]` is rejected at
+config-load time — almost always a config bug.
 
 ## metric
 
@@ -244,6 +300,37 @@ Multi-objective with qLogEHVI:
   minimize: true
   stop: { type: max_iter, options: { n: 30 } }
 ```
+
+### History matching (v0.31+)
+
+Vernon-Goldstein-Bower 2010 wave protocol. Requires a `moment_set`
+metric with `scalarize: none` so per-moment residuals reach the
+emulator. Emits `nroy_wave{N}.parquet` under `output_dir`.
+
+```yaml
+- name: hm-wave-1
+  type: history_matching
+  warm_up:
+    type: lhs
+    options:
+      n: 200
+      include_prior_mean_anchor: true      # v0.27 P11 — replaces LHS row 0 with prior means
+  emulator:
+    type: gp_per_moment                    # only shipped emulator type in v0.31
+    options: {}
+  implausibility:
+    type: max                              # max | second_max
+    cutoff: 3.0                            # Pukelsheim's 3-σ rule
+    include_prior_terms: true              # add ((θ−μ)/σ)² virtual moments
+  moments_included: []                     # empty = all moments; list to include subset
+  nroy_grid_size: 8192                     # Sobol dense-grid size for the NROY prune
+  output_dir: null                         # default: <workspace>/history_matching/
+```
+
+Rejected at construction: non-`moment_set` metric (TypeError),
+`scalarize != none` on the metric (ValueError). Fall-through to
+CSV if pyarrow/fastparquet isn't installed — the artifact always
+lands somewhere.
 
 ## Stop criteria (recursive)
 
