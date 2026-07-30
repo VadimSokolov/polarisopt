@@ -2,6 +2,64 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.30.0 — 2026-07-30
+
+Fifth release of the β-calibration series. Ships P6 (moment
+helpers), P7 (verify-metric CLI), and P10-full (discrepancy-audit
+CLI). The code for these landed inside v0.29's commit (tag
+`v0.29.0`); v0.30's commit adds the version bump + CHANGELOG entry
++ SQL-fix in test fixtures.
+
+### Added
+
+- **`polarisopt.moments`** module — reusable moment builders for
+  the POM starter kit (Grimm 2005). Each helper returns a canned
+  `moment` dict for `moment_set.moments`:
+    - `mode_shares_by_purpose(target=..., ...)` — mode shares by
+      `(purpose, mode)`. Defaults obs=0.005, md=0.02.
+    - `boarding_by_agency(target=..., ...)` — transit boardings by
+      `(agency, type)`. Defaults to `log_ratio_residual` because
+      boarding counts span decades; obs=0.10, md=0.20.
+    - `mean_travel_time_by_activity(target=..., ...)` — minutes by
+      destination activity type. Defaults obs=2 min, md=4 min.
+    - `trip_distance_deciles_by_mode(target=..., ...)` — empirical
+      CDF via NTILE(10).
+  Every helper accepts `obs_noise_std`, `model_discrepancy_std`,
+  `weight_per_element`, `aggregation`, `name` overrides.
+- **`polarisopt verify-metric <study.yaml> --reference-db <db>`**
+  (P7) — runs the study's metric against a reference (typically
+  the target DB itself) and asserts the analytic identity:
+    - `moment_set` → every residual ≈ 0 (default tolerance 1e-6).
+    - `choice_share` with `jensen_shannon` / `kl_divergence` → ≈ 0.
+    - `choice_share` with `cross_entropy` → prints value for
+      comparison to H(target) (no zero-identity).
+    - Others → asserts finite.
+  Motivated by DFW Phase 5 where a bad `cross_entropy`
+  implementation silently corrupted 20 h of Phase 4A. Add to CI
+  before any big compute allocation.
+- **`polarisopt discrepancy-audit <study.yaml>`** (P10 full) —
+  walks every moment in a `moment_set` metric and prints
+  `(name, obs_std, md_std, md/obs)`. Exits non-zero if any moment
+  has `model_discrepancy_std <= 0` (Vernon 2010 §3.5's failure
+  mode). Complements the construction-time UserWarning shipped
+  in v0.26 with a hard CI gate.
+
+### Fixed
+
+- **v0.30 tests: SQL alignment.** Test fixtures for
+  `verify-metric` used `COUNT(*)` in the moment SQL but stored
+  counts in an `n` column. Switched to `SUM(n)` so the residuals
+  come out correctly zero on identity.
+
+### Tests
+
+- 13 new tests in `test_verify_and_audit.py`:
+  4 moment-helper shape/default/override tests, 5 verify-metric
+  tests (KL / JS / CE / moment_set-identity / moment_set-mismatch),
+  4 discrepancy-audit tests (pass / fail on md=0 / rejection of
+  scalar metrics).
+- All 13 pass; ruff clean.
+
 ## 0.29.0 — 2026-07-30
 
 Fourth release of the β-calibration series. Ships P5 —

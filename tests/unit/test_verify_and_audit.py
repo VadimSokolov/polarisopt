@@ -205,7 +205,7 @@ def test_verify_metric_moment_set_zero_residuals(tmp_path: Path) -> None:
               - name: shares
                 source_sql: |
                   SELECT purpose, mode,
-                         COUNT(*) * 1.0 / (SELECT COUNT(*) FROM Trip WHERE purpose IS NOT NULL) AS share
+                         SUM(n) * 1.0 / (SELECT SUM(n) FROM Trip WHERE purpose IS NOT NULL) AS share
                   FROM Trip WHERE purpose IS NOT NULL
                   GROUP BY purpose, mode
                 target: {target_csv}
@@ -257,7 +257,7 @@ def test_verify_metric_moment_set_mismatched_target_flags_nonzero(tmp_path: Path
               - name: shares
                 source_sql: |
                   SELECT purpose, mode,
-                         COUNT(*) * 1.0 / (SELECT COUNT(*) FROM Trip WHERE purpose IS NOT NULL) AS share
+                         SUM(n) * 1.0 / (SELECT SUM(n) FROM Trip WHERE purpose IS NOT NULL) AS share
                   FROM Trip WHERE purpose IS NOT NULL
                   GROUP BY purpose, mode
                 target: {target_csv}
