@@ -27,9 +27,20 @@ def test_max_iter_fires_at_n() -> None:
     assert s.should_stop(_state(5, np.empty((0, 1))))
 
 
-def test_max_iter_rejects_bad_n() -> None:
-    with pytest.raises(ValueError):
-        MaxIterStop(n=0)
+def test_max_iter_rejects_negative_n() -> None:
+    """v0.26: n=0 is now allowed (warmup-only phases). Only negatives fail."""
+    with pytest.raises(ValueError, match="must be >= 0"):
+        MaxIterStop(n=-1)
+
+
+def test_max_iter_n_zero_stops_immediately() -> None:
+    """v0.26 P8: n=0 means 'no BO iterations after warmup' — the stop
+    fires at iteration 0 and the generator is never called. Unblocks
+    the MLE→POLARIS validation use case that used to crash with
+    'AcquisitionGenerator needs >=2 finished samples' after the user
+    was forced to set n=1."""
+    s = MaxIterStop(n=0)
+    assert s.should_stop(_state(0, np.empty((0, 1))))
 
 
 def test_epsilon_minimization() -> None:

@@ -5,6 +5,7 @@ from polarisopt.metrics.choice_share import ChoiceShareMetric
 from polarisopt.metrics.constant import ConstantMetric
 from polarisopt.metrics.identity import IdentityMetric
 from polarisopt.metrics.link_moe import LinkMoeMetric
+from polarisopt.metrics.moment_set import MomentSetMetric
 
 __all__ = [
     "ChoiceShareMetric",
@@ -13,6 +14,7 @@ __all__ = [
     "LinkMoeMetric",
     "Metric",
     "MetricError",
+    "MomentSetMetric",
     "make_metric",
     "metric_registry",
 ]

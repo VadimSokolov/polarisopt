@@ -2,6 +2,79 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.26.0 — 2026-07-29
+
+First release of the β-calibration series (DFW feedback
+`polarisopt_feedback_v0.26_beta_calibration.md`). Ships P1
+(`moment_set` metric) + partial P10 (discrepancy warning) + P8
+(warmup-only phases). The remaining priorities (P2/P4/P5/P6/P7/P3/P9/P11)
+follow in v0.27–v0.31.
+
+### Added
+
+- **`metric.type: moment_set`** — new metric that returns a
+  concatenated residual vector across N named moments, each with its
+  own SQL against a SQLite output and CSV-anchored target. Two
+  per-moment aggregations shipped:
+    - `elementwise_residual` (default) — `sim_k − target_k` per element.
+    - `log_ratio_residual` — `log((sim_k + ε) / (target_k + ε))`,
+      better for count moments spanning multiple decades.
+  Enables the POM / history-matching pattern the DFW study needs
+  (Grimm 2005, Vernon-Goldstein-Bower 2010).
+- **`scalarize`** option on `moment_set` — `none` (default, vector),
+  `sum_squared_weighted`, `max_implausibility`, `mean_implausibility`.
+  Lets existing BO acquisitions consume the vector as a scalar
+  without a separate metric class.
+- **Per-element metadata attributes** on fitted `MomentSetMetric`
+  instances: `moment_names`, `moment_slices`, `obs_noise_std_vector`,
+  `model_discrepancy_std_vector`, `weight_vector`. History-matching
+  phases (v0.31+) will read these to compute per-moment implausibility.
+- **P10 partial — discrepancy warning.** `moment_set` emits a
+  `UserWarning` on construction when any moment has
+  `model_discrepancy_std <= 0` (Vernon 2010 §3.5: silent md=0
+  systematically produces empty NROY). Full `polarisopt diagnostics
+  discrepancy-audit` CLI is deferred to v0.30.
+
+### Changed
+
+- **P8 — `MaxIterStop(n=0)` is now legal.** Previously rejected as
+  "must be > 0". `n=0` means "no BO iterations after warmup" — the
+  loop's stop check fires at iteration 0 and the generator is never
+  called. Unblocks the validation-run use case (POLARIS at pinned
+  parameters, score, exit) that used to crash with
+  "AcquisitionGenerator needs >=2 finished samples" when the user
+  worked around the rejection by setting `n=1`. Negative values
+  still fail loudly.
+
+### Tests
+
+- 26 new tests in `test_metrics_moment_set.py`: identity-target-is-zero
+  regression (P7-style self-verification), sim-minus-target math,
+  missing-sim-key defaulting to 0, extra-sim-key silently dropped,
+  weight scaling, log-ratio aggregation with epsilon floor,
+  each `scalarize` mode (sum-squared / max-implausibility /
+  mean-implausibility), implausibility requires positive denom,
+  P10 warning fires and stays quiet appropriately, metadata-vector
+  layout, all construction-time validations, all compute-time
+  validations, factory roundtrip.
+- 1 new test in `test_stop.py` for `MaxIterStop(n=0)`; updated
+  `test_max_iter_rejects_bad_n` → `test_max_iter_rejects_negative_n`.
+- Full suite: 433 passing (was 406).
+
+### Ship note
+
+The full-spec 11-feature β-calibration mode requires 6 releases per
+its dependency DAG (see the DFW feedback doc). Sequencing:
+
+| Release | Scope |
+|---|---|
+| **v0.26.0** (this) | P1 moment_set + P8 max_iter=0 + P10-warn |
+| v0.27.0 | P2 parameter priors + P11 prior-mean LHS anchor |
+| v0.28.0 | P4 nested-ASC contraction |
+| v0.29.0 | P5 identifiability CLI |
+| v0.30.0 | P6 moment helpers + P7 verify-metric CLI + P10-full audit |
+| v0.31.0 | P3 history_matching phase + P9 NROY parquet export |
+
 ## 0.25.0 — 2026-07-27
 
 Heteroscedastic (per-point) `observation_noise` on the `gp`

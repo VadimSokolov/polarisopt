@@ -122,6 +122,41 @@ metric:
     laplace_smoothing_alpha: 1.0
 ```
 
+Multi-moment (v0.26+) — vector residuals across N named moments with
+per-moment CSV targets. Enabler for history-matching and POM
+calibration:
+
+```yaml
+metric:
+  type: moment_set
+  options:
+    source_key: demand_db
+    # BO consumers want a scalar. History matching (v0.31+) wants the
+    # vector. Options: none | sum_squared_weighted | max_implausibility
+    # | mean_implausibility
+    scalarize: none
+    moments:
+      - name: mode_shares_by_purpose
+        source_sql: |
+          SELECT purpose, mode,
+                 COUNT(*)*1.0 / (SELECT COUNT(*) FROM Trip WHERE purpose IS NOT NULL)
+                 AS share
+          FROM Trip GROUP BY purpose, mode
+        target: calibration_targets/mode_shares.csv
+        target_key_cols: [purpose, mode]
+        target_value_col: share
+        obs_noise_std: 0.005
+        model_discrepancy_std: 0.02   # required — Vernon 2010 §3.5
+      - name: boarding_by_agency
+        source_sql: "SELECT agency, type, SUM(n) AS boardings FROM MM_Trip GROUP BY agency, type"
+        target: calibration_targets/boardings.csv
+        target_key_cols: [agency, type]
+        target_value_col: boardings
+        aggregation: log_ratio_residual    # for count moments spanning decades
+        obs_noise_std: 0.10
+        model_discrepancy_std: 0.20
+```
+
 ```yaml
 metric:
   type: identity
