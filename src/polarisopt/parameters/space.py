@@ -7,11 +7,13 @@ that should receive the value. A ``ParameterSpace`` is a collection.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 
+from polarisopt.parameters.prior import Prior, prior_from_dict
 from polarisopt.utils._compat import StrEnum
 
 
@@ -64,10 +66,27 @@ class Parameter:
     low: float
     high: float
     ptype: ParameterType = ParameterType.FLOAT
+    prior: Prior | None = None
+    hold_at_prior_mean_if_unidentified: bool = False
 
     def __post_init__(self) -> None:
         if self.high <= self.low:
             raise ValueError(f"Parameter '{self.name}': high ({self.high}) must exceed low ({self.low}).")
+        # If a prior was supplied but its declared mean is well outside
+        # this parameter's box, flag it — this is almost always a
+        # config bug that would otherwise silently pull LHS anchors
+        # and BO gradients outside the search region.
+        if self.prior is not None:
+            m = self.prior.mean
+            if not math.isfinite(m):
+                raise ValueError(
+                    f"Parameter '{self.name}': prior.mean is not finite ({m!r})"
+                )
+            if m < self.low or m > self.high:
+                raise ValueError(
+                    f"Parameter '{self.name}': prior.mean {m!r} is outside "
+                    f"the parameter box [{self.low}, {self.high}]"
+                )
 
     def clip(self, value: float) -> float | int:
         """Clip ``value`` into ``[low, high]`` and coerce to the declared type.
@@ -184,6 +203,8 @@ def parameter_space_from_records(records: list[dict[str, Any]]) -> ParameterSpac
     params: list[Parameter] = []
     for r in records:
         try:
+            prior_spec = r.get("prior")
+            prior_obj = prior_from_dict(prior_spec) if prior_spec is not None else None
             params.append(
                 Parameter(
                     name=str(r["name"]),
@@ -191,6 +212,10 @@ def parameter_space_from_records(records: list[dict[str, Any]]) -> ParameterSpac
                     low=float(r["min"]),
                     high=float(r["max"]),
                     ptype=_coerce_ptype(r.get("type")),
+                    prior=prior_obj,
+                    hold_at_prior_mean_if_unidentified=bool(
+                        r.get("hold_at_prior_mean_if_unidentified", False)
+                    ),
                 )
             )
         except KeyError as exc:

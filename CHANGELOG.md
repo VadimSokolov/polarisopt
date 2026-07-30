@@ -2,6 +2,82 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.27.0 — 2026-07-30
+
+Second release of the β-calibration series. Ships P2 (parameter
+priors) + P11 (prior-mean LHS anchor). Enables meta-analytic
+regularization of rank-deficient calibration dimensions and gives
+LHS wave-1 a defensible anchor point (Small-Verhoef 2007 VOT priors;
+Wardman-Chintakayala-de Jong 2016 European meta of 3,109 valuations).
+
+### Added
+
+- **`Parameter.prior`** — new optional field on `Parameter`. Accepts
+  a :class:`polarisopt.parameters.Prior` instance. Reflected through
+  the YAML `parameters.inline[i].prior` shape:
+  ```yaml
+  parameters:
+    inline:
+      - name: b_IVTT_Auto_Mean
+        file: config/choice_models/ModeChoiceModel.json
+        min: -0.30
+        max: -0.001
+        prior:
+          type: gaussian
+          mean: -0.10          # ≈ VOT $10/hr at $18/hr median wage
+          std:  0.035          # Small-Verhoef 2007 dispersion
+  ```
+- **Five prior types** in `polarisopt.parameters.prior`:
+    - `gaussian(mean, std)` — unrestricted real coefficients.
+    - `log_normal(log_mean, log_std)` — sign-constrained scales.
+    - `truncated_normal(loc, scale, low, high)` — bounded coefficients;
+      `.mean` returns the truncated-distribution mean, always inside
+      `[low, high]`.
+    - `uniform(low, high)` — explicit flat prior (equivalent to
+      no prior; `.mean` is midpoint).
+    - `beta(alpha, beta)` — ratios in `[0, 1]`.
+  All expose `.mean` and `.log_prob(x)`. Log-densities validated
+  against scipy where an off-the-shelf reference exists.
+- **`hold_at_prior_mean_if_unidentified: bool`** on `Parameter`
+  (default False). Read by v0.29's `polarisopt identifiability` CLI
+  to decide which un-identified parameters to pin at their prior
+  mean vs leave in the search.
+- **P11 — `LHSDesign(include_prior_mean_anchor=True)`.** When
+  enabled, the LHS's first row is replaced with the per-parameter
+  prior-mean anchor (or the box midpoint when no prior is set).
+  Ensures wave-1 always evaluates a defensible starting θ
+  regardless of LHS randomness — a small effect that avoids the
+  "wave 1 missed the good basin" outcome. Default False;
+  existing YAMLs unchanged.
+- **Cross-check at construction**: `Parameter` rejects a prior whose
+  `.mean` falls outside `[low, high]`. A prior mean outside the box
+  is almost always a config bug (VOT prior in the wrong sign, etc.)
+  and would silently pull anchors and gradients out of the search.
+
+### Consumers
+
+Priors are wiring for downstream releases; they participate in:
+- v0.29 identifiability pre-flight — the pin-at-prior-mean value.
+- v0.31 history matching — a virtual moment adding
+  `((θ − prior.mean) / prior.std)²` to the implausibility measure.
+- v0.31 BO-with-MAP mode — adds `−log p(θ)` to the scalar objective.
+
+### Tests
+
+- 26 new tests in `test_parameter_prior.py`: each prior's
+  `mean` semantics (truncated stays inside support; log-normal
+  matches exp(µ+σ²/2)), out-of-support → −inf, bad-parameter
+  rejection, scipy log-pdf agreement for Beta, factory roundtrip,
+  Parameter wiring, `parameter_space_from_records` prior parsing,
+  LHS anchor on / off / int-typed / no-priors-fallback-to-midpoint.
+
+### Ship plan (remaining DFW spec)
+
+- v0.28.0: P4 nested-ASC contraction.
+- v0.29.0: P5 identifiability CLI.
+- v0.30.0: P6 + P7 + P10-full.
+- v0.31.0: P3 + P9 (the calibration mode itself).
+
 ## 0.26.0 — 2026-07-29
 
 First release of the β-calibration series (DFW feedback

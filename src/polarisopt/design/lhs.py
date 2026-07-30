@@ -19,6 +19,13 @@ class LHSDesign(Design):
         Number of sample points (must be positive).
     scramble : bool, optional
         Whether to scramble the LHS (default ``True``).
+    include_prior_mean_anchor : bool, optional
+        v0.27+ (P11). When True, the first row of the returned batch
+        is replaced with the prior-mean anchor vector (per-parameter
+        ``prior.mean`` where a prior is set; midpoint of the parameter
+        box otherwise). Ensures wave-1 evaluates a defensible starting
+        θ regardless of LHS randomness. Requires ``n >= 1``. Default
+        ``False`` — existing behavior unchanged.
 
     Raises
     ------
@@ -39,15 +46,31 @@ class LHSDesign(Design):
     (8, 2)
     """
 
-    def __init__(self, n: int, *, scramble: bool = True) -> None:
+    def __init__(
+        self,
+        n: int,
+        *,
+        scramble: bool = True,
+        include_prior_mean_anchor: bool = False,
+    ) -> None:
         if n <= 0:
             raise ValueError(f"LHSDesign: n must be positive, got {n}")
         self.n = int(n)
         self.scramble = bool(scramble)
+        self.include_prior_mean_anchor = bool(include_prior_mean_anchor)
 
     def generate(self, space: ParameterSpace, *, rng: np.random.Generator) -> np.ndarray:
         sampler = qmc.LatinHypercube(d=space.ndim, scramble=self.scramble, rng=rng)
         unit = sampler.random(n=self.n)  # (n, ndim) in [0, 1)
         bounds = space.bounds  # (ndim, 2)
         scaled = unit * (bounds[:, 1] - bounds[:, 0]) + bounds[:, 0]
-        return space.clip(scaled)
+        pts = space.clip(scaled)
+        if self.include_prior_mean_anchor:
+            # Replace the first row with the prior-mean anchor. Per-parameter:
+            # use prior.mean if a prior is set, midpoint of the box otherwise.
+            anchor = np.array([
+                p.prior.mean if p.prior is not None else 0.5 * (p.low + p.high)
+                for p in space.parameters
+            ], dtype=float)
+            pts[0] = space.clip(anchor)
+        return pts
