@@ -201,6 +201,67 @@ def test_resolve_output_dir_prefers_numbered_over_unnumbered(
     assert out["iteration"] == 1
 
 
+def test_resolve_output_dir_skips_calib_dirs_when_nested_asc_enabled(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """v0.32 regression (DFW Phase 7): polarislib's nested-ASC contraction
+    creates ``_calib_<N>`` directories that used to be picked as the
+    highest-numbered iteration — but their Trip table is empty. When
+    the feature that creates them is enabled, skip them and use the
+    real DTA iteration dir instead."""
+    sim = _make_sim(
+        tmp_path, runner_script,
+        iteration_type="abm_init",
+        nested_asc_contraction={"enabled": True, "num_planned_activity_iterations": 3},
+    )
+    sample = Sample(id=101, inputs=np.array([0.3]))
+    workspace = tmp_path / "sim-101"
+    sim.prepare(sample, space, workspace)
+    # Layout mirrors what polarislib produces with num_planned_activity_iterations=3:
+    # - one real DTA iteration (unnumbered)
+    # - three _calib_N contraction dirs
+    real_dta = workspace / "DFW_01_abm_init_iteration"
+    real_dta.mkdir(parents=True, exist_ok=True)
+    with h5py.File(real_dta / "DFW-Demand.sqlite", "w") as f:
+        f.create_group("real_dta_output")
+    for k in (1, 2, 3):
+        d = workspace / f"DFW_01_abm_init_iteration_calib_{k}"
+        d.mkdir(parents=True, exist_ok=True)
+        with h5py.File(d / "DFW-Demand.sqlite", "w") as f:
+            f.create_group(f"contraction_only_{k}")
+    sample.folder = workspace
+    out = sim.collect_output(sample)
+    # Real DTA output (unnumbered) wins over any _calib_N — the fix.
+    assert out["output_dir"].endswith("DFW_01_abm_init_iteration"), out["output_dir"]
+    assert "_calib_" not in out["output_dir"]
+
+
+def test_resolve_output_dir_calib_included_when_nested_asc_disabled(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """Symmetric guarantee: when nested-ASC is OFF but a directory
+    happens to be named ``..._calib_N`` (unlikely in the wild, but
+    possible with user-configured suffixes), the previous behavior
+    stands — we don't unconditionally skip these dirs."""
+    sim = _make_sim(tmp_path, runner_script, iteration_type="abm_init")
+    sample = Sample(id=102, inputs=np.array([0.3]))
+    workspace = tmp_path / "sim-102"
+    sim.prepare(sample, space, workspace)
+    for name in (
+        "DFW_01_abm_init_iteration_0",
+        "DFW_01_abm_init_iteration_calib_1",
+    ):
+        d = workspace / name
+        d.mkdir(parents=True, exist_ok=True)
+        with h5py.File(d / "DFW-Demand.sqlite", "w") as f:
+            f.create_group("anything")
+    sample.folder = workspace
+    out = sim.collect_output(sample)
+    # Highest numeric suffix (calib_1 → 1) wins over `_0`. This is the
+    # pre-v0.32 behavior — we only skip _calib_ when nested-ASC is on.
+    assert out["output_dir"].endswith("_calib_1"), out["output_dir"]
+
+
 def test_resolve_output_dir_no_match_raises(
     tmp_path: Path, space: ParameterSpace, runner_script: Path
 ) -> None:

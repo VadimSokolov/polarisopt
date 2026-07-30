@@ -2,6 +2,55 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.32.0 — 2026-07-30
+
+Bug fix from the DFW Phase 7 identifiability run
+(feedback file `polarisopt_feedback_v0.32_output_dir_resolution.md`).
+`_resolve_output_dir` was silently picking polarislib's nested-ASC
+`_calib_N` contraction artifacts as the highest-numbered iteration,
+so 33 of 33 completed samples returned garbage metric vectors
+(sim shares all 0 → residual = -target for every category).
+
+### Fixed
+
+- **`_resolve_output_dir` skips `_calib_*` subdirs when
+  `nested_asc_contraction.enabled=True`.** polarislib's
+  `runs.calibrate.calibration.get_output_dir()` names each
+  contraction iteration `<db>_<iter>_calib_<N>`; polarisopt's old
+  glob picked those up as if they were real DTA iterations (their
+  numeric suffix parses fine), and the highest-N contraction dir
+  won — but its Trip table is empty because contraction is
+  activity-generation only. Now the resolver ignores any
+  `_calib_*`-named subdir on the nested-ASC path and falls
+  through to the real DTA iteration dir (numbered or unnumbered).
+- Behavior when `nested_asc_contraction.enabled=False` (or unset)
+  is unchanged — a directory named `..._calib_N` in a
+  non-nested-ASC study still resolves normally. The skip is
+  conditional on the feature that generates the artifacts being
+  on.
+
+### Companion note (not shipped)
+
+The DFW report also suggests an optional
+`nested_asc_contraction.score_from: dta_output | last_contraction |
+activity_table` so users can choose which output the metric reads.
+Deferred to v0.33 pending demand — v0.32's fix restores the sane
+default (DTA output). The DFW user workaround of pointing metric
+SQL at the `Activity` table remains valid and is scientifically
+cleaner for pure-mode-choice calibration.
+
+### Tests
+
+- 2 new regression tests in `test_simulator_polaris_convergence.py`:
+    - `_resolve_output_dir` returns the real DTA iteration dir
+      (not `_calib_3`) when nested-ASC is enabled and a mixed
+      layout of `..._iteration` + three `..._calib_N` subdirs is
+      present.
+    - Symmetric guarantee: when nested-ASC is off, a `..._calib_1`
+      subdir still resolves normally (pre-v0.32 behavior — we only
+      skip these dirs when we know they're contraction artifacts).
+- Full convergence-simulator suite: 40 pass (up from 38); ruff clean.
+
 ## 0.31.0 — 2026-07-30
 
 **Final release of the β-calibration series** (v0.26 → v0.31, six

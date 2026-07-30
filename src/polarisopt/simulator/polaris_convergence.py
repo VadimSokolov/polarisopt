@@ -444,14 +444,36 @@ class PolarisConvergenceSimulator(PolarisSimulator):
 
         Prefers the highest-numbered ``_<N>`` if any exist, otherwise
         falls back to the no-suffix directory.
+
+        v0.32 fix (DFW report): when ``nested_asc_contraction`` is
+        enabled, ``polarislib.runs.calibrate.calibration.get_output_dir``
+        writes per-contraction-iteration artifacts named
+        ``<db_name>_<iter_str>_calib_<N>``. The old glob picked up
+        those `_calib_N` directories (because `rsplit("_", 1)[-1]`
+        parses `N` as an int), so the highest-N contraction dir won
+        even though its Trip table is empty (contraction is
+        activity-generation only). The Phase 7 DFW run lost 33/33
+        samples to garbage metric vectors before the workaround.
+        Skip `_calib_*`-suffixed dirs on the nested-ASC path — they
+        are polarislib contraction artifacts, not real DTA iterations.
         """
         iter_base = ITER_TYPE_TO_BASE[self.iteration_type]
         numbered_pattern = f"{output_dirname}_{iter_base}_*"
         unnumbered = workspace / f"{output_dirname}_{iter_base}"
+        nested_asc_on = (
+            self.nested_asc_contraction is not None
+            and bool(self.nested_asc_contraction.get("enabled"))
+        )
 
         candidates: list[tuple[int, Path]] = []
         for d in workspace.glob(numbered_pattern):
             if not d.is_dir():
+                continue
+            # v0.32 fix: exclude polarislib contraction artifacts when the
+            # feature that creates them is on. Match on the substring
+            # `_calib_` (before the trailing numeric suffix), so we still
+            # accept the real DTA iteration dirs `_<N>`.
+            if nested_asc_on and "_calib_" in d.name:
                 continue
             suffix = d.name.rsplit("_", 1)[-1]
             try:
