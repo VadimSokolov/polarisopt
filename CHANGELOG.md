@@ -2,6 +2,67 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.29.0 — 2026-07-30
+
+Fourth release of the β-calibration series. Ships P5 —
+``polarisopt identifiability`` CLI, a per-moment generalization of
+v0.24 ``sensitivity``. Runs SALib Sobol per moment column on a
+``moment_set`` metric, classifies each parameter as identified or
+unidentified based on its maximum first-order Sobol index across
+all moments (Vernon 2010 §3.5 identification rule), and optionally
+rewrites the YAML to pin unidentified-with-prior parameters at
+their prior mean.
+
+### Added
+
+- **`polarisopt identifiability`** CLI subcommand:
+  ```
+  polarisopt identifiability study.yaml
+  polarisopt identifiability study.yaml --n-sobol 8192 --threshold 0.05
+  polarisopt identifiability study.yaml --json > identifiability.json
+  polarisopt identifiability study.yaml --auto-drop-to-prior-mean
+  ```
+  Requires the study's metric to be `moment_set` with
+  `scalarize: none`; scalar metrics belong to
+  `polarisopt sensitivity` (v0.24) instead.
+- **`polarisopt.studies.identifiability` module**:
+  - `run_identifiability_analysis(store, space, *, metric, phase,
+    n_sobol, threshold) -> IdentifiabilityReport`
+  - `format_identifiability(report)`,
+    `identifiability_as_dict(report)`
+  - `auto_drop_to_prior_mean(config_yaml, report)` — rewrites the
+    YAML to a `.pinned.yaml` sibling with unidentified parameters
+    pinned at their prior mean (only when
+    `hold_at_prior_mean_if_unidentified: true` AND a prior is set).
+    Original YAML untouched; audit trail via `_pinned_at:` per record.
+- **`IdentifiabilityReport`** with per-parameter
+  `max_first_order`, `max_total`, `is_identified`, `suggested_pin`
+  and full `per_moment_first_order` / `per_moment_total` dicts
+  keyed by moment name.
+
+### Behavior notes
+
+- Silent-value handling: if any Y column has zero range across
+  the training set (SQL always returns the same value), Sobol is
+  undefined and that parameter contributes 0 for that moment.
+- Vernon's rule: `max_first_order >= threshold` → identified.
+  Default threshold 0.05.
+- ``auto-drop`` only touches parameters flagged
+  `hold_at_prior_mean_if_unidentified: true` with a set prior.
+  Unflagged unidentified parameters are noted in the report but
+  left in the search — the operator sees them and decides.
+
+### Tests
+
+- 12 new tests in `test_identifiability.py`: active-only-x0
+  classification, per-moment index recording, scalar-metric
+  rejection, inconsistent-width rejection, empty-store rejection,
+  format/JSON roundtrip, CLI table output, CLI JSON output, CLI
+  auto-drop rewriting the YAML with `_pinned_at:` audit trail,
+  CLI rejection of scalar-metric configs.
+- Full local run: 12/12 pass. `test_mock_simulator_end_to_end_via_local_runner`
+  remains a pre-existing cluster flake (not caused by this diff).
+
 ## 0.28.0 — 2026-07-30
 
 Third release of the β-calibration series. Ships P4 (nested-ASC

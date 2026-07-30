@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import click
+import numpy as np
 
 from polarisopt import __version__
 from polarisopt.config import load_study_config
@@ -928,6 +929,234 @@ def sensitivity(
         click.echo(_json.dumps(report_as_dict(report), indent=2))
     else:
         click.echo(format_report(report))
+
+
+@cli.command()
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--phase", default=None, type=str,
+    help="Restrict to samples from one phase. Default: all phases.",
+)
+@click.option(
+    "--n-sobol", default=8192, show_default=True, type=int,
+    help="SALib Sobol sample size for the per-moment analysis.",
+)
+@click.option(
+    "--threshold", default=0.05, show_default=True, type=float,
+    help="First-order Sobol index below which a parameter is unidentified. "
+         "Default 0.05 (Vernon 2010).",
+)
+@click.option(
+    "--json", "as_json", is_flag=True,
+    help="Emit ranked-JSON instead of the human-readable table.",
+)
+@click.option(
+    "--auto-drop-to-prior-mean", is_flag=True,
+    help="Rewrite the YAML to pin unidentified parameters at their prior "
+         "mean (for parameters flagged hold_at_prior_mean_if_unidentified: "
+         "true AND with a set prior). Writes to <stem>.pinned<ext>; "
+         "original is untouched.",
+)
+def identifiability(
+    config: Path,
+    phase: str | None,
+    n_sobol: int,
+    threshold: float,
+    as_json: bool,
+    auto_drop_to_prior_mean: bool,
+) -> None:
+    """Per-moment identifiability pre-flight (P5).
+
+    Extends ``polarisopt sensitivity`` to moment-vector metrics: for
+    each moment column, fit a GP and compute Sobol indices, then
+    classify each parameter as identified or unidentified based on its
+    maximum first-order index across all moments. Requires a
+    ``moment_set`` metric with ``scalarize: none`` and >=2 FINISHED
+    samples in the store.
+    """
+    import json as _json
+
+    from polarisopt.metrics import make_metric
+    from polarisopt.studies.identifiability import (
+        IdentifiabilityError,
+        format_identifiability,
+        identifiability_as_dict,
+        run_identifiability_analysis,
+    )
+    from polarisopt.studies.identifiability import (
+        auto_drop_to_prior_mean as _auto_drop,
+    )
+
+    cfg = load_study_config(config)
+    layout = workspace_layout(Path(cfg.workspace))
+    store = SampleStore.open(layout["db"], cfg.name)
+    from polarisopt.studies.runner import _build_space
+    space = _build_space(cfg.parameters)
+    metric = make_metric({"type": cfg.metric.type, "options": cfg.metric.options})
+    from polarisopt.metrics.moment_set import MomentSetMetric
+    if not isinstance(metric, MomentSetMetric):
+        raise click.ClickException(
+            f"identifiability requires a moment_set metric; got {type(metric).__name__}"
+        )
+    try:
+        report = run_identifiability_analysis(
+            store, space, metric=metric,
+            phase=phase, n_sobol=n_sobol, threshold=threshold,
+        )
+    except IdentifiabilityError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if as_json:
+        click.echo(_json.dumps(identifiability_as_dict(report), indent=2))
+    else:
+        click.echo(format_identifiability(report))
+
+    if auto_drop_to_prior_mean:
+        out_path, pinned = _auto_drop(config, report)
+        if pinned:
+            click.echo(f"\nPinned {len(pinned)} parameter(s) at prior mean → {out_path}")
+            for name in pinned:
+                click.echo(f"  - {name}")
+        else:
+            click.echo(
+                "\nNo parameters pinned. Add `hold_at_prior_mean_if_unidentified: true` "
+                "and a `prior:` to any unidentified parameter you want auto-pinned."
+            )
+
+
+@cli.command(name="verify-metric")
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--reference-db", "reference_db",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    required=True,
+    help="Path to a reference simulator output (typically the target DB itself). "
+         "For choice_share/moment_set, expected metric-on-target result is analytic "
+         "(entropy for CE; zero for KL / moment_set residuals; near-zero for JS).",
+)
+@click.option(
+    "--tolerance", default=1e-6, show_default=True, type=float,
+    help="Absolute tolerance for the 'residuals ≈ 0' check on moment_set / KL "
+         "and for 'JS ≈ 0' on jensen_shannon. Larger for CE (compared against "
+         "the target's own entropy).",
+)
+def verify_metric(config: Path, reference_db: Path, tolerance: float) -> None:
+    """P7: sanity-check the study's metric against a reference DB.
+
+    Runs the configured metric with ``{demand_db: reference_db}`` as
+    input and asserts the analytic expected value:
+
+    - ``moment_set``: every residual element ≈ 0.
+    - ``choice_share`` with ``jensen_shannon`` / ``kl_divergence``: ≈ 0.
+    - ``choice_share`` with ``cross_entropy``: ≈ H(target) (analytic).
+    - Others: the metric is asked to compute; polarisopt exits 0 if the
+      value comes back finite (weaker check — we don't know the
+      analytic identity for arbitrary metrics).
+
+    Add this to CI before a big compute allocation. Motivated by DFW
+    Phase 5 where a bad ``cross_entropy`` implementation silently
+    corrupted 20 h of Phase 4A.
+    """
+    from polarisopt.metrics import make_metric
+    from polarisopt.metrics.choice_share import ChoiceShareMetric
+    from polarisopt.metrics.moment_set import MomentSetMetric
+
+    cfg = load_study_config(config)
+    metric = make_metric({"type": cfg.metric.type, "options": cfg.metric.options})
+    click.echo(f"metric type: {type(metric).__name__}")
+    click.echo(f"reference DB: {reference_db}")
+    output = {"demand_db": str(reference_db), "result_path": str(reference_db)}
+    try:
+        result = metric.compute(output)
+    except Exception as exc:
+        raise click.ClickException(f"metric.compute failed: {exc}") from exc
+
+    click.echo(f"metric returned vector of length {len(result)}")
+    if isinstance(metric, MomentSetMetric):
+        max_abs = float(np.abs(result).max()) if result.size else 0.0
+        click.echo(f"max |residual| = {max_abs:.3e} (tolerance {tolerance:.3e})")
+        if max_abs > tolerance:
+            raise click.ClickException(
+                f"moment_set residuals exceed tolerance ({max_abs:.3e} > {tolerance:.3e}). "
+                f"Check SQL / target CSV alignment."
+            )
+        click.echo("OK — every moment residual within tolerance.")
+        return
+    if isinstance(metric, ChoiceShareMetric):
+        agg = metric.aggregation
+        val = float(result[0])
+        if agg in ("kl_divergence", "jensen_shannon", "sum_abs", "rmse"):
+            if abs(val) > tolerance:
+                raise click.ClickException(
+                    f"expected {agg} ≈ 0 on identity, got {val:.3e}"
+                )
+            click.echo(f"OK — {agg} = {val:.3e} within tolerance.")
+        elif agg == "cross_entropy":
+            click.echo(
+                f"cross_entropy = {val:.6f} (compare to your target's H(p); "
+                "no analytic zero-identity for this aggregation)"
+            )
+        else:
+            click.echo(f"{agg} = {val}")
+        return
+    # Generic metric — just assert finite.
+    if not np.isfinite(result).all():
+        raise click.ClickException(f"metric returned non-finite value: {result!r}")
+    click.echo(f"OK — metric returned finite vector {result!r}")
+
+
+@cli.command(name="discrepancy-audit")
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+def discrepancy_audit(config: Path) -> None:
+    """P10 full: audit per-moment ``model_discrepancy_std`` on a
+    ``moment_set`` metric.
+
+    Vernon 2010 §3.5 explicitly warns that setting Var(ε_md) to zero
+    (the "no model discrepancy" default) systematically produces
+    empty NROY in history matching. This subcommand walks every
+    moment in the configured metric and prints a table of
+    ``(moment, obs_std, md_std, md_over_obs)`` so you can catch
+    moments where discrepancy is absent or tiny relative to
+    observation noise.
+
+    Exit code is non-zero when at least one moment has
+    ``model_discrepancy_std <= 0``.
+    """
+    from polarisopt.metrics import make_metric
+    from polarisopt.metrics.moment_set import MomentSetMetric
+
+    cfg = load_study_config(config)
+    metric = make_metric({"type": cfg.metric.type, "options": cfg.metric.options})
+    if not isinstance(metric, MomentSetMetric):
+        raise click.ClickException(
+            f"discrepancy-audit requires a moment_set metric; "
+            f"got {type(metric).__name__}"
+        )
+    click.echo(f"{'moment':<40} {'obs_std':>10} {'md_std':>10} {'md/obs':>10}")
+    click.echo("-" * 74)
+    bad: list[str] = []
+    for spec in metric.moments:
+        ratio = (spec.model_discrepancy_std / spec.obs_noise_std) if spec.obs_noise_std > 0 else float("inf")
+        line = (
+            f"{spec.name[:40]:<40} "
+            f"{spec.obs_noise_std:>10.4g} "
+            f"{spec.model_discrepancy_std:>10.4g} "
+            f"{ratio:>10.2f}"
+        )
+        click.echo(line)
+        if spec.model_discrepancy_std <= 0:
+            bad.append(spec.name)
+    click.echo("")
+    if bad:
+        click.echo(
+            f"FAIL: {len(bad)} moment(s) have model_discrepancy_std <= 0: {bad}"
+        )
+        click.echo(
+            "Vernon 2010 §3.5: silent md=0 systematically produces empty NROY in "
+            "history matching. Set model_discrepancy_std explicitly per moment."
+        )
+        raise click.exceptions.Exit(1)
+    click.echo("OK — every moment has positive model_discrepancy_std.")
 
 
 def main() -> None:
