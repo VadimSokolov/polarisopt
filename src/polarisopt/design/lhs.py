@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import importlib.util
+from collections.abc import Callable
+from pathlib import Path
+from typing import Any
+
 import numpy as np
 from scipy.stats import qmc
 
 from polarisopt.design.base import Design, design_registry
 from polarisopt.parameters import ParameterSpace
+from polarisopt.utils.logging import get_logger
+
+log = get_logger(__name__)
 
 
 @design_registry.register("lhs")
@@ -52,19 +60,24 @@ class LHSDesign(Design):
         *,
         scramble: bool = True,
         include_prior_mean_anchor: bool = False,
+        analytical_prefilter: dict[str, Any] | None = None,
     ) -> None:
         if n <= 0:
             raise ValueError(f"LHSDesign: n must be positive, got {n}")
         self.n = int(n)
         self.scramble = bool(scramble)
         self.include_prior_mean_anchor = bool(include_prior_mean_anchor)
+        self.analytical_prefilter: dict[str, Any] | None = (
+            _validate_prefilter(analytical_prefilter)
+            if analytical_prefilter is not None
+            else None
+        )
 
     def generate(self, space: ParameterSpace, *, rng: np.random.Generator) -> np.ndarray:
-        sampler = qmc.LatinHypercube(d=space.ndim, scramble=self.scramble, rng=rng)
-        unit = sampler.random(n=self.n)  # (n, ndim) in [0, 1)
-        bounds = space.bounds  # (ndim, 2)
-        scaled = unit * (bounds[:, 1] - bounds[:, 0]) + bounds[:, 0]
-        pts = space.clip(scaled)
+        if self.analytical_prefilter is not None:
+            pts = self._generate_with_prefilter(space, rng=rng)
+        else:
+            pts = self._generate_raw_lhs(space, rng=rng, n=self.n)
         if self.include_prior_mean_anchor:
             # Replace the first row with the prior-mean anchor. Per-parameter:
             # use prior.mean if a prior is set, midpoint of the box otherwise.
@@ -74,3 +87,145 @@ class LHSDesign(Design):
             ], dtype=float)
             pts[0] = space.clip(anchor)
         return pts
+
+    def _generate_raw_lhs(
+        self, space: ParameterSpace, *, rng: np.random.Generator, n: int,
+    ) -> np.ndarray:
+        sampler = qmc.LatinHypercube(d=space.ndim, scramble=self.scramble, rng=rng)
+        unit = sampler.random(n=n)
+        bounds = space.bounds
+        scaled = unit * (bounds[:, 1] - bounds[:, 0]) + bounds[:, 0]
+        return space.clip(scaled)
+
+    def _generate_with_prefilter(
+        self, space: ParameterSpace, *, rng: np.random.Generator,
+    ) -> np.ndarray:
+        """v0.33 P1: draw ``oversample_factor × n`` candidates, score
+        each with the user callable, keep the best ``n`` survivors.
+
+        The callable is loaded from ``{module, function}`` in the
+        prefilter config. It receives one theta dict per call and
+        returns either:
+
+        - ``{"reject": True, "reason": "..."}`` — hard reject; or
+        - ``{"max_share_dev": float, ...}`` — soft score. When the
+          config sets ``reject_if_max_share_dev_gt``, points above
+          the threshold drop. Any additional keys are logged and
+          ignored.
+
+        If survivors ≥ n, return the ``n`` with the smallest
+        ``max_share_dev`` (if scores present) or the first ``n``
+        (if only hard-reject was used). If survivors < n, warn and
+        return them anyway — a wave with too few points is better
+        than a crash.
+        """
+        cfg = self.analytical_prefilter
+        assert cfg is not None
+        callable_fn = _load_callable(cfg["module"], cfg["function"])
+        oversample = int(cfg.get("oversample_factor", 20))
+        threshold = cfg.get("reject_if_max_share_dev_gt")
+        n_draw = self.n * max(oversample, 1)
+        candidates = self._generate_raw_lhs(space, rng=rng, n=n_draw)
+
+        surviving: list[tuple[np.ndarray, float | None]] = []
+        n_hard_rejected = 0
+        n_soft_rejected = 0
+        for row in candidates:
+            theta = {p.name: float(v) for p, v in zip(space.parameters, row, strict=True)}
+            try:
+                result = callable_fn(theta)
+            except Exception as exc:  # noqa: BLE001
+                log.warning(
+                    "analytical_prefilter: callable raised on theta=%s: %s — treating as rejected",
+                    theta, exc,
+                )
+                n_hard_rejected += 1
+                continue
+            if not isinstance(result, dict):
+                log.warning(
+                    "analytical_prefilter: callable returned %s (expected dict); "
+                    "treating as rejected", type(result).__name__,
+                )
+                n_hard_rejected += 1
+                continue
+            if result.get("reject"):
+                n_hard_rejected += 1
+                continue
+            score = result.get("max_share_dev")
+            if threshold is not None and score is not None and float(score) > float(threshold):
+                n_soft_rejected += 1
+                continue
+            surviving.append((row, float(score) if score is not None else None))
+
+        log.info(
+            "analytical_prefilter: drew %d, kept %d (%d hard rejects, %d over threshold)",
+            n_draw, len(surviving), n_hard_rejected, n_soft_rejected,
+        )
+        if not surviving:
+            raise ValueError(
+                f"analytical_prefilter rejected ALL {n_draw} candidates. "
+                f"Widen the parameter box, raise reject_if_max_share_dev_gt "
+                f"(currently {threshold!r}), or check the callable."
+            )
+        if len(surviving) < self.n:
+            log.warning(
+                "analytical_prefilter: only %d survivors < requested n=%d. "
+                "Returning survivors as-is — consider raising oversample_factor "
+                "(currently %d) or widening the reject threshold.",
+                len(surviving), self.n, oversample,
+            )
+            return np.stack([row for row, _ in surviving])
+        # Rank by score if available (lower = better), else take first n.
+        if any(score is not None for _, score in surviving):
+            surviving.sort(key=lambda pair: (pair[1] if pair[1] is not None else float("inf")))
+        return np.stack([row for row, _ in surviving[: self.n]])
+
+
+def _validate_prefilter(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Enforce the analytical_prefilter YAML shape at construction."""
+    if not isinstance(cfg, dict):
+        raise ValueError(
+            f"analytical_prefilter must be a dict, got {type(cfg).__name__}"
+        )
+    for required in ("module", "function"):
+        if required not in cfg:
+            raise ValueError(
+                f"analytical_prefilter: missing required key {required!r}"
+            )
+    module_path = Path(cfg["module"])
+    if not module_path.exists():
+        raise ValueError(
+            f"analytical_prefilter: module file does not exist: {module_path}"
+        )
+    oversample = int(cfg.get("oversample_factor", 20))
+    if oversample < 1:
+        raise ValueError(
+            f"analytical_prefilter.oversample_factor must be >= 1, got {oversample}"
+        )
+    threshold = cfg.get("reject_if_max_share_dev_gt")
+    if threshold is not None and (
+        not isinstance(threshold, (int, float)) or float(threshold) <= 0
+    ):
+        raise ValueError(
+            f"analytical_prefilter.reject_if_max_share_dev_gt must be positive "
+            f"or absent, got {threshold!r}"
+        )
+    # Normalize to a shallow copy so the caller's dict can't be mutated.
+    return dict(cfg)
+
+
+def _load_callable(module_path: str, function_name: str) -> Callable[[dict[str, float]], Any]:
+    """Import ``function_name`` from the Python file at ``module_path``."""
+    spec = importlib.util.spec_from_file_location(
+        f"_polarisopt_prefilter_{Path(module_path).stem}", module_path,
+    )
+    if spec is None or spec.loader is None:
+        raise ValueError(f"analytical_prefilter: cannot load spec for {module_path!r}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    fn = getattr(module, function_name, None)
+    if fn is None or not callable(fn):
+        raise ValueError(
+            f"analytical_prefilter: {module_path}::{function_name} is not a callable"
+        )
+    return fn

@@ -1159,6 +1159,96 @@ def discrepancy_audit(config: Path) -> None:
     click.echo("OK — every moment has positive model_discrepancy_std.")
 
 
+@cli.command(name="calibrate-md")
+@click.argument("config", type=click.Path(exists=True, dir_okay=False, path_type=Path))
+@click.option(
+    "--phase", default=None, type=str,
+    help="Restrict to samples from one phase. Default: all phases.",
+)
+@click.option(
+    "--only-auto/--all-moments", default=True, show_default=True,
+    help="Only calibrate moments whose model_discrepancy_std is 'auto' "
+         "(default). --all-moments recalibrates every moment (for auditing).",
+)
+@click.option(
+    "--out", "out_path", type=click.Path(dir_okay=False, path_type=Path),
+    default=None,
+    help="Write the calibrated md_std YAML snippet to this file "
+         "(default: print to stdout, prefixed with the human-readable table).",
+)
+@click.option(
+    "--json", "as_json", is_flag=True,
+    help="Emit estimates as JSON instead of the table.",
+)
+def calibrate_md(
+    config: Path,
+    phase: str | None,
+    only_auto: bool,
+    out_path: Path | None,
+    as_json: bool,
+) -> None:
+    """v0.33 P2: empirical model-discrepancy calibration.
+
+    Runs leave-one-out CV on a per-moment GP emulator over the study's
+    FINISHED samples and reports the empirical
+    ``model_discrepancy_std`` per moment. Writes a copy-pasteable YAML
+    snippet the user can paste into their study YAML.
+
+    Vernon 2010 §3.5: understated md produces empty NROY in history
+    matching. This subcommand replaces the "guess a constant" ritual
+    with a data-driven estimate.
+    """
+    import json as _json
+
+    from polarisopt.metrics import make_metric
+    from polarisopt.metrics.moment_set import MomentSetMetric
+    from polarisopt.studies.md_calibration import (
+        MdCalibrationError,
+        calibrate_md_from_store,
+        calibrated_yaml_snippet,
+        estimates_as_dict,
+        format_md_report,
+    )
+
+    cfg = load_study_config(config)
+    layout = workspace_layout(Path(cfg.workspace))
+    store = SampleStore.open(layout["db"], cfg.name)
+    from polarisopt.studies.runner import _build_space
+    space = _build_space(cfg.parameters)
+    metric = make_metric({"type": cfg.metric.type, "options": cfg.metric.options})
+    if not isinstance(metric, MomentSetMetric):
+        raise click.ClickException(
+            f"calibrate-md requires a moment_set metric; got {type(metric).__name__}"
+        )
+    try:
+        estimates = calibrate_md_from_store(
+            store, space, metric, phase=phase, only_auto=only_auto,
+        )
+    except MdCalibrationError as exc:
+        raise click.ClickException(str(exc)) from exc
+
+    if not estimates:
+        raise click.ClickException(
+            "no moments matched --only-auto (nothing to calibrate). "
+            "Either mark some moments as `model_discrepancy_std: auto` "
+            "in the YAML, or pass --all-moments to recalibrate every moment."
+        )
+
+    if as_json:
+        click.echo(_json.dumps(estimates_as_dict(estimates), indent=2))
+        return
+
+    click.echo(format_md_report(estimates))
+    snippet = calibrated_yaml_snippet(estimates)
+    if out_path is None:
+        click.echo("")
+        click.echo(snippet)
+    else:
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(snippet)
+        click.echo(f"\ncalibrated snippet → {out_path}")
+
+
 def main() -> None:
     cli()
 

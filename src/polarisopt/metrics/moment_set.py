@@ -244,7 +244,14 @@ class MomentSetMetric(Metric):
         # P10 partial: warn (don't raise) when any moment omits or sets
         # model_discrepancy_std=0. Vernon 2010 §3.5: this systematically
         # produces empty NROY in history matching, so users need to know.
-        zero_md = [spec.name for spec in self.moments if spec.model_discrepancy_std <= 0]
+        # v0.33 P2: "auto" moments are a distinct state — not a Vernon
+        # failure mode (user opted in to empirical calibration), but
+        # consumers still need to know they're not calibrated yet.
+        zero_md = [
+            spec.name for spec in self.moments
+            if np.isfinite(spec.model_discrepancy_std) and spec.model_discrepancy_std <= 0
+        ]
+        auto_md = [spec.name for spec in self.moments if is_md_auto(spec)]
         if zero_md:
             warnings.warn(
                 f"moment_set: model_discrepancy_std is 0 (or absent) for moments "
@@ -253,9 +260,26 @@ class MomentSetMetric(Metric):
                 UserWarning,
                 stacklevel=2,
             )
-        # Implausibility scalarizations need denom > 0.
+        if auto_md:
+            warnings.warn(
+                f"moment_set: model_discrepancy_std='auto' for moments {auto_md}. "
+                f"Run `polarisopt calibrate-md` after wave 1 to write a "
+                f"calibrated md_std snippet; until then, history-matching "
+                f"implausibility and scalarize=max_implausibility / "
+                f"mean_implausibility are unavailable (denom is NaN).",
+                UserWarning,
+                stacklevel=2,
+            )
+        # Implausibility scalarizations need denom > 0 AND finite. Auto
+        # moments have NaN md, so the sum is NaN — reject explicitly.
         if scalarize in ("max_implausibility", "mean_implausibility"):
-            denom_sq = obs_noise**2 + discrepancy**2
+            denom_sq = obs_noise**2 + np.where(np.isfinite(discrepancy), discrepancy, 0.0) ** 2
+            if not np.all(np.isfinite(discrepancy)):
+                raise ValueError(
+                    f"moment_set: scalarize={scalarize!r} incompatible with "
+                    f"model_discrepancy_std='auto' — calibrate md first "
+                    f"(`polarisopt calibrate-md`) and rerun with the scalar values."
+                )
             if np.any(denom_sq <= 0):
                 raise ValueError(
                     f"moment_set: scalarize={scalarize!r} requires every moment to "
@@ -345,12 +369,26 @@ def _build_moment_spec(m: dict[str, Any]) -> MomentSpec:
             f"{m['name']!r} (expected one of {_ALLOWED_AGGREGATIONS})"
         )
     obs_noise = float(m.get("obs_noise_std", 0.0))
-    discrepancy = float(m.get("model_discrepancy_std", 0.0))
+    # v0.33 P2: "auto" means "estimate from wave-1 CV residuals later"
+    # (see polarisopt calibrate-md CLI). Stored as NaN in the spec —
+    # consumers that need a scalar must check via `is_md_auto(spec)`.
+    md_raw = m.get("model_discrepancy_std", 0.0)
+    md_auto = isinstance(md_raw, str) and md_raw.strip().lower() == "auto"
+    if md_auto:
+        discrepancy = float("nan")
+    else:
+        try:
+            discrepancy = float(md_raw)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(
+                f"moment_set: model_discrepancy_std for moment {m['name']!r} must be "
+                f"a non-negative finite scalar or the literal string 'auto', "
+                f"got {md_raw!r}"
+            ) from exc
     weight = float(m.get("weight_per_element", 1.0))
     log_eps = float(m.get("log_epsilon", _DEFAULT_LOG_EPS))
     for label, value, must_be_positive in (
         ("obs_noise_std", obs_noise, False),
-        ("model_discrepancy_std", discrepancy, False),
         ("weight_per_element", weight, True),
         ("log_epsilon", log_eps, True),
     ):
@@ -360,6 +398,12 @@ def _build_moment_spec(m: dict[str, Any]) -> MomentSpec:
                 f"moment_set: {label} for moment {m['name']!r} must be "
                 f"a {expected} finite scalar, got {value!r}"
             )
+    if not md_auto and (not np.isfinite(discrepancy) or discrepancy < 0):
+        raise ValueError(
+            f"moment_set: model_discrepancy_std for moment {m['name']!r} must be "
+            f"a non-negative finite scalar or the literal string 'auto', "
+            f"got {md_raw!r}"
+        )
     return MomentSpec(
         name=str(m["name"]),
         source_sql=str(m["source_sql"]),
@@ -372,6 +416,17 @@ def _build_moment_spec(m: dict[str, Any]) -> MomentSpec:
         aggregation=aggregation,
         log_epsilon=log_eps,
     )
+
+
+def is_md_auto(spec: MomentSpec) -> bool:
+    """v0.33 P2: True iff the moment's ``model_discrepancy_std`` was
+    set to the ``"auto"`` sentinel (stored as NaN on the spec).
+
+    Consumers should test with this helper rather than checking
+    ``np.isnan(spec.model_discrepancy_std)`` directly, in case the
+    NaN encoding changes in future releases.
+    """
+    return not np.isfinite(spec.model_discrepancy_std)
 
 
 def _load_target(spec: MomentSpec) -> None:

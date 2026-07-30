@@ -2,6 +2,93 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.33.0 — 2026-07-30
+
+Methodology extensions from the DFW HM wave-1 experience
+(feedback file `polarisopt_feedback_v0.33_methodology_extensions.md`).
+Ships P1 (analytical pre-flight on LHS) and P2 (empirical
+model-discrepancy calibration). P3 (gp_basis_pca) and P4 (gbc_iqn)
+are queued for v0.34 / v0.35.
+
+### Added
+
+- **P1 — `LHSDesign(analytical_prefilter=...)`**. Optional Python
+  callable that scores each candidate θ *before* POLARIS is submitted;
+  candidates failing the criterion are dropped. Draws
+  ``oversample_factor × n``, ranks survivors, keeps the best ``n``.
+  Cuts POLARIS wall time 5-10× on wide-box waves where much of the
+  parameter box is behaviorally infeasible.
+
+  ```yaml
+  warm_up:
+    type: lhs
+    options:
+      n: 100
+      analytical_prefilter:
+        module: /path/to/mle_prefilter.py
+        function: score_candidate
+        reject_if_max_share_dev_gt: 0.15
+        oversample_factor: 20
+  ```
+
+  Callable interface: takes a ``{param_name: value}`` dict, returns
+  either ``{"reject": True, "reason": str}`` (hard reject) or a dict
+  with ``max_share_dev: float`` (soft score compared against the
+  YAML threshold). Failure modes handled: callable raises → treated
+  as reject (with warning); returned all-rejects → ``ValueError``
+  with a hint to widen the threshold; survivors < n → returned
+  as-is with a warning (better than blocking the wave).
+
+- **P2 part 1 — `model_discrepancy_std: 'auto'`** on
+  ``moment_set`` moments. When set, polarisopt stores the moment's
+  discrepancy as NaN (sentinel) and issues a UserWarning pointing
+  the user at ``polarisopt calibrate-md``. Incompatible with
+  ``scalarize: max_implausibility`` / ``mean_implausibility`` (denom
+  would be NaN — rejected explicitly with a clear message).
+  A public helper ``polarisopt.metrics.moment_set.is_md_auto(spec)``
+  detects the sentinel for downstream consumers.
+
+- **P2 part 2 — `polarisopt calibrate-md <yaml>` CLI**. Runs
+  leave-one-out CV on a per-moment GP over the study's FINISHED
+  samples and estimates empirical
+  ``model_discrepancy_std`` as
+  ``sqrt(max(0, residual_var - obs_var - emulator_var))``.
+  Writes a copy-pasteable YAML snippet the user can paste into
+  the study YAML. Options: ``--phase``, ``--only-auto/--all-moments``,
+  ``--out <path>``, ``--json``.
+
+  Vernon-style guardrails printed inline per moment:
+    - ``empirical > 3× user`` → "NROY may expand"
+    - ``empirical < 0.3× user`` → "NROY may admit implausibles"
+    - ``empirical ≈ 0`` → "moment inert; residuals dominated by
+      obs + emu"
+
+- **`polarisopt.studies.md_calibration`** module exports
+  ``calibrate_md_from_store``, ``MdEstimate``, ``format_md_report``,
+  ``calibrated_yaml_snippet``, ``estimates_as_dict``,
+  ``MdCalibrationError`` for programmatic use from notebooks.
+
+### Tests
+
+- 20 new tests in ``test_prefilter_and_md.py``: LHS prefilter
+  soft-threshold / hard-reject / all-rejects raise / survivors-below-n
+  warn / import failure / off-by-default / bad-oversample /
+  bad-threshold; ``moment_set`` md=auto acceptance, case-insensitive,
+  warning content, implausibility incompatibility, bad-string
+  rejection; ``calibrate_md_from_store`` on synthetic data
+  (positive estimate, only-auto filter, inconsistent-widths
+  rejection, too-few-samples rejection), formatted-report
+  guidance line for understated md; CLI table / --out / --json /
+  scalar-metric rejection / nothing-to-do path.
+- Ruff clean.
+
+### Ship queue
+
+- v0.34.0: P3 ``emulator.type: gp_basis_pca`` (Higdon 2008,
+  PC-basis GP for multivariate output).
+- v0.35.0: P4 ``emulator.type: gbc_iqn`` (Polson-Sokolov 2026
+  Generative Bayesian Computation, github.com/VadimSokolov/gbc).
+
 ## 0.32.1 — 2026-07-30
 
 Docs-only patch. During the DFW agent's review of v0.26–v0.32 it
