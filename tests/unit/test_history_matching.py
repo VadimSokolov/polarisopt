@@ -309,6 +309,104 @@ def test_history_matching_dispatches_on_emulator_type(tmp_path: Path) -> None:
     assert np.isfinite(df["implausibility_max"]).all()
 
 
+def test_gbc_iqn_emulator_smoke(tmp_path: Path) -> None:
+    """v0.35 P4: gbc_iqn returns finite (mean, var) matrices of the
+    same shape as its inputs. Smoke test only — IQNs aren't going
+    to beat a GP on 25 samples, but they should not crash."""
+    pytest.importorskip("gbc")
+    from polarisopt.studies.history_matching import _fit_predict_gbc_iqn
+
+    rng = np.random.default_rng(0)
+    n, d, m = 25, 3, 4
+    X = rng.uniform(size=(n, d))
+    Y = np.column_stack([X[:, 0], X[:, 0], X[:, 1], X[:, 1]]) + 0.01 * rng.standard_normal((n, m))
+    mean, var = _fit_predict_gbc_iqn(
+        X, Y, X,
+        hdim=16, nh=8,
+        training_epochs=50,          # kept low for test wall time
+        n_tau_samples_at_inference=8,
+        seed=0,
+    )
+    assert mean.shape == (n, m)
+    assert var.shape == (n, m)
+    assert np.isfinite(mean).all()
+    assert np.isfinite(var).all()
+    assert (var >= 0).all()
+
+
+def test_gbc_iqn_with_pca_composition_smoke(tmp_path: Path) -> None:
+    """combine_with_pca=True trains IQNs on PC coefficients and
+    reconstructs Y via the basis. Cuts n_outputs to k."""
+    pytest.importorskip("gbc")
+    from polarisopt.studies.history_matching import _fit_predict_gbc_iqn
+
+    rng = np.random.default_rng(0)
+    n, d, m = 30, 3, 10
+    X = rng.uniform(size=(n, d))
+    base = np.column_stack([X[:, 0], X[:, 1]])
+    Y = base @ rng.uniform(size=(2, m)) + 0.01 * rng.standard_normal((n, m))
+    mean, var = _fit_predict_gbc_iqn(
+        X, Y, X,
+        hdim=16, nh=8,
+        training_epochs=30,
+        n_tau_samples_at_inference=8,
+        combine_with_pca=True,
+        pca_variance_retained=0.95,
+        pca_max_pcs=3,
+        seed=0,
+    )
+    assert mean.shape == (n, m)
+    assert var.shape == (n, m)
+    assert np.isfinite(mean).all()
+
+
+def test_gbc_iqn_rejects_bad_inputs() -> None:
+    pytest.importorskip("gbc")
+    from polarisopt.studies.history_matching import _fit_predict_gbc_iqn
+
+    X = np.random.default_rng(0).uniform(size=(5, 2))
+    Y = np.random.default_rng(0).uniform(size=(5, 3))
+    with pytest.raises(ValueError, match="training_epochs"):
+        _fit_predict_gbc_iqn(X, Y, X, training_epochs=0)
+    with pytest.raises(ValueError, match="n_tau_samples_at_inference"):
+        _fit_predict_gbc_iqn(X, Y, X, n_tau_samples_at_inference=1)
+
+
+def test_history_matching_dispatches_gbc_iqn(tmp_path: Path) -> None:
+    """Full-phase smoke: `emulator.type: gbc_iqn` produces an NROY artifact."""
+    pytest.importorskip("gbc")
+    target_csv = tmp_path / "t.csv"
+    _write_csv(
+        target_csv, "purpose,mode,share",
+        ["HBW,auto,0.5", "HBW,transit,0.3", "HBW,walk,0.2"],
+    )
+    metric = _mock_moment_metric(target_csv)
+    space = _space_3d()
+    ctx = _make_ctx(tmp_path, metric, space)
+    _seed_finished_samples(ctx, target_csv, n=30, phase="wave-1")
+    HistoryMatchingStudy(ctx, HistoryMatchingWavePhase(
+        name="wave-1", warm_up=LHSDesign(n=1),
+        emulator={
+            "type": "gbc_iqn",
+            "options": {
+                "hdim": 16, "nh": 8,
+                "training_epochs": 30,
+                "n_tau_samples_at_inference": 8,
+                "seed": 0,
+            },
+        },
+        implausibility={"type": "max", "cutoff": 3.0},
+        moments_included=[], nroy_grid_size=64,
+        output_dir=tmp_path / "hm-iqn",
+    )).run()
+    import pandas as pd
+    parquet = tmp_path / "hm-iqn" / "nroy_wave1.parquet"
+    csv = tmp_path / "hm-iqn" / "nroy_wave1.csv"
+    df = pd.read_parquet(parquet) if parquet.exists() else pd.read_csv(csv)
+    assert "implausibility_max" in df.columns
+    assert np.isfinite(df["implausibility_max"]).all()
+
+
 def test_history_matching_rejects_unknown_emulator_type(tmp_path: Path) -> None:
     target_csv = tmp_path / "t.csv"
     _write_csv(target_csv, "purpose,mode,share", ["HBW,auto,0.5", "HBW,transit,0.5"])

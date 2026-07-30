@@ -2,6 +2,86 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.35.0 — 2026-07-30
+
+Final release of the DFW v0.33 methodology-extensions spec. Ships
+**P4**: ``emulator.type: gbc_iqn`` — Implicit Quantile Network
+emulator from Polson-Sokolov 2026 "Generative Bayesian Computation"
+(``github.com/VadimSokolov/gbc``). Handles ``(θ → y)`` mappings the
+GP-per-column path struggles with (discontinuous, highly
+non-Gaussian, high-N).
+
+### Added
+
+- **`gbc_iqn` emulator** on the history_matching phase. Trains one
+  IQN per output column. IQN returns ``(n, 2)`` where column 0 is
+  the mean estimate and column 1 is the τ-quantile of ``y|x`` —
+  polarisopt uses column 0 at τ=0.5 for the predictive mean and the
+  empirical variance of column 1 across ``n_tau_samples_at_inference``
+  τ draws for the variance. YAML:
+
+  ```yaml
+  phases:
+    - name: hm-wave-1
+      type: history_matching
+      emulator:
+        type: gbc_iqn
+        options:
+          hdim: 64
+          nh: 32
+          training_epochs: 3000
+          learning_rate: 0.01
+          loss_weights: [0.3, 0.3, 0.4]
+          n_tau_samples_at_inference: 128
+          combine_with_pca: true          # optional
+          pca_variance_retained: 0.99
+          pca_max_pcs: 5
+          seed: 0
+  ```
+
+- **Composition with PCA** (`combine_with_pca: true`): PCA-decompose
+  Y into k coefficients (v0.34 `gp_basis_pca` recipe), train k IQNs
+  on the coefficients, reconstruct through the basis. Best of both:
+  small IQN output space + non-Gaussian residual modeling.
+
+- **Shared `_standardize` helper** — moved out of gp_basis_pca into
+  a module-level helper so gbc_iqn uses identical center/scale
+  semantics.
+
+- **`[calibration]` optional extra** in `pyproject.toml`:
+  ``pip install polarisopt[bo,calibration]`` gets torch + gbc. The
+  gbc_iqn emulator raises ``ImportError`` with an install hint if
+  the user picks it without the extra.
+
+### Reference
+
+Polson & Sokolov 2026 "Generative Bayesian Computation" (in prep);
+``github.com/VadimSokolov/gbc`` v0.4.x. Supersedes the GP + DL
+dim-reduction sampling approach of Schultz-Auld-Sokolov 2022
+(``arXiv:2203.04414``).
+
+### Tests
+
+- 4 new tests in `test_history_matching.py`:
+    - gbc_iqn smoke (shape + finiteness)
+    - gbc_iqn with combine_with_pca=True (basis reconstruction)
+    - gbc_iqn rejects bad `training_epochs` / `n_tau_samples_at_inference`
+    - full history_matching phase dispatches on `emulator.type: gbc_iqn`
+      and writes an NROY artifact.
+  Each test uses `pytest.importorskip("gbc")` so the suite still
+  passes on installs without the [calibration] extra.
+
+### v0.33 spec complete
+
+All four DFW methodology extensions shipped:
+
+| Release | Priority | Feature |
+|---|---|---|
+| v0.33.0 | P1 | Analytical pre-flight on LHS |
+| v0.33.0 | P2 | Empirical model-discrepancy calibration |
+| v0.34.0 | P3 | gp_basis_pca emulator (Higdon 2008) |
+| v0.35.0 | P4 | gbc_iqn emulator (Polson-Sokolov 2026) |
+
 ## 0.34.0 — 2026-07-30
 
 Ships **P3** from the v0.33 methodology-extensions spec:

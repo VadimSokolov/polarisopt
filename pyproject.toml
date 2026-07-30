@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "polarisopt"
-version = "0.34.0"
+version = "0.35.0"
 description = "Modular design-of-experiments and Bayesian optimization for POLARIS"
 readme = "README.md"
 license = { file = "License.txt" }
@@ -46,6 +46,13 @@ anl = [
 ]
 globus = [
     "globus-sdk>=3.0,<4",
+]
+calibration = [
+    # v0.35+: gbc_iqn history-matching emulator (Polson-Sokolov 2026).
+    # Optional — only needed if you use `emulator.type: gbc_iqn`. The
+    # gp_per_moment (v0.31) and gp_basis_pca (v0.34) emulators need
+    # only the `[bo]` extra.
+    "gbc>=0.4",
 ]
 dev = [
     "pytest>=8.0",

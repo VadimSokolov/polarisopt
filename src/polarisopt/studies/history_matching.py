@@ -58,6 +58,18 @@ class HistoryMatchingWavePhase:
       time from ``M`` to ``k`` GPs; dead moments get zero PC loading
       (auto-downweighted); correlated moments share structure. See
       :func:`_fit_predict_gp_basis_pca`.
+    - ``{"type": "gbc_iqn", "options": {hdim, nh, training_epochs,
+      learning_rate, loss_weights, combine_with_pca,
+      pca_variance_retained, pca_max_pcs, n_tau_samples_at_inference,
+      seed}}`` (v0.35+) — Implicit Quantile Network from
+      Polson-Sokolov 2026 (``github.com/VadimSokolov/gbc``). Handles
+      discontinuous / highly non-Gaussian ``(θ → y)`` mappings the GP
+      per-column path struggles with. Optional ``combine_with_pca:
+      true`` trains IQNs on PC coefficients instead of raw Y — same
+      dimensionality benefits as ``gp_basis_pca`` + non-Gaussian
+      residual modeling. Requires the ``[calibration]`` extra:
+      ``pip install polarisopt[bo,calibration]``. See
+      :func:`_fit_predict_gbc_iqn`.
     """
 
     name: str
@@ -183,10 +195,12 @@ class HistoryMatchingStudy(Study):
             pred_mean, pred_var = _fit_predict_gp_per_moment(X, Y_active, grid)
         elif emu_type == "gp_basis_pca":
             pred_mean, pred_var = _fit_predict_gp_basis_pca(X, Y_active, grid, **emu_opts)
+        elif emu_type == "gbc_iqn":
+            pred_mean, pred_var = _fit_predict_gbc_iqn(X, Y_active, grid, **emu_opts)
         else:
             raise ValueError(
                 f"history_matching: unknown emulator type {emu_type!r} "
-                f"(expected 'gp_per_moment' or 'gp_basis_pca')"
+                f"(expected 'gp_per_moment' | 'gp_basis_pca' | 'gbc_iqn')"
             )
         col_obs_std = obs_std[active_cols]
         col_md_std = md_std[active_cols]
@@ -437,3 +451,205 @@ def _fit_predict_gp_basis_pca(
     pred_mean = pred_mean_s * scale + center
     pred_var = pred_var_s * (scale**2)
     return pred_mean, pred_var
+
+
+def _fit_predict_gbc_iqn(
+    X: np.ndarray,
+    Y: np.ndarray,
+    X_pred: np.ndarray,
+    *,
+    hdim: int = 64,
+    nh: int = 32,
+    training_epochs: int = 3000,
+    learning_rate: float = 1e-2,
+    loss_weights: tuple[float, float, float] = (0.3, 0.3, 0.4),
+    n_tau_samples_at_inference: int = 128,
+    combine_with_pca: bool = False,
+    pca_variance_retained: float = 0.99,
+    pca_max_pcs: int = 5,
+    pca_centering: str = "mean",
+    pca_scaling: str = "per_moment_std",
+    seed: int | None = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """v0.35 emulator: Implicit Quantile Network via gbc (Polson-Sokolov 2026).
+
+    Trains one IQN per output column. IQN(x, τ) returns a ``(n, 2)``
+    tensor whose column 0 is the mean estimate and column 1 is the
+    τ-quantile of ``y|x``. Predictive mean comes from column 0 at
+    ``τ = 0.5``; predictive variance from the empirical variance of
+    column 1 across ``n_tau_samples_at_inference`` τ draws.
+
+    Composition with PCA (``combine_with_pca=True``): PCA-decompose
+    Y into ``k`` PCs first (per the v0.34 ``gp_basis_pca`` recipe),
+    train ``k`` IQNs on the coefficients, reconstruct predictions
+    through the basis. Best of both worlds: small IQN output space
+    + non-Gaussian residual modeling.
+
+    Reference
+    ---------
+    Polson & Sokolov 2026 "Generative Bayesian Computation" —
+    ``github.com/VadimSokolov/gbc``. Supersedes the GP + DL
+    dim-reduction approach of Schultz-Auld-Sokolov 2022
+    (``arXiv:2203.04414``) on the sampling side.
+
+    Parameters
+    ----------
+    X, Y, X_pred
+        As for the other emulators.
+    hdim, nh
+        IQN hyperparameters (hidden width and number of τ-embedding
+        harmonics).
+    training_epochs, learning_rate
+        Adam optimization; single-batch gradient descent per epoch
+        (Y is O(hundreds) of samples for typical HM waves so batching
+        adds no value).
+    loss_weights
+        ``(mse, quantile, pinball)`` weights passed to
+        :meth:`gbc.IQN.loss_fn`. Defaults match gbc's default.
+    n_tau_samples_at_inference
+        Number of τ samples in (0, 1) used to estimate predictive
+        variance. Larger → smoother variance estimate at the cost of
+        one forward pass per τ.
+    combine_with_pca
+        When True, PCA-decompose Y into ``k`` coefficients and train
+        one IQN per coefficient (small output space); reconstruct
+        predictions through the basis. Substantially cheaper than
+        one IQN per raw Y column when M is large.
+    seed
+        Optional torch seed for reproducibility of the IQN training.
+
+    Requires the ``gbc`` package (Polson-Sokolov 2026). Import is
+    guarded — if gbc isn't installed, the constructor raises with a
+    hint to ``pip install polarisopt[bo]`` (torch prereq) and
+    ``pip install gbc``.
+    """
+    try:
+        import gbc
+        import torch
+        from torch.optim import Adam
+    except ImportError as exc:
+        raise ImportError(
+            "gbc_iqn emulator requires the gbc + torch packages. "
+            "Install with `pip install polarisopt[bo]` (for torch) and "
+            "`pip install gbc`."
+        ) from exc
+
+    if Y.ndim != 2:
+        raise ValueError(f"gbc_iqn: Y must be 2-D, got shape {Y.shape}")
+    n_train, m = Y.shape
+    if n_train < 2:
+        raise ValueError(
+            f"gbc_iqn: need at least 2 training samples, got {n_train}"
+        )
+    if n_tau_samples_at_inference < 2:
+        raise ValueError(
+            f"gbc_iqn.n_tau_samples_at_inference must be >= 2, "
+            f"got {n_tau_samples_at_inference}"
+        )
+    if training_epochs < 1:
+        raise ValueError(f"gbc_iqn.training_epochs must be >= 1, got {training_epochs}")
+
+    if seed is not None:
+        torch.manual_seed(int(seed))
+
+    # Decide the output-space to train IQNs on: raw Y columns or PC
+    # coefficients W. In both cases we standardize per-column so the
+    # IQN sees zero-mean unit-scale targets (better optimization
+    # behavior).
+    if combine_with_pca:
+        # Reuse gp_basis_pca's basis math; only the surrogate changes.
+        Y_c, center, scale = _standardize(Y, centering=pca_centering, scaling=pca_scaling)
+        U, S, Vt = np.linalg.svd(Y_c, full_matrices=False)
+        total_var = float(np.sum(S**2))
+        if total_var <= 0:
+            return (
+                np.broadcast_to(center, (X_pred.shape[0], m)).copy(),
+                np.zeros((X_pred.shape[0], m), dtype=float),
+            )
+        cum_var = np.cumsum(S**2) / total_var
+        k = int(np.searchsorted(cum_var, pca_variance_retained) + 1)
+        k = max(1, min(k, pca_max_pcs, len(S)))
+        K = Vt[:k, :]
+        W_train = U[:, :k] * S[:k]                       # (N, k)
+        train_targets = W_train                          # per-PC training
+    else:
+        # Standardize Y directly; k = M.
+        Y_c, center, scale = _standardize(Y, centering=pca_centering, scaling=pca_scaling)
+        train_targets = Y_c
+        K = None
+
+    n_outputs = train_targets.shape[1]
+    log.info(
+        "gbc_iqn: training %d IQN(s) (xdim=%d, hdim=%d, nh=%d, epochs=%d%s)",
+        n_outputs, X.shape[1], hdim, nh, training_epochs,
+        f", PCA {n_outputs}<-{m}" if combine_with_pca else "",
+    )
+
+    X_t = torch.as_tensor(X, dtype=torch.float32)
+    X_pred_t = torch.as_tensor(X_pred, dtype=torch.float32)
+    pred_mean_std = np.zeros((X_pred.shape[0], n_outputs), dtype=float)
+    pred_var_std = np.zeros((X_pred.shape[0], n_outputs), dtype=float)
+    rng_taus = np.random.default_rng(seed if seed is not None else 0)
+    taus = rng_taus.uniform(0.01, 0.99, size=int(n_tau_samples_at_inference))
+
+    for i in range(n_outputs):
+        y_t = torch.as_tensor(train_targets[:, i], dtype=torch.float32)
+        net = gbc.IQN(xdim=X.shape[1], hdim=int(hdim), nh=int(nh))
+        opt = Adam(net.parameters(), lr=float(learning_rate))
+        for _ in range(int(training_epochs)):
+            opt.zero_grad()
+            loss = net.loss_fn(X_t, y_t, w=tuple(loss_weights))
+            loss.backward()
+            opt.step()
+        # Predictive mean: forward at tau=0.5, take column 0 (mean estimator).
+        net.eval()
+        with torch.no_grad():
+            mean_pred = net.forward(X_pred_t, 0.5)[:, 0].cpu().numpy()
+            # Predictive variance: quantile column across n_tau samples.
+            q_samples = np.stack([
+                net.forward(X_pred_t, float(t))[:, 1].cpu().numpy()
+                for t in taus
+            ], axis=1)                                    # (n_pred, n_tau)
+            var_pred = q_samples.var(axis=1, ddof=1)
+        pred_mean_std[:, i] = mean_pred
+        pred_var_std[:, i] = var_pred
+
+    # Reconstruct in raw Y space.
+    if combine_with_pca:
+        assert K is not None
+        pred_mean_s = pred_mean_std @ K
+        pred_var_s = pred_var_std @ (K**2)
+    else:
+        pred_mean_s = pred_mean_std
+        pred_var_s = pred_var_std
+    pred_mean = pred_mean_s * scale + center
+    pred_var = pred_var_s * (scale**2)
+    return pred_mean, pred_var
+
+
+def _standardize(
+    Y: np.ndarray, *, centering: str, scaling: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Shared per-column center + scale for gp_basis_pca and gbc_iqn.
+
+    Returns ``(Y_standardized, center, scale)``. Callers un-standardize
+    predictions via ``pred_raw = pred_std * scale + center``.
+    """
+    m = Y.shape[1]
+    if centering == "mean":
+        center = Y.mean(axis=0)
+    elif centering == "median":
+        center = np.median(Y, axis=0)
+    elif centering == "none":
+        center = np.zeros(m, dtype=float)
+    else:
+        raise ValueError(f"centering must be mean|median|none, got {centering!r}")
+    Y_c = Y - center
+    if scaling == "per_moment_std":
+        scale = Y_c.std(axis=0, ddof=1)
+        scale = np.where(scale > 0, scale, 1.0)
+    elif scaling in ("unit", "none"):
+        scale = np.ones(m, dtype=float)
+    else:
+        raise ValueError(f"scaling must be per_moment_std|unit|none, got {scaling!r}")
+    return Y_c / scale, center, scale
