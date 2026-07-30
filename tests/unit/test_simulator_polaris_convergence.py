@@ -348,6 +348,141 @@ def test_prepare_seed_per_sample_unsaved_sample_uses_zero(
     assert _seed_from_command(spec.command) == 100
 
 
+def test_nested_asc_off_by_default(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """v0.28 P4: nested_asc_contraction defaults to None (off). No
+    --nested-asc-* flags are emitted."""
+    sim = _make_sim(tmp_path, runner_script, runner_options={"population_scale_factor": 0.01})
+    spec = sim.prepare(
+        Sample(id=1, inputs=np.array([0.5])), space, tmp_path / "asc-off",
+    )
+    assert "--nested-asc-" not in spec.command
+    assert sim.nested_asc_contraction is None
+
+
+def test_nested_asc_enabled_forwards_flags(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """When enabled, every configured field lands as
+    --nested-asc-<key>=<value> in the runner invocation."""
+    sim = _make_sim(
+        tmp_path,
+        runner_script,
+        nested_asc_contraction={
+            "enabled": True,
+            "num_planned_activity_iterations": 3,
+            "step_size": 2.0,
+            "timeout_minutes": 30,
+            "on_convergence_failure": "use_last",
+        },
+    )
+    spec = sim.prepare(
+        Sample(id=2, inputs=np.array([0.5])), space, tmp_path / "asc-on",
+    )
+    assert "--nested-asc-enabled=true" in spec.command
+    assert "--nested-asc-num-planned-activity-iterations=3" in spec.command
+    assert "--nested-asc-step-size=2.0" in spec.command
+    assert "--nested-asc-timeout-minutes=30" in spec.command
+    assert "--nested-asc-on-convergence-failure=use_last" in spec.command
+
+
+def test_nested_asc_enabled_false_does_not_forward_flags(
+    tmp_path: Path, space: ParameterSpace, runner_script: Path
+) -> None:
+    """A config with enabled=False stores the dict but emits no flags —
+    the operator has toggled the feature off deliberately."""
+    sim = _make_sim(
+        tmp_path,
+        runner_script,
+        nested_asc_contraction={"enabled": False},
+    )
+    spec = sim.prepare(
+        Sample(id=3, inputs=np.array([0.5])), space, tmp_path / "asc-disabled",
+    )
+    assert sim.nested_asc_contraction == {"enabled": False}
+    assert "--nested-asc-" not in spec.command
+
+
+def test_nested_asc_rejects_unknown_key(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    """Typo detection: unknown fields raise at construction so a
+    misspelled ``timout_minutes`` doesn't silently mean 'no timeout'."""
+    with pytest.raises(SimulatorError, match="unknown key"):
+        _make_sim(
+            tmp_path,
+            runner_script,
+            nested_asc_contraction={
+                "enabled": True,
+                "timout_minutes": 30,  # typo
+            },
+        )
+
+
+def test_nested_asc_rejects_bad_enabled_type(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    with pytest.raises(SimulatorError, match="enabled must be bool"):
+        _make_sim(
+            tmp_path, runner_script,
+            nested_asc_contraction={"enabled": "yes"},
+        )
+
+
+def test_nested_asc_rejects_bad_iteration_count(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    for bad in (0, -1, 2.5, True):
+        with pytest.raises(SimulatorError, match="num_planned_activity_iterations"):
+            _make_sim(
+                tmp_path, runner_script,
+                nested_asc_contraction={
+                    "enabled": True,
+                    "num_planned_activity_iterations": bad,
+                },
+            )
+
+
+def test_nested_asc_rejects_bad_step_size(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    for bad in (0.0, -1.0, float("nan"), float("inf"), "big"):
+        with pytest.raises(SimulatorError, match="step_size"):
+            _make_sim(
+                tmp_path, runner_script,
+                nested_asc_contraction={"enabled": True, "step_size": bad},
+            )
+
+
+def test_nested_asc_rejects_bad_on_failure(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    with pytest.raises(SimulatorError, match="on_convergence_failure"):
+        _make_sim(
+            tmp_path, runner_script,
+            nested_asc_contraction={
+                "enabled": True,
+                "on_convergence_failure": "explode",
+            },
+        )
+
+
+def test_nested_asc_disabled_skips_field_validation(
+    tmp_path: Path, runner_script: Path
+) -> None:
+    """When enabled=False, downstream fields aren't validated. A user
+    can leave incomplete config in place while toggling the feature
+    off — the config isn't forwarded so it can't cause harm."""
+    _make_sim(
+        tmp_path, runner_script,
+        nested_asc_contraction={
+            "enabled": False,
+            "step_size": -99,  # invalid but ignored while off
+        },
+    )
+
+
 def test_default_output_dir_key_is_polarislib_correct(
     tmp_path: Path, runner_script: Path
 ) -> None:

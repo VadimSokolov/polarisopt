@@ -2,6 +2,68 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.28.0 — 2026-07-30
+
+Third release of the β-calibration series. Ships P4 (nested-ASC
+contraction on `PolarisConvergenceSimulator`), BLP-1995 structure:
+β outer (from the search), ASC inner (from the contraction fix-point).
+Prevents Phase 6B's failure mode where free β movement without ASC
+counter-adjustment shifts shares in ways the utility model can't
+compensate for (predicted CE 0.72 → actual POLARIS CE 0.98).
+
+### Added
+
+- **`nested_asc_contraction`** option on `PolarisConvergenceSimulator`.
+  Validated dict; when `enabled: true`, polarisopt forwards every
+  configured field to the runner script as
+  `--nested-asc-<key>=<value>` flags so the runner (which imports
+  polarislib) can invoke `polarislib.runs.calibrate.mode_choice.calibrate`
+  after each POLARIS run at candidate β. Fields:
+  ```yaml
+  simulator:
+    type: polaris_convergence
+    options:
+      nested_asc_contraction:
+        enabled: true
+        calibrator: polarislib.runs.calibrate.mode_choice.calibrate
+        num_planned_activity_iterations: 3
+        step_size: 2.0
+        target_csv_dir: calibration_targets
+        cache_post_contraction: true
+        timeout_minutes: 30
+        on_convergence_failure: use_last   # or mark_sample_failed
+  ```
+
+### Split of concerns
+
+- **polarisopt** validates the config shape (unknown-key rejection
+  catches typos like `timout_minutes`; positive/finite/enumerated
+  value checks), namespaces the flags so the runner can distinguish
+  them from ordinary `runner_options`, and forwards. It does NOT
+  import polarislib and does NOT invoke the calibrator.
+- **The runner script** (project-local; the DFW `polarisopt_runner.py`
+  already knows how to import polarislib) is expected to recognize
+  the `--nested-asc-enabled=true` flag and iterate the calibrator.
+  Runners that don't recognize the flags simply skip them; behavior
+  is unchanged for existing setups.
+
+### Behavior notes
+
+- Off by default. `enabled: false` (or absent) means no flags are
+  forwarded — the runner sees exactly the pre-v0.28 CLI.
+- When `enabled: false`, downstream fields are NOT validated —
+  allows operators to leave incomplete config in place while
+  toggling the feature off.
+
+### Tests
+
+- 9 new tests in `test_simulator_polaris_convergence.py`: off-by-default,
+  enabled forwards flags with correct namespacing, disabled skips
+  forwarding, unknown-key typo rejection, bad-value rejection for
+  `enabled` / `num_planned_activity_iterations` / `step_size` /
+  `on_convergence_failure`, disabled-skips-validation compat path.
+- Ruff clean.
+
 ## 0.27.0 — 2026-07-30
 
 Second release of the β-calibration series. Ships P2 (parameter

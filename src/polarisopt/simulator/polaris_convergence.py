@@ -239,6 +239,7 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         single_iteration: bool = False,
         disable_async_callback: bool = True,
         seed_per_sample: bool = False,
+        nested_asc_contraction: dict[str, Any] | None = None,
         **kw: Any,
     ) -> None:
         # polarislib workloads stage 1.5–3 GB per sample; if 100 FAILED
@@ -294,6 +295,18 @@ class PolarisConvergenceSimulator(PolarisSimulator):
         if "disable_async_callback" not in self.runner_options:
             self.runner_options["disable_async_callback"] = self.disable_async_callback
 
+        # v0.28 P4: nested-ASC contraction config (BLP-1995 style, β outer,
+        # ASC inner). polarisopt validates the config shape and forwards
+        # the flags to the runner script; the runner is expected to
+        # invoke ``polarislib.runs.calibrate.mode_choice.calibrate`` (or
+        # the configured ``calibrator``) after each POLARIS run at
+        # candidate β. Off by default; must set ``enabled: true``.
+        self.nested_asc_contraction: dict[str, Any] | None = (
+            _validate_nested_asc(nested_asc_contraction)
+            if nested_asc_contraction is not None
+            else None
+        )
+
     def prepare(self, sample: Sample, space: ParameterSpace, workspace: Path) -> JobSpec:
         if sample.inputs.shape != (space.ndim,):
             raise SimulatorError(
@@ -330,6 +343,15 @@ class PolarisConvergenceSimulator(PolarisSimulator):
             shlex.quote(str(workspace)),
             f"--threads={shlex.quote(self.num_threads)}",
         ]
+        # v0.28 nested-ASC forwarding — flags carry a namespaced
+        # ``--nested-asc-<key>`` prefix so the runner can distinguish
+        # them from ordinary runner_options and skip them silently if
+        # it doesn't implement contraction. Only forwarded when the
+        # contraction is enabled AND the config validated cleanly.
+        if self.nested_asc_contraction is not None and self.nested_asc_contraction.get("enabled"):
+            for k, v in self.nested_asc_contraction.items():
+                per_sample_options[f"nested_asc_{k}"] = v
+
         for k, v in per_sample_options.items():
             flag = "--" + str(k).replace("_", "-")
             # ``--flag=value`` is one shell token; quote the value to
@@ -449,5 +471,95 @@ class PolarisConvergenceSimulator(PolarisSimulator):
             f"no output directory matching {numbered_pattern!r} "
             f"or {unnumbered.name!r} under {workspace}"
         )
+
+
+# v0.28 P4: nested-ASC contraction config validation.
+#
+# polarisopt owns the config shape; the runner script owns the actual
+# calibrator invocation. We only validate here — we don't import
+# polarislib (runners on the cluster do that themselves).
+
+_NESTED_ASC_ALLOWED_KEYS = frozenset({
+    "enabled",
+    "calibrator",
+    "num_planned_activity_iterations",
+    "step_size",
+    "target_csv_dir",
+    "cache_post_contraction",
+    "timeout_minutes",
+    "on_convergence_failure",
+})
+_NESTED_ASC_ON_FAILURE = ("use_last", "mark_sample_failed")
+
+
+def _validate_nested_asc(cfg: dict[str, Any]) -> dict[str, Any]:
+    """Validate ``nested_asc_contraction`` YAML config.
+
+    Enforced:
+    - ``enabled`` must be a bool.
+    - ``num_planned_activity_iterations`` must be a positive int.
+    - ``step_size`` must be a positive finite float.
+    - ``timeout_minutes`` must be a positive finite number.
+    - ``on_convergence_failure`` must be one of ``use_last``,
+      ``mark_sample_failed``.
+    - Unknown keys are rejected (early typo detection — otherwise
+      a misspelled ``timout_minutes`` would silently mean no timeout).
+    """
+    if not isinstance(cfg, dict):
+        raise SimulatorError(
+            f"nested_asc_contraction must be a dict, got {type(cfg).__name__}"
+        )
+    unknown = set(cfg) - _NESTED_ASC_ALLOWED_KEYS
+    if unknown:
+        raise SimulatorError(
+            f"nested_asc_contraction: unknown key(s) {sorted(unknown)}; "
+            f"expected one of {sorted(_NESTED_ASC_ALLOWED_KEYS)}"
+        )
+    enabled = cfg.get("enabled", False)
+    if not isinstance(enabled, bool):
+        raise SimulatorError(
+            f"nested_asc_contraction.enabled must be bool, got {enabled!r}"
+        )
+    # If the caller left enabled=False (or unset), everything else is
+    # optional — the flags aren't forwarded and no validation catches
+    # config drift. But if enabled=True, downstream fields MUST parse.
+    if enabled:
+        n_iter = cfg.get("num_planned_activity_iterations", 3)
+        if not isinstance(n_iter, int) or isinstance(n_iter, bool) or n_iter <= 0:
+            raise SimulatorError(
+                f"nested_asc_contraction.num_planned_activity_iterations "
+                f"must be a positive int, got {n_iter!r}"
+            )
+        step = cfg.get("step_size", 2.0)
+        if not isinstance(step, (int, float)) or isinstance(step, bool):
+            raise SimulatorError(
+                f"nested_asc_contraction.step_size must be numeric, got {step!r}"
+            )
+        step_f = float(step)
+        import math as _math
+        if not _math.isfinite(step_f) or step_f <= 0:
+            raise SimulatorError(
+                f"nested_asc_contraction.step_size must be positive finite, got {step!r}"
+            )
+        timeout = cfg.get("timeout_minutes", 30)
+        if not isinstance(timeout, (int, float)) or isinstance(timeout, bool):
+            raise SimulatorError(
+                f"nested_asc_contraction.timeout_minutes must be numeric, got {timeout!r}"
+            )
+        timeout_f = float(timeout)
+        if not _math.isfinite(timeout_f) or timeout_f <= 0:
+            raise SimulatorError(
+                f"nested_asc_contraction.timeout_minutes must be positive finite, "
+                f"got {timeout!r}"
+            )
+        on_failure = cfg.get("on_convergence_failure", "use_last")
+        if on_failure not in _NESTED_ASC_ON_FAILURE:
+            raise SimulatorError(
+                f"nested_asc_contraction.on_convergence_failure must be one of "
+                f"{list(_NESTED_ASC_ON_FAILURE)}, got {on_failure!r}"
+            )
+    # Return a normalized shallow copy so the caller's dict can't be
+    # mutated from under us.
+    return dict(cfg)
 
 
