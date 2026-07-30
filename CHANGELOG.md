@@ -2,6 +2,81 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.34.0 — 2026-07-30
+
+Ships **P3** from the v0.33 methodology-extensions spec:
+``emulator.type: gp_basis_pca`` — Higdon 2008 PC-basis GP for
+multivariate output.
+
+### Added
+
+- **`gp_basis_pca` emulator** on the history_matching phase. PCA-
+  decomposes the moment matrix, fits ``k << M`` GPs on the top PC
+  coefficients, reconstructs predictions through the basis. Variance
+  propagates through the linear basis as
+  ``Var(y_j) = Σ_i K[i, j]² · Var(w_i)``. YAML:
+
+  ```yaml
+  phases:
+    - name: hm-wave-1
+      type: history_matching
+      emulator:
+        type: gp_basis_pca
+        options:
+          variance_retained: 0.99     # cumulative cutoff, capped by max_pcs
+          max_pcs: 5                  # hard cap
+          centering: mean             # mean | median | none
+          scaling: per_moment_std     # per_moment_std | unit | none
+  ```
+
+  Benefits:
+    - Fits ``k`` GPs instead of ``M`` — ``M/k`` speedup on the
+      per-column loop.
+    - Dead moments (zero-variance columns) get zero PC loading —
+      auto-downweighted without ``moments_included`` gymnastics.
+    - Correlated moments share PC structure — better sample
+      efficiency at low N.
+
+  Reference: Higdon, Gattiker, Williams & Rightley (2008, *JASA*)
+  "Computer Model Calibration Using High-Dimensional Output".
+
+- **Emulator dispatch** in ``HistoryMatchingStudy._compute_nroy``.
+  Both ``gp_per_moment`` (v0.31 default) and ``gp_basis_pca`` return
+  ``(n_grid, len(active_cols))`` mean+var matrices, so the
+  implausibility computation downstream is emulator-agnostic.
+  Refactored the previous inline per-column GP loop into a
+  ``_fit_predict_gp_per_moment`` module-level helper for symmetry
+  with the new ``_fit_predict_gp_basis_pca``.
+
+- **`HistoryMatchingWavePhase` docstring updated** to enumerate the
+  two emulator shapes (was ``dict[str, Any]`` with no explanation).
+
+### Fixed / hardened
+
+- Degenerate all-constant Y short-circuits in `gp_basis_pca` to
+  the broadcast center + zero variance instead of crashing SVD /
+  scaling.
+- Unknown ``emulator.type`` raises ``ValueError`` with the two
+  currently-supported types listed.
+- Bad ``variance_retained`` (≤0, >1) / ``centering`` / ``scaling`` /
+  ``max_pcs`` rejected explicitly.
+
+### Tests
+
+- 6 new tests in ``test_history_matching.py``: in-sample recovery of
+  the informative columns, rank-2 signal correctly compressed,
+  all-constant short-circuit, ``variance_retained`` validation,
+  ``centering`` / ``scaling`` validation, phase dispatches on
+  ``emulator.type``, unknown-type rejection.
+- Full HM suite green.
+
+### Next
+
+v0.35.0: **P4** ``emulator.type: gbc_iqn`` (Polson-Sokolov 2026
+Generative Bayesian Computation) — supersedes GP for cases where
+the (θ → PC coefficient) mapping is discontinuous or highly
+non-Gaussian. Introduces a new dependency on the ``gbc`` package.
+
 ## 0.33.0 — 2026-07-30
 
 Methodology extensions from the DFW HM wave-1 experience
