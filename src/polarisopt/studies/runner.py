@@ -132,6 +132,7 @@ class StudyRunner:
                     moments_included=list(phase.moments_included),
                     nroy_grid_size=int(phase.nroy_grid_size),
                     output_dir=output_dir,
+                    wave_index=int(phase.wave_index),
                 )
                 study = HistoryMatchingStudy(ctx, wave_phase)
             else:

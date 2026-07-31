@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import shutil
 import time
+import warnings
 from pathlib import Path
 
 import click
@@ -1132,10 +1133,24 @@ def discrepancy_audit(config: Path) -> None:
             f"discrepancy-audit requires a moment_set metric; "
             f"got {type(metric).__name__}"
         )
+    from polarisopt.metrics.moment_set import is_md_auto
+
     click.echo(f"{'moment':<40} {'obs_std':>10} {'md_std':>10} {'md/obs':>10}")
     click.echo("-" * 74)
     bad: list[str] = []
+    pending_auto: list[str] = []
     for spec in metric.moments:
+        # v0.36: 'auto' is stored as NaN. `nan <= 0` is False, so before
+        # this branch an all-auto study passed the audit with a printed
+        # "nan" and exit 0 — a false green light on the exact condition
+        # this command exists to catch.
+        if is_md_auto(spec):
+            pending_auto.append(spec.name)
+            click.echo(
+                f"{spec.name[:40]:<40} {spec.obs_noise_std:>10.4g} "
+                f"{'auto':>10} {'-':>10}"
+            )
+            continue
         ratio = (spec.model_discrepancy_std / spec.obs_noise_std) if spec.obs_noise_std > 0 else float("inf")
         line = (
             f"{spec.name[:40]:<40} "
@@ -1154,6 +1169,17 @@ def discrepancy_audit(config: Path) -> None:
         click.echo(
             "Vernon 2010 §3.5: silent md=0 systematically produces empty NROY in "
             "history matching. Set model_discrepancy_std explicitly per moment."
+        )
+        raise click.exceptions.Exit(1)
+    if pending_auto:
+        click.echo(
+            f"FAIL: {len(pending_auto)} moment(s) still have "
+            f"model_discrepancy_std='auto': {pending_auto}"
+        )
+        click.echo(
+            "'auto' is a placeholder, not a value — history matching cannot "
+            "compute implausibility from it. Run `polarisopt calibrate-md` on a "
+            "completed wave and paste the calibrated numbers into the YAML."
         )
         raise click.exceptions.Exit(1)
     click.echo("OK — every moment has positive model_discrepancy_std.")
@@ -1215,7 +1241,16 @@ def calibrate_md(
     store = SampleStore.open(layout["db"], cfg.name)
     from polarisopt.studies.runner import _build_space
     space = _build_space(cfg.parameters)
-    metric = make_metric({"type": cfg.metric.type, "options": cfg.metric.options})
+    # `model_discrepancy_std: 'auto'` is the EXPECTED state here — this is
+    # the command that resolves it. Suppress the constructor's warning so
+    # the output (especially --json) isn't polluted by advice to run the
+    # command the user is already running.
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore", message=".*model_discrepancy_std='auto'.*",
+            category=UserWarning,
+        )
+        metric = make_metric({"type": cfg.metric.type, "options": cfg.metric.options})
     if not isinstance(metric, MomentSetMetric):
         raise click.ClickException(
             f"calibrate-md requires a moment_set metric; got {type(metric).__name__}"

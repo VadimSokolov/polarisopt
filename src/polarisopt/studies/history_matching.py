@@ -26,7 +26,7 @@ from typing import Any
 import numpy as np
 
 from polarisopt.design.base import Design
-from polarisopt.metrics.moment_set import MomentSetMetric
+from polarisopt.metrics.moment_set import MomentSetMetric, is_md_auto
 from polarisopt.samples.sample import Sample, SampleStatus
 from polarisopt.studies.base import Study, StudyContext
 from polarisopt.utils.logging import get_logger
@@ -79,6 +79,12 @@ class HistoryMatchingWavePhase:
     moments_included: list[str]
     nroy_grid_size: int
     output_dir: Path
+    # v0.36: wave number for the emitted artifact. Was hardcoded to 1,
+    # so the documented multi-phase pattern (hm-wave-1/2/3) had every
+    # phase overwrite the same nroy_wave1.parquet — waves 1 and 2 were
+    # destroyed and wave 3 survived under a filename claiming wave 1.
+    # Defaults to 1; the runner derives it from the phase config.
+    wave_index: int = 1
 
 
 class HistoryMatchingStudy(Study):
@@ -101,14 +107,43 @@ class HistoryMatchingStudy(Study):
                 f"history_matching requires scalarize='none' so per-moment "
                 f"residuals are exposed; got scalarize={ctx.metric.scalarize!r}"
             )
+        # v0.36: reject the 'auto' model-discrepancy sentinel up front.
+        # NaN md propagates into `denom` below; np.maximum(nan, 1e-30)
+        # returns nan (it is NOT a clamp for NaN), so implausibility is
+        # all-NaN, `nan < cutoff` is False for every grid point, and the
+        # wave writes a 0/N-retained NROY that is indistinguishable from
+        # a legitimate "the model cannot match the targets" result. That
+        # is precisely the Vernon 2010 §3.5 failure this library exists
+        # to prevent, so it must be an error, not a silent artifact.
+        auto_moments = [s.name for s in ctx.metric.moments if is_md_auto(s)]
+        if auto_moments:
+            raise ValueError(
+                f"history_matching cannot run with model_discrepancy_std='auto' "
+                f"on moment(s) {auto_moments}. Implausibility is undefined until "
+                f"the discrepancy is a number. Run the wave with a scalar "
+                f"md (or a static design phase), then `polarisopt calibrate-md` "
+                f"on the results, paste the calibrated values into the YAML, and "
+                f"re-run this phase."
+            )
         self._metric: MomentSetMetric = ctx.metric
 
     def run(self) -> list[Sample]:
         # 1. Warm-up: generate + evaluate the wave's LHS.
+        # v0.36: the resume path must ALSO evaluate. Previously
+        # `_evaluate_batch` sat inside the else-branch, so restarting a
+        # partially-completed wave picked up the PENDING rows, evaluated
+        # NONE of them, and went straight to _compute_nroy on whatever
+        # subset had finished before the crash — writing a full-looking
+        # NROY built from a fraction of the design. static.py and
+        # sequential.py both evaluate on resume; this was the outlier.
         existing = self.ctx.store.list(
             phase=self.phase.name, status=SampleStatus.PENDING,
         )
         if existing:
+            log.info(
+                "history_matching phase %r: resuming — evaluating %d pending sample(s)",
+                self.phase.name, len(existing),
+            )
             wave_samples = existing
         else:
             points = self.phase.warm_up.generate(self.ctx.space, rng=self.ctx.rng)
@@ -116,7 +151,7 @@ class HistoryMatchingStudy(Study):
                 Sample(phase=self.phase.name, iteration=0, inputs=row) for row in points
             ]
             wave_samples = self.ctx.store.add_many(wave_samples)
-            self._evaluate_batch(wave_samples)
+        self._evaluate_batch(wave_samples)
 
         # 2. Fetch FINISHED (X, Y_moment_vector).
         finished = [
@@ -138,7 +173,7 @@ class HistoryMatchingStudy(Study):
         nroy_df = self._compute_nroy(X, Y)
 
         # 4. Write NROY parquet artifact (P9).
-        self._write_nroy(nroy_df, wave_index=1)
+        self._write_nroy(nroy_df, wave_index=self.phase.wave_index)
 
         return list(wave_samples)
 
@@ -169,8 +204,19 @@ class HistoryMatchingStudy(Study):
         obs_std = self._metric.obs_noise_std_vector
         md_std = self._metric.model_discrepancy_std_vector
 
-        # Optional per-wave moment subset (moments_included).
+        # Optional per-wave moment subset (moments_included). v0.36:
+        # validate the names — previously a typo silently produced an
+        # empty active_cols, and the failure only surfaced as an opaque
+        # "zero-size array to reduction" ValueError at the implausibility
+        # step, after the entire wave of simulations had already run.
         included = set(self.phase.moments_included) if self.phase.moments_included else set()
+        if included:
+            unknown = sorted(included - set(self._metric.moment_names))
+            if unknown:
+                raise ValueError(
+                    f"history_matching.moments_included names not in the metric: "
+                    f"{unknown}. Available moments: {list(self._metric.moment_names)}"
+                )
         active_cols = [
             j for j in range(Y.shape[1])
             if not included or col_to_moment[j] in included
@@ -192,6 +238,16 @@ class HistoryMatchingStudy(Study):
         emu_type = str(emu_spec.get("type", "gp_per_moment"))
         emu_opts = dict(emu_spec.get("options", {}) or {})
         if emu_type == "gp_per_moment":
+            # v0.36: previously emu_opts was silently discarded on this
+            # branch only (the other two splat it), so a typo'd option
+            # under the DEFAULT emulator vanished without a word while
+            # the same typo under gp_basis_pca raised TypeError.
+            if emu_opts:
+                raise ValueError(
+                    f"history_matching: emulator type 'gp_per_moment' takes no "
+                    f"options; got {sorted(emu_opts)}. (Did you mean "
+                    f"'gp_basis_pca' or 'gbc_iqn'?)"
+                )
             pred_mean, pred_var = _fit_predict_gp_per_moment(X, Y_active, grid)
         elif emu_type == "gp_basis_pca":
             pred_mean, pred_var = _fit_predict_gp_basis_pca(X, Y_active, grid, **emu_opts)
@@ -214,6 +270,69 @@ class HistoryMatchingStudy(Study):
         denom = pred_var + col_md_std**2 + col_obs_std**2
         impl_sq = (pred_mean**2) / np.maximum(denom, 1e-30)
         impl = np.sqrt(impl_sq)
+
+        # v0.36: drop columns whose residual is constant across the whole
+        # training design. Such a column cannot discriminate between any
+        # two θ — it contributes the SAME implausibility everywhere — so
+        # including it can only shift every grid point uniformly. When
+        # that constant is large (the common case: a mode the sim never
+        # produces, so residual == −target for every design), it silently
+        # rules out the entire NROY for a reason unrelated to θ. That is
+        # a moment-specification / model-structure problem the user must
+        # be told about, not folded into the retained set.
+        dead_mask = np.ptp(Y_active, axis=0) == 0.0
+        if dead_mask.any():
+            dead_report = [
+                f"{col_names[k]} (constant residual {float(Y_active[0, k]):+.4g})"
+                for k in np.flatnonzero(dead_mask)
+            ]
+            log.warning(
+                "history_matching phase %r: %d moment column(s) have a constant "
+                "residual across all %d training samples and cannot discriminate "
+                "between parameter values — EXCLUDED from implausibility: %s. "
+                "A large constant residual means the simulator never reproduces "
+                "that target category; fix the moment SQL or the target CSV "
+                "rather than reading this as an empty NROY.",
+                self.phase.name, int(dead_mask.sum()), Y_active.shape[0],
+                "; ".join(dead_report),
+            )
+            impl = impl[:, ~dead_mask]
+        if impl.shape[1] == 0:
+            raise ValueError(
+                f"history_matching phase {self.phase.name!r}: every moment column "
+                f"has a constant residual across the design, so no moment can "
+                f"discriminate between parameter values. Implausibility is "
+                f"undefined. Check that the moment SQL returns varying values "
+                f"across samples and that the parameters actually affect it."
+            )
+
+        # v0.36: prior terms as virtual moments. Declared in the schema
+        # and docs since v0.31 with default True, but never implemented —
+        # priors silently failed to constrain the NROY, which is the whole
+        # reason the option exists. Vernon's construction treats a prior
+        # as one more implausibility contribution:
+        #     I_prior,d(θ) = |θ_d − prior_mean_d| / prior_std_d
+        # Flat (uniform) priors return std=None and are skipped: they carry
+        # no information and would otherwise penalise the box edges purely
+        # for being edges.
+        if bool(self.phase.implausibility.get("include_prior_terms", True)):
+            prior_cols = []
+            prior_names = []
+            for d, p in enumerate(self.ctx.space.parameters):
+                if p.prior is None:
+                    continue
+                scale = getattr(p.prior, "std", None)
+                if scale is None or not np.isfinite(scale) or scale <= 0:
+                    continue
+                prior_cols.append(np.abs(grid[:, d] - p.prior.mean) / float(scale))
+                prior_names.append(p.name)
+            if prior_cols:
+                log.info(
+                    "history_matching phase %r: adding %d prior term(s) to "
+                    "implausibility (%s)",
+                    self.phase.name, len(prior_cols), ", ".join(prior_names),
+                )
+                impl = np.concatenate([impl, np.stack(prior_cols, axis=1)], axis=1)
 
         # Reduction (max / second_max).
         impl_type = str(self.phase.implausibility.get("type", "max"))
@@ -245,6 +364,16 @@ class HistoryMatchingStudy(Study):
         out_dir = Path(self.phase.output_dir)
         out_dir.mkdir(parents=True, exist_ok=True)
         out_path = out_dir / f"nroy_wave{wave_index}.parquet"
+        # v0.36: warn rather than silently clobber. Two phases sharing a
+        # wave_index (or a re-run over a previous result) used to destroy
+        # the earlier artifact with no trace.
+        if out_path.exists():
+            log.warning(
+                "history_matching phase %r: overwriting existing %s. Give each "
+                "wave a distinct `wave_index` (or `output_dir`) if you meant to "
+                "keep both.",
+                self.phase.name, out_path,
+            )
         # pyarrow / fastparquet not a hard dep — fall back to CSV if
         # neither is installed, so users can still see the artifact.
         try:
@@ -315,6 +444,7 @@ def _fit_predict_gp_basis_pca(
     max_pcs: int = 5,
     centering: str = "mean",
     scaling: str = "per_moment_std",
+    n_pcs_out: list[int] | None = None,
 ) -> tuple[np.ndarray, np.ndarray]:
     """v0.34 emulator: PC-basis GP for multivariate output (Higdon 2008).
 
@@ -360,6 +490,11 @@ def _fit_predict_gp_basis_pca(
         Hard cap on ``k``. Default 5.
     centering : {"mean", "median", "none"}, optional
     scaling : {"per_moment_std", "unit", "none"}, optional
+    n_pcs_out : list, optional
+        Out-parameter: when a list is supplied, the number of principal
+        components actually retained is appended to it. Lets callers
+        (and tests) observe the compression the emulator achieved
+        without parsing logs.
     """
     from polarisopt.surrogates.gp import GPSurrogate
 
@@ -418,11 +553,25 @@ def _fit_predict_gp_basis_pca(
     K = Vt[:k, :]                 # (k, M)
     W = U[:, :k] * S[:k]          # (N, k)
 
+    if n_pcs_out is not None:
+        n_pcs_out.append(int(k))
+    explained = float(cum_var[k - 1])
     log.info(
         "gp_basis_pca: fit %d GPs on %d-D coefficients "
         "(variance_retained=%.2f cap=%d, explained=%.3f)",
-        k, k, variance_retained, max_pcs, float(cum_var[k - 1]),
+        k, k, variance_retained, max_pcs, explained,
     )
+    if explained < variance_retained:
+        log.warning(
+            "gp_basis_pca: max_pcs=%d truncated the basis at %d PC(s) explaining "
+            "only %.1f%% of variance (requested %.1f%%). The discarded %.1f%% "
+            "enters the predictive MEAN as reconstruction bias; the residual "
+            "variance below only partially covers it, so implausibility may be "
+            "inflated and the NROY over-pruned. Raise max_pcs or lower "
+            "variance_retained deliberately.",
+            max_pcs, k, 100 * explained, 100 * variance_retained,
+            100 * (variance_retained - explained),
+        )
 
     # 4. Fit k independent GPs on W columns.
     n_pred = X_pred.shape[0]
@@ -448,6 +597,16 @@ def _fit_predict_gp_basis_pca(
     #   Var(y_j) = Σ_i K[i, j]² · Var(w_i)
     K_sq = K**2                                       # (k, M)
     pred_var_s = W_pred_var @ K_sq                   # (n_pred, M)
+    # v0.36: add Higdon 2008's truncation-residual variance. The M − k
+    # discarded components contribute reconstruction error to the mean
+    # but, before this, contributed ZERO to the variance — so the
+    # implausibility denominator ignored a bias the numerator carried,
+    # systematically over-pruning the NROY whenever `max_pcs` truncated
+    # below `variance_retained`. Estimate it as the per-column variance
+    # of the training-set reconstruction residual.
+    trunc_resid = Y_s - (W @ K)                       # (N, M), standardized
+    trunc_var = trunc_resid.var(axis=0, ddof=1) if n_train > 1 else np.zeros(m)
+    pred_var_s = pred_var_s + trunc_var               # broadcast over rows
     pred_mean = pred_mean_s * scale + center
     pred_var = pred_var_s * (scale**2)
     return pred_mean, pred_var

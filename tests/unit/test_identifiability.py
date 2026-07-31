@@ -319,7 +319,10 @@ def test_cli_identifiability_json(tmp_path: Path) -> None:
         cli, ["identifiability", str(cfg_path), "--n-sobol", "256", "--json"],
     )
     assert res.exit_code == 0, res.output
-    payload = json.loads(res.output)
+    # Click >=8.2 `.output` deliberately interleaves stdout+stderr;
+    # polarisopt logs to stderr, so JSON contracts are asserted on
+    # `.stdout` (which is what `--json > file.json` actually captures).
+    payload = json.loads(res.stdout)
     assert "parameters" in payload
     names = [p["name"] for p in payload["parameters"]]
     assert set(names) == {"x0", "x1", "x2"}

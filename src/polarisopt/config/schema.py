@@ -128,6 +128,11 @@ class HistoryMatchingPhaseConfig(_Base):
     # Wall path — where to write nroy_wave{N}.parquet artifacts.
     # Default: <workspace>/history_matching/
     output_dir: str | None = None
+    # v0.36: which wave this phase is. Names the emitted artifact
+    # (nroy_wave{N}.parquet). Chain multiple history_matching phases by
+    # giving each a distinct wave_index — otherwise they all write
+    # nroy_wave1.parquet into the same directory and clobber each other.
+    wave_index: int = 1
 
 
 PhaseConfig = StaticPhaseConfig | SequentialPhaseConfig | HistoryMatchingPhaseConfig

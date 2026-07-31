@@ -44,6 +44,9 @@ from polarisopt.metrics.moment_set import MomentSetMetric, is_md_auto
 from polarisopt.parameters import ParameterSpace
 from polarisopt.samples.sample import SampleStatus
 from polarisopt.samples.store import SampleStore
+from polarisopt.utils.logging import get_logger
+
+log = get_logger(__name__)
 
 
 class MdCalibrationError(RuntimeError):
@@ -133,40 +136,79 @@ def calibrate_md_from_store(
             f"MD calibration needs at least 3 samples for LOO CV; got {X.shape[0]}"
         )
 
-    # For each moment name, pick its representative column index (the
-    # first one; if a moment spans multiple targets the same md applies).
-    per_moment_col: dict[str, int] = {}
-    for name, sl in metric.moment_slices.items():
-        per_moment_col[name] = sl.start
+    targets = [s for s in metric.moments if not (only_auto and not is_md_auto(s))]
+    # v0.36: LOO refits a full GP (fit_gpytorch_mll hyperparameter
+    # optimization, not a cheap update) per held-out sample per column.
+    # That is O(N * total_columns) fits and can run for hours on a real
+    # wave; previously this module logged nothing at all and presented as
+    # a hung terminal. Announce the cost up front and log per moment.
+    n_train = int(X.shape[0])
+    total_cols = sum(
+        metric.moment_slices[s.name].stop - metric.moment_slices[s.name].start
+        for s in targets
+    )
+    log.info(
+        "calibrate-md: leave-one-out CV over %d moment(s) / %d column(s) x %d "
+        "samples = %d GP fits. This is minutes-to-hours on a large wave; "
+        "progress is logged per moment.",
+        len(targets), total_cols, n_train, total_cols * n_train,
+    )
 
     results: list[MdEstimate] = []
-    for spec in metric.moments:
-        if only_auto and not is_md_auto(spec):
-            continue
-        col = per_moment_col[spec.name]
-        y_col = Y[:, col : col + 1]
-        if float(np.ptp(y_col)) == 0.0:
-            # Degenerate column — no variance to attribute. md is 0 here.
+    for spec in targets:
+        sl = metric.moment_slices[spec.name]
+        # v0.36: pool residuals across EVERY column of the moment. The
+        # previous implementation used only sl.start — so a 27-element
+        # mode-share moment was calibrated from 1 element, the answer
+        # depended on target-CSV row order, and if that first row
+        # happened to be an all-zero bucket the whole moment reported
+        # md=0 and the snippet told the user to write 0 into their YAML,
+        # producing exactly the Vernon empty-NROY failure this command
+        # exists to prevent.
+        col_indices = list(range(sl.start, sl.stop))
+        live_cols = [c for c in col_indices if float(np.ptp(Y[:, c])) > 0.0]
+        n_dead = len(col_indices) - len(live_cols)
+        if not live_cols:
+            log.warning(
+                "calibrate-md: moment %r has zero variance in all %d column(s) "
+                "across %d samples — cannot separate discrepancy from noise. "
+                "Reporting md=0; check the moment SQL actually varies with the "
+                "parameters before pasting this into your YAML.",
+                spec.name, len(col_indices), n_train,
+            )
             results.append(MdEstimate(
                 moment_name=spec.name, empirical_md_std=0.0,
                 user_md_std=None if is_md_auto(spec) else float(spec.model_discrepancy_std),
                 residual_var=0.0, obs_var=spec.obs_noise_std**2,
-                emulator_var_mean=0.0, n_samples=int(X.shape[0]),
+                emulator_var_mean=0.0, n_samples=n_train,
             ))
             continue
+        if n_dead:
+            log.info(
+                "calibrate-md: moment %r — %d of %d columns are constant and "
+                "excluded from the estimate", spec.name, n_dead, len(col_indices),
+            )
+        log.info(
+            "calibrate-md: moment %r — %d GP fits (%d live column(s) x %d samples)",
+            spec.name, len(live_cols) * n_train, len(live_cols), n_train,
+        )
 
-        # Leave-one-out CV on a GP per moment.
-        loo_residuals = np.zeros(X.shape[0], dtype=float)
-        loo_gp_vars = np.zeros(X.shape[0], dtype=float)
-        for i in range(X.shape[0]):
-            mask = np.arange(X.shape[0]) != i
-            gp = GPSurrogate()
-            gp.fit(X[mask], y_col[mask])
-            mean_i, var_i = gp.predict(X[i : i + 1])
-            loo_residuals[i] = float(y_col[i, 0]) - float(mean_i[0, 0])
-            loo_gp_vars[i] = float(var_i[0, 0])
-        residual_var = float(np.mean(loo_residuals**2))
-        emu_var_mean = float(np.mean(loo_gp_vars))
+        # Leave-one-out CV, pooled over all live columns of this moment.
+        pooled_sq_residuals: list[float] = []
+        pooled_gp_vars: list[float] = []
+        for col in live_cols:
+            y_col = Y[:, col : col + 1]
+            for i in range(n_train):
+                mask = np.arange(n_train) != i
+                gp = GPSurrogate()
+                gp.fit(X[mask], y_col[mask])
+                mean_i, var_i = gp.predict(X[i : i + 1])
+                pooled_sq_residuals.append(
+                    (float(y_col[i, 0]) - float(mean_i[0, 0])) ** 2
+                )
+                pooled_gp_vars.append(float(var_i[0, 0]))
+        residual_var = float(np.mean(pooled_sq_residuals))
+        emu_var_mean = float(np.mean(pooled_gp_vars))
         obs_var = float(spec.obs_noise_std**2)
         md_var = max(0.0, residual_var - obs_var - emu_var_mean)
         results.append(MdEstimate(
@@ -176,7 +218,7 @@ def calibrate_md_from_store(
             residual_var=residual_var,
             obs_var=obs_var,
             emulator_var_mean=emu_var_mean,
-            n_samples=int(X.shape[0]),
+            n_samples=n_train,
         ))
     return results
 

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "polarisopt"
-version = "0.35.0"
+version = "0.36.0"
 description = "Modular design-of-experiments and Bayesian optimization for POLARIS"
 readme = "README.md"
 license = { file = "License.txt" }
@@ -25,7 +25,11 @@ classifiers = [
 dependencies = [
     "numpy>=1.26",
     "pandas>=2.1",
-    "scipy>=1.11",
+    # >=1.15: polarisopt passes `rng=` to scipy.stats.qmc samplers
+    # (LatinHypercube/Sobol). That keyword is the SPEC-7 rename landed in
+    # 1.15; on 1.11-1.14 the parameter is still `seed` and every design
+    # plus the history-matching Sobol grid raises TypeError at runtime.
+    "scipy>=1.15",
     "sqlalchemy>=2.0",
     "pydantic>=2.5",
     "pyyaml>=6.0",

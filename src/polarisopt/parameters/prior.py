@@ -47,6 +47,10 @@ class Prior(ABC):
       parameters (P5). Not enforced by the ABC because subclasses
       that inherit from :class:`dataclasses.dataclass` collide with
       an abstract-property declaration.
+    - ``std`` — property giving the distribution's standard deviation,
+      or ``None`` when the prior is uninformative (flat). Used by
+      history matching's ``include_prior_terms`` to build the virtual
+      prior moment ``((theta - mean) / std)**2`` (v0.36+).
     - :meth:`log_prob` — density at a single value; return ``-inf``
       on out-of-support values.
     """
@@ -118,6 +122,13 @@ class LogNormalPrior(Prior):
         """Mean of the log-normal random variable itself
         (``exp(log_mean + 0.5·log_std²)``)."""
         return math.exp(self.log_mean + 0.5 * self.log_std * self.log_std)
+
+    @property
+    def std(self) -> float:
+        """Standard deviation of the log-normal variable itself:
+        ``sqrt((exp(s^2) - 1) * exp(2*m + s^2))``."""
+        s2 = self.log_std * self.log_std
+        return math.sqrt((math.exp(s2) - 1.0) * math.exp(2.0 * self.log_mean + s2))
 
     def log_prob(self, x: float) -> float:
         if x <= 0:
@@ -198,6 +209,23 @@ class TruncatedNormalPrior(Prior):
             return 0.5 * (self.low + self.high)
         return self.loc + self.scale * (self._phi(a) - self._phi(b)) / mass
 
+    @property
+    def std(self) -> float:
+        """Standard deviation of the truncated distribution.
+
+        ``scale^2 * [1 + (a*phi(a) - b*phi(b))/Z - ((phi(a)-phi(b))/Z)^2]``
+        with ``Z`` the retained mass. Falls back to the underlying
+        ``scale`` when the mass underflows.
+        """
+        a = (self.low - self.loc) / self.scale
+        b = (self.high - self.loc) / self.scale
+        z = self._bounds_mass()
+        if z <= 0:
+            return self.scale
+        pa, pb = self._phi(a), self._phi(b)
+        var = 1.0 + (a * pa - b * pb) / z - ((pa - pb) / z) ** 2
+        return self.scale * math.sqrt(max(var, 0.0))
+
     def log_prob(self, x: float) -> float:
         if x < self.low or x > self.high:
             return -math.inf
@@ -236,6 +264,14 @@ class UniformPrior(Prior):
     def mean(self) -> float:
         return 0.5 * (self.low + self.high)
 
+    @property
+    def std(self) -> None:
+        """``None`` — a flat prior carries no information, so it must not
+        contribute a virtual prior moment to history-matching
+        implausibility. (The variance of a uniform is finite, but using
+        it would penalise the box edges purely for being edges.)"""
+        return None
+
     def log_prob(self, x: float) -> float:
         if x < self.low or x > self.high:
             return -math.inf
@@ -264,6 +300,12 @@ class BetaPrior(Prior):
     @property
     def mean(self) -> float:
         return self.alpha / (self.alpha + self.beta)
+
+    @property
+    def std(self) -> float:
+        """``sqrt(a*b / ((a+b)^2 * (a+b+1)))``."""
+        s = self.alpha + self.beta
+        return math.sqrt(self.alpha * self.beta / (s * s * (s + 1.0)))
 
     def log_prob(self, x: float) -> float:
         if x <= 0 or x >= 1:

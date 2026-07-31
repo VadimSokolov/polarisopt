@@ -85,8 +85,19 @@ class MomentSpec:
         empty NROY; the elicited value goes here. Zero or absent is
         allowed but emits a UserWarning at construction (P10 partial).
     weight_per_element
-        Positive scalar weight multiplied into each residual before it
-        enters the output vector. Default 1.0.
+        Positive scalar relative weight for this moment. **Applies only
+        to** ``scalarize: sum_squared_weighted``, where the objective is
+        ``sum(w_k * r_k^2)`` (standard WLS). It is deliberately NOT
+        applied to the raw residual vector (``scalarize: none``) nor to
+        the implausibility scalarizations — Vernon-Goldstein-Bower
+        implausibility has no weight term, and weighting the numerator
+        while leaving the obs/md denominator unweighted would silently
+        rescale the 3-sigma cutoff. Default 1.0.
+
+        Changed in v0.36: before v0.36 the weight was multiplied into
+        every residual, which made the WLS path quadratic in ``w`` and
+        corrupted both implausibility and ``calibrate-md``. Studies that
+        used a non-default weight will see different numbers.
     aggregation
         ``elementwise_residual`` (default) or ``log_ratio_residual``.
     log_epsilon
@@ -135,10 +146,13 @@ class MomentSetMetric(Metric):
         How to reduce the concatenated residual vector to a scalar
         for BO consumers. One of:
 
-        - ``"none"`` (default) — return the raw vector. Use this for
-          history matching or multi-objective studies.
-        - ``"sum_squared_weighted"`` — return ``sum(w · r²)`` as a
+        - ``"none"`` (default) — return the raw, **unweighted** residual
+          vector. Use this for history matching or multi-objective
+          studies. Consumers that want the per-moment weights read
+          ``weight_vector``.
+        - ``"sum_squared_weighted"`` — return ``sum(w_k · r_k²)`` as a
           length-1 vector. Standard weighted-least-squares scalar loss.
+          This is the only path where ``weight_per_element`` applies.
         - ``"max_implausibility"`` — return ``max_k I_k`` where
           ``I_k = |r_k| / sqrt(σ²_obs,k + σ²_md,k)``. Requires the
           moment's obs/md std to be positive.
@@ -169,11 +183,19 @@ class MomentSetMetric(Metric):
 
     Attributes exposed on the fitted instance (for history-matching):
         - ``moment_names`` — tuple of moment names in vector order.
+          Names are unique; duplicates are rejected at construction.
         - ``moment_slices`` — dict[str, slice] mapping name → slice of
           the raw residual vector (BEFORE scalarize).
         - ``obs_noise_std_vector`` — length-``n_raw`` array.
         - ``model_discrepancy_std_vector`` — length-``n_raw`` array.
-        - ``weight_vector`` — length-``n_raw`` array.
+          Entries are ``NaN`` for moments declared
+          ``model_discrepancy_std: 'auto'``; test with
+          :func:`is_md_auto` rather than comparing to 0, because
+          ``nan <= 0`` is ``False`` and will pass a naive guard.
+        - ``weight_vector`` — length-``n_raw`` array. The residual
+          vector returned by :meth:`compute` is **unweighted**, so a
+          consumer that wants weighting must apply this itself — it is
+          not double-applied.
 
         History-matching phases (v0.31+) consume these to compute
         per-moment implausibility regardless of scalarize.
@@ -207,6 +229,20 @@ class MomentSetMetric(Metric):
         self.source_key = str(source_key)
         self.scalarize = scalarize
         self.moments: list[MomentSpec] = [_build_moment_spec(m) for m in moments]
+        # v0.36: duplicate names would silently collapse `moment_slices`
+        # (dict keyed by name), orphaning the earlier moment's columns —
+        # history_matching then KeyErrors on col_to_moment for those
+        # columns, and calibrate-md silently calibrates one moment twice.
+        # Mirror ParameterSpace.from_iterable's duplicate detection.
+        seen: set[str] = set()
+        for spec in self.moments:
+            if spec.name in seen:
+                raise ValueError(
+                    f"moment_set: duplicate moment name {spec.name!r}; "
+                    f"moment names must be unique (they key the slice map "
+                    f"that history matching and calibrate-md rely on)"
+                )
+            seen.add(spec.name)
         # Force target load at construction so a bad path fails-fast at
         # study setup instead of on the first sample's compute().
         for spec in self.moments:
@@ -300,25 +336,30 @@ class MomentSetMetric(Metric):
         if not db_path.exists():
             raise MetricError(f"MomentSetMetric: SQLite DB not found: {db_path}")
 
+        # v0.36: residuals are UNWEIGHTED. Prior to v0.36 the per-moment
+        # weight was folded in here, which (a) made `sum_squared_weighted`
+        # compute sum(w^2 * r^2) rather than the WLS sum(w * r^2), (b)
+        # scaled Vernon implausibility by an arbitrary w while leaving the
+        # obs/md denominator unweighted, and (c) made `calibrate-md` mix
+        # weighted residual variance with unweighted obs variance. The
+        # weight now applies only where it is well defined: the WLS
+        # scalarization. Vector consumers (history matching, calibrate-md,
+        # identifiability) see raw residuals and read `weight_vector`
+        # themselves if they want it.
         residuals = np.empty(self._n_raw, dtype=float)
         for spec in self.moments:
             sim_by_key = _query_moment(db_path, spec)
             sl = self.moment_slices[spec.name]
-            residuals[sl] = spec.weight_per_element * _residuals_for_moment(spec, sim_by_key)
-        # Note: weight is multiplied INSIDE the moment slice; the raw
-        # vector already carries the weight. Scalarizations below use
-        # the weighted residuals directly.
+            residuals[sl] = _residuals_for_moment(spec, sim_by_key)
         if self.scalarize == "none":
             return residuals
         if self.scalarize == "sum_squared_weighted":
-            # weight is already folded in via the per-moment multiply above;
-            # r_k here is w_k * raw_residual_k, so r_k^2 = w_k^2 * raw^2.
-            # This matches "sum of squared weighted residuals" which is the
-            # standard WLS scalar.
-            return np.array([float(np.sum(residuals**2))])
-        # implausibility variants — divide by the noise+md denom.
+            # True weighted least squares: sum(w_k * r_k^2).
+            return np.array([float(np.sum(self.weight_vector * residuals**2))])
+        # Implausibility variants — Vernon-Goldstein-Bower 2010 defines
+        # I_k = |r_k| / sqrt(sigma^2_obs + sigma^2_md) with no weight term,
+        # so the weight is deliberately NOT applied here.
         denom = np.sqrt(self.obs_noise_std_vector**2 + self.model_discrepancy_std_vector**2)
-        # residuals already carry weight; implausibility is |r| / denom.
         impl = np.abs(residuals) / denom
         if self.scalarize == "max_implausibility":
             return np.array([float(np.max(impl))])

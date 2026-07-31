@@ -81,12 +81,55 @@ class LHSDesign(Design):
         if self.include_prior_mean_anchor:
             # Replace the first row with the prior-mean anchor. Per-parameter:
             # use prior.mean if a prior is set, midpoint of the box otherwise.
-            anchor = np.array([
+            anchor = space.clip(np.array([
                 p.prior.mean if p.prior is not None else 0.5 * (p.low + p.high)
                 for p in space.parameters
-            ], dtype=float)
-            pts[0] = space.clip(anchor)
+            ], dtype=float))
+            # v0.36: score the anchor through the prefilter before
+            # substituting it. Previously the anchor was written in
+            # unconditionally AFTER filtering, so (a) a θ the analytical
+            # screen had already rejected entered the design and burned a
+            # full POLARIS run, and (b) it overwrote row 0 — which the old
+            # score-sort made the single best-scoring survivor.
+            if self.analytical_prefilter is not None and not self._anchor_passes_prefilter(
+                anchor, space,
+            ):
+                log.warning(
+                    "analytical_prefilter rejected the prior-mean anchor %s — "
+                    "keeping the filtered design instead of substituting it. "
+                    "Either the priors disagree with the analytical model or "
+                    "the reject threshold is too tight.",
+                    dict(zip(space.names, anchor.tolist(), strict=True)),
+                )
+                return pts
+            pts[0] = anchor
         return pts
+
+    def _anchor_passes_prefilter(
+        self, anchor: np.ndarray, space: ParameterSpace,
+    ) -> bool:
+        """Run the prior-mean anchor through the configured prefilter."""
+        cfg = self.analytical_prefilter
+        assert cfg is not None
+        callable_fn = _load_callable(cfg["module"], cfg["function"])
+        threshold = cfg.get("reject_if_max_share_dev_gt")
+        theta = {p.name: float(v) for p, v in zip(space.parameters, anchor, strict=True)}
+        try:
+            result = callable_fn(theta)
+        except Exception as exc:  # noqa: BLE001
+            log.warning(
+                "analytical_prefilter: callable raised while scoring the "
+                "prior-mean anchor: %s — treating anchor as rejected", exc,
+            )
+            return False
+        if not isinstance(result, dict) or result.get("reject"):
+            return False
+        score = result.get("max_share_dev")
+        return not (
+            threshold is not None
+            and score is not None
+            and float(score) > float(threshold)
+        )
 
     def _generate_raw_lhs(
         self, space: ParameterSpace, *, rng: np.random.Generator, n: int,
@@ -113,11 +156,21 @@ class LHSDesign(Design):
           the threshold drop. Any additional keys are logged and
           ignored.
 
-        If survivors ≥ n, return the ``n`` with the smallest
-        ``max_share_dev`` (if scores present) or the first ``n``
-        (if only hard-reject was used). If survivors < n, warn and
-        return them anyway — a wave with too few points is better
-        than a crash.
+        The score is used **only as a filter**, never as a ranking.
+        Survivors are thinned back to ``n`` by re-stratifying over the
+        parameter box (see :func:`_stratified_thin`), which preserves
+        the space-filling property the LHS exists to provide.
+
+        Changed in v0.36: this previously sorted survivors by score and
+        took the best ``n``, which collapsed the design onto the
+        feasibility boundary — a measured run put all 10 returned points
+        inside 5% of the x-range of a unit box. For history matching
+        that is a methodological failure: the emulator only ever sees
+        the region the analytical proxy likes best, so the proxy
+        silently determines the NROY instead of pre-screening it.
+
+        If survivors < n, warn and return them anyway — a wave with too
+        few points is better than a crash.
         """
         cfg = self.analytical_prefilter
         assert cfg is not None
@@ -175,10 +228,41 @@ class LHSDesign(Design):
                 len(surviving), self.n, oversample,
             )
             return np.stack([row for row, _ in surviving])
-        # Rank by score if available (lower = better), else take first n.
-        if any(score is not None for _, score in surviving):
-            surviving.sort(key=lambda pair: (pair[1] if pair[1] is not None else float("inf")))
-        return np.stack([row for row, _ in surviving[: self.n]])
+        survivor_rows = np.stack([row for row, _ in surviving])
+        return _stratified_thin(survivor_rows, self.n, space, rng)
+
+
+def _stratified_thin(
+    rows: np.ndarray, n: int, space: ParameterSpace, rng: np.random.Generator,
+) -> np.ndarray:
+    """Thin ``rows`` down to ``n`` while preserving space-filling coverage.
+
+    Greedy maxi-min: seed with a random survivor, then repeatedly take
+    the candidate whose minimum distance to the already-chosen set is
+    largest. Distances are computed in the unit cube (each dimension
+    normalized by its parameter range) so dimensions with wildly
+    different scales contribute equally.
+
+    This is the correct way to reduce a filtered candidate pool to a
+    design: it keeps the survivors spread across the feasible region
+    instead of clustering them wherever an auxiliary score happened to
+    be lowest.
+    """
+    if rows.shape[0] <= n:
+        return rows
+    bounds = space.bounds
+    span = bounds[:, 1] - bounds[:, 0]
+    span = np.where(span > 0, span, 1.0)
+    unit = (rows - bounds[:, 0]) / span
+
+    chosen = [int(rng.integers(rows.shape[0]))]
+    # Running min-distance from every candidate to the chosen set.
+    min_d = np.linalg.norm(unit - unit[chosen[0]], axis=1)
+    for _ in range(n - 1):
+        nxt = int(np.argmax(min_d))
+        chosen.append(nxt)
+        min_d = np.minimum(min_d, np.linalg.norm(unit - unit[nxt], axis=1))
+    return rows[np.array(chosen)]
 
 
 def _validate_prefilter(cfg: dict[str, Any]) -> dict[str, Any]:

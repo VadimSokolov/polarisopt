@@ -192,26 +192,56 @@ metric:
     # | mean_implausibility
     scalarize: none
     moments:
+      # Activity.type is the purpose and Activity.mode is the TEXT mode —
+      # this is the direct mode-choice-model output. (Trip.purpose is a
+      # freight/e-commerce flag, NOT the activity purpose, and Trip.mode
+      # is an integer key into the Mode table.)
       - name: mode_shares_by_purpose
         source_sql: |
-          SELECT purpose, mode,
-                 COUNT(*)*1.0 / (SELECT COUNT(*) FROM Trip WHERE purpose IS NOT NULL)
-                 AS share
-          FROM Trip GROUP BY purpose, mode
+          SELECT type AS purpose, mode,
+                 COUNT(*)*1.0 / (SELECT COUNT(*) FROM Activity
+                                 WHERE mode NOT IN ('', 'NO_MOVE')) AS share
+          FROM Activity WHERE mode NOT IN ('', 'NO_MOVE')
+          GROUP BY type, mode
         target: calibration_targets/mode_shares.csv
         target_key_cols: [purpose, mode]
         target_value_col: share
         obs_noise_std: 0.005
         model_discrepancy_std: 0.02   # required — Vernon 2010 §3.5
-      - name: boarding_by_agency
-        source_sql: "SELECT agency, type, SUM(n) AS boardings FROM MM_Trip GROUP BY agency, type"
-        target: calibration_targets/boardings.csv
-        target_key_cols: [agency, type]
-        target_value_col: boardings
-        aggregation: log_ratio_residual    # for count moments spanning decades
-        obs_noise_std: 0.10
-        model_discrepancy_std: 0.20
+      - name: trip_distance_deciles
+        source_sql: |
+          SELECT mode, decile, MAX(distance_mi) AS distance FROM (
+            SELECT m.mode_description AS mode,
+                   t.travel_distance / 1609.344 AS distance_mi,
+                   NTILE(10) OVER (PARTITION BY m.mode_description
+                                   ORDER BY t.travel_distance) AS decile
+            FROM Trip t JOIN Mode m ON t.mode = m.mode_id
+            WHERE t.travel_distance > 0
+          ) GROUP BY mode, decile
+        target: calibration_targets/distance_deciles.csv
+        target_key_cols: [mode, decile]
+        target_value_col: distance
+        aggregation: log_ratio_residual    # for values spanning decades
+        obs_noise_std: 0.5                 # miles
+        model_discrepancy_std: 1.0
 ```
+
+Rather than hand-writing these, use the schema-verified builders in
+`polarisopt.moments` (`mode_shares_by_purpose`, `trip_mode_shares`,
+`mean_travel_time_by_activity`, `trip_distance_deciles_by_mode`) — each
+returns a ready moment dict.
+
+**`weight_per_element`** applies *only* to
+`scalarize: sum_squared_weighted`, where the objective is
+`sum(w_k · r_k²)`. It is deliberately not applied to the raw residual
+vector (`scalarize: none`) nor to the implausibility scalarizations —
+Vernon implausibility has no weight term, and weighting the numerator
+while leaving the obs/md denominator unweighted would silently rescale
+the 3-σ cutoff. *(Changed in v0.36; before that the weight was folded
+into every residual, making the WLS path quadratic in `w`.)*
+
+Moment names must be unique — they key the slice map that history
+matching and `calibrate-md` rely on.
 
 ```yaml
 metric:
@@ -328,9 +358,23 @@ emulator. Emits `nroy_wave{N}.parquet` under `output_dir`.
 ```
 
 Rejected at construction: non-`moment_set` metric (TypeError),
-`scalarize != none` on the metric (ValueError). Fall-through to
-CSV if pyarrow/fastparquet isn't installed — the artifact always
-lands somewhere.
+`scalarize != none` on the metric (ValueError), and any moment left at
+`model_discrepancy_std: auto` (ValueError — implausibility is undefined
+until the discrepancy is a number; run `polarisopt calibrate-md` first).
+Fall-through to CSV if pyarrow/fastparquet isn't installed — the
+artifact always lands somewhere.
+
+**Chaining waves.** Give each `history_matching` phase a distinct
+`wave_index` (and/or `output_dir`). They otherwise all write
+`nroy_wave1.parquet` into `<workspace>/history_matching/` and overwrite
+each other — polarisopt warns when it is about to clobber an existing
+artifact.
+
+**`include_prior_terms`** (v0.36+): adds one virtual moment per
+parameter that has an informative `prior:`, contributing
+`|θ_d − prior.mean| / prior.std` to the implausibility. Flat
+(`uniform`) priors are skipped — they carry no information and would
+otherwise penalise the box edges purely for being edges.
 
 ## Stop criteria (recursive)
 

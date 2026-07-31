@@ -134,14 +134,23 @@ def test_extra_sim_category_ignored(tmp_path: Path) -> None:
     np.testing.assert_allclose(out, [-0.4], atol=1e-9)
 
 
-def test_weight_per_element_scales_residuals(tmp_path: Path) -> None:
+def test_weight_per_element_does_not_scale_raw_residuals(tmp_path: Path) -> None:
+    """v0.36: the raw residual vector (scalarize='none') is UNWEIGHTED.
+
+    This test previously asserted the opposite. Folding the weight into
+    the residual meant history matching and calibrate-md — which both
+    consume this vector — saw weighted residuals while their obs/md
+    denominators stayed unweighted, so any weight != 1 silently
+    rescaled the Vernon 3-sigma cutoff. The weight now applies only to
+    scalarize='sum_squared_weighted'.
+    """
     target_csv = tmp_path / "t.csv"
     _write_csv(target_csv, "purpose,mode,share", ["HBW,auto,0.5", "HBW,transit,0.5"])
     sim = tmp_path / "sim.sqlite"
     _write_demand_db(sim, [("HBW", "auto", 60), ("HBW", "transit", 40)])
     m = {**_mode_share_moment(target_csv), "weight_per_element": 3.0}
     out = MomentSetMetric(moments=[m]).compute({"demand_db": str(sim)})
-    np.testing.assert_allclose(out, [3.0 * 0.1, 3.0 * -0.1], atol=1e-9)
+    np.testing.assert_allclose(out, [0.1, -0.1], atol=1e-9)
 
 
 def test_log_ratio_residual_aggregation(tmp_path: Path) -> None:
@@ -228,8 +237,12 @@ def test_scalarize_sum_squared_weighted(tmp_path: Path) -> None:
     out = metric.compute({"demand_db": str(sim)})
     assert metric.n_objectives == 1
     assert out.shape == (1,)
-    # r_k weighted: 2 * 0.1 = 0.2, 2 * -0.1 = -0.2 → sum_sq = 0.04 + 0.04 = 0.08
-    assert float(out[0]) == pytest.approx(0.08, abs=1e-12)
+    # v0.36: standard WLS is sum(w * r^2), i.e. LINEAR in w.
+    # r = +/-0.1, w = 2  ->  2*(0.01) + 2*(0.01) = 0.04.
+    # This previously asserted 0.08 because the weight was folded into
+    # the residual and then squared, giving sum(w^2 * r^2) — so a user
+    # asking for 3x influence silently got 9x.
+    assert float(out[0]) == pytest.approx(0.04, abs=1e-12)
 
 
 def test_scalarize_max_implausibility(tmp_path: Path) -> None:

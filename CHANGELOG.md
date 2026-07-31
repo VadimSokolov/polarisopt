@@ -2,6 +2,201 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.36.0 — 2026-07-30
+
+**Correctness release.** A critical review of the v0.26–v0.35
+β-calibration series found several defects that produce *silently
+wrong scientific results* rather than errors — most of them variants
+of the same failure the library exists to prevent (Vernon 2010 §3.5
+empty NROY). Anyone who has run a history-matching wave, used
+`weight_per_element`, or used the `polarisopt.moments` helpers should
+re-run after upgrading.
+
+### Fixed — silently wrong results
+
+- **`polarisopt.moments` SQL was fabricated and never executed.** All
+  four v0.30 helpers were written from the spec's illustrative
+  examples and validated only by asserting the returned dict's
+  *shape*, so nothing caught that they referenced columns which do
+  not exist. Against the real polarislib Demand schema:
+    - `boarding_by_agency` queried `MM_Trip.agency` — there is no
+      `agency` column anywhere in the Demand schema, and `MM_Trip`
+      is the *micromobility* table, not transit boardings. **Removed**;
+      agency-level boardings need the Supply DB and cannot be reached
+      from a `demand_db`-keyed moment.
+    - `mean_travel_time_by_activity` joined `Activity.activity_id`
+      (the PK is `id`) via `Trip.destination` (a *Location* FK, not
+      an Activity id) and averaged `Trip.travel_time` (no such
+      column). Now joins `Activity.trip = Trip.trip_id` and computes
+      `(end - start) / 60`.
+    - `mode_shares_by_purpose` grouped by `Trip.purpose`, which the
+      schema documents as a freight/e-commerce flag — *not* the
+      activity purpose mode-share calibration needs — and by
+      `Trip.mode`, an integer key that cannot match a text target
+      CSV. Now uses `Activity.type` / `Activity.mode` (both text),
+      which is also the cleaner mode-choice signal per the DFW v0.32
+      report. New `planned_only` option restricts to `trip = 0`.
+    - `trip_distance_deciles_by_mode` documented miles but
+      `travel_distance` is **meters** — a 1609× unit error against
+      the documented `obs_noise_std`. Now converts, and joins `Mode`
+      for text keys.
+  New `trip_mode_shares` helper covers the executed (post-DTA) case.
+  **Tests now execute every helper's SQL against a database built to
+  the real schema** and assert computed values — the shape-only tests
+  could not have caught any of this.
+
+- **`model_discrepancy_std: 'auto'` silently emptied the NROY.** The
+  sentinel is stored as NaN; `np.maximum(nan, 1e-30)` returns `nan`
+  (it does not clamp NaN), so implausibility was all-NaN,
+  `nan < cutoff` was `False` for every grid point, and the wave wrote
+  a 0/N-retained artifact indistinguishable from a legitimate "the
+  model cannot match the targets" result — after burning the full
+  wave of simulations. The existing guard only covered the two
+  implausibility `scalarize` modes, which history matching can never
+  use (it requires `scalarize: none`). Now rejected at study
+  construction with a pointer to `calibrate-md`.
+
+- **`polarisopt discrepancy-audit` gave a false green light on
+  `auto`.** `nan <= 0` is `False`, so auto moments never entered the
+  failure list and the command exited 0 with "OK — every moment has
+  positive model_discrepancy_std". Now reported and failed
+  separately.
+
+- **A dead moment column wiped the NROY.** A column whose residual is
+  constant across the whole design cannot discriminate between any
+  two θ, but it kept its constant mean with *zero* variance, giving a
+  constant large implausibility that ruled out every grid point. This
+  is the common case when the simulator never produces a
+  target-present category (residual `= -target` for every design).
+  The CHANGELOG claimed these "contribute zero implausibility"; they
+  did not. Now excluded from the reduction with a warning naming the
+  columns and their constant value, and an explicit error if *every*
+  column is dead.
+
+- **`weight_per_element` had three different wrong behaviors.** The
+  weight was multiplied into every residual, so: `sum_squared_weighted`
+  computed `Σ w²r²` while documenting itself as the standard WLS
+  `Σ w·r²` (a user asking for 3× influence silently got 9×);
+  implausibility was scaled by `w` while its obs/md denominator was
+  not, letting one weighted moment rule out the NROY on its own; and
+  `calibrate-md` subtracted an unweighted `obs²` from a weighted
+  residual variance. **Residuals are now unweighted**, the weight
+  applies only to `sum_squared_weighted`, and implausibility has no
+  weight term (matching Vernon).
+
+- **`calibrate-md` estimated discrepancy from one element per
+  moment.** It used only `moment_slices[name].start`, so a 27-element
+  mode-share moment was calibrated from a single element and the
+  answer depended on target-CSV **row order**. If that first row was
+  an all-zero bucket, the whole moment reported `md = 0` and the
+  emitted snippet told the user to write `0` into their YAML —
+  manufacturing the exact empty-NROY failure the command exists to
+  prevent. Now pools LOO residuals across every live column, with
+  dead columns excluded and logged.
+
+- **The analytical prefilter destroyed the Latin Hypercube.** It
+  sorted survivors by score and took the best `n`, which collapses
+  the design onto the feasibility boundary — a measured run put all
+  10 returned points inside 5% of the x-range of a unit box. For
+  history matching that is a methodological failure: the emulator
+  only ever sees where the analytical proxy scores best, so the proxy
+  determines the NROY instead of pre-screening it. The score is now
+  used strictly as a filter, and survivors are thinned by greedy
+  maxi-min re-stratification in the unit cube.
+
+- **The prior-mean anchor bypassed the prefilter.** It was written
+  into row 0 *after* filtering, so a θ the analytical screen had
+  already rejected entered the design and burned a POLARIS run — and
+  it overwrote the best-scoring survivor. The anchor is now scored
+  through the prefilter and skipped (with a warning) if rejected.
+
+- **Multi-wave history matching overwrote its own artifacts.**
+  `wave_index` was hardcoded to `1` and the default output directory
+  is phase-independent, so the documented `hm-wave-1/2/3` chaining
+  pattern had every phase write `nroy_wave1.parquet` into the same
+  directory: waves 1 and 2 were destroyed and wave 3 survived under a
+  filename claiming wave 1. New `wave_index` phase option (schema +
+  runner), plus a warning before clobbering an existing artifact.
+
+- **History matching never evaluated pending samples on resume.**
+  `_evaluate_batch` sat inside the `else` branch, so restarting a
+  partially-completed wave picked up the PENDING rows, evaluated none
+  of them, and computed the NROY from whatever subset had finished
+  before the crash — writing a full-looking artifact built from a
+  fraction of the design. `static.py` and `sequential.py` both
+  evaluate on resume; this was the outlier.
+
+- **`gp_basis_pca` omitted Higdon's truncation variance.** The `M − k`
+  discarded components contributed reconstruction bias to the
+  predictive mean but zero to the variance, so the implausibility
+  denominator ignored a bias the numerator carried and the NROY was
+  systematically over-pruned whenever `max_pcs` truncated below
+  `variance_retained`. The residual variance is now estimated from
+  the training reconstruction and added; hard truncation also warns.
+
+### Fixed — documented but non-existent
+
+- **`implausibility.include_prior_terms` is now implemented.** It has
+  been in the schema (default `True`) and the YAML reference since
+  v0.31 while never being read — priors silently failed to constrain
+  the NROY, which is the entire reason the option exists. Each
+  parameter with an informative prior now contributes a virtual
+  moment `|θ_d − mean| / std`. Flat (`uniform`) priors are skipped.
+  This required a new `std` property on all five prior types, each
+  verified against scipy.
+
+### Fixed — silent failures made loud
+
+- **Duplicate moment names** silently collapsed the name-keyed
+  `moment_slices`, orphaning the first moment's columns (history
+  matching then `KeyError`d on an unrelated line). Now rejected, as
+  `ParameterSpace` already did for parameters.
+- **`moments_included` typos** produced an empty column set and
+  surfaced only as `zero-size array to reduction` *after* the whole
+  wave had run. Names are now validated against the metric up front.
+- **`emulator.options` was silently discarded for `gp_per_moment`** —
+  the default emulator — while the same typo raised `TypeError` under
+  the other two. Now rejected explicitly.
+- **`calibrate-md` had no logging at all** and presented as a hung
+  terminal: it refits a full GP (with hyperparameter optimization)
+  per held-out sample per column, which is ~3.5 h for a realistic
+  DFW wave. It now logs the total fit count up front and progress
+  per moment.
+
+### Changed — packaging
+
+- **`scipy>=1.15`** (was `>=1.11`). polarisopt passes `rng=` to
+  `scipy.stats.qmc` samplers, which is the SPEC-7 rename landed in
+  1.15; on 1.11–1.14 the parameter is still `seed` and every design
+  plus the history-matching Sobol grid raised `TypeError`. The
+  declared floor allowed a resolver-legal install that could not run.
+
+### Breaking
+
+- `polarisopt.moments.boarding_by_agency` is **removed** (its SQL
+  could never execute).
+- Metric values change for any study using `weight_per_element != 1`.
+- `moment_set` now rejects duplicate moment names.
+- History matching now errors instead of writing an empty NROY when
+  a moment is left at `model_discrepancy_std: 'auto'`.
+
+### Tests
+
+- Moments helpers: 9 tests that build a schema-accurate Demand
+  SQLite and **execute** each helper's SQL, asserting computed
+  shares, minutes, and miles.
+- 8 history-matching regressions: auto-md rejection, dead-column
+  exclusion, `wave_index` naming, `moments_included` validation,
+  `gp_per_moment` stray options, prior terms actually shrinking the
+  retained set, PCA truncation variance, and a replacement for a
+  test whose name claimed PC-count reduction while asserting only
+  finiteness (`gp_basis_pca` now reports its retained `k` via an
+  out-parameter so the claim is actually checked).
+- 6 prefilter/weight regressions: space-filling preserved under
+  filtering, rejected anchor excluded, accepted anchor still used,
+  unweighted residual vector, linear-in-weight WLS, weight-invariant
+  implausibility, duplicate-name rejection, and pooled md calibration.
+
 ## 0.35.0 — 2026-07-30
 
 Final release of the DFW v0.33 methodology-extensions spec. Ships
