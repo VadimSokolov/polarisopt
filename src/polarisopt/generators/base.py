@@ -26,6 +26,13 @@ class GeneratorContext:
     Y: np.ndarray  # (n, m) — corresponding metric values
     iteration: int
     rng: np.random.Generator
+    # v0.37: the study's Metric, when the generator needs to interrogate
+    # it. Window-membership acquisitions (tolerance_ball / heaviside)
+    # read the per-moment obs/md vectors off a `moment_set` metric to
+    # derive their tolerance scale. Optional and defaulted so existing
+    # generators and any external plugin constructing a context by hand
+    # keep working unchanged.
+    metric: Any = None
 
 
 class SampleGeneratorError(RuntimeError):

@@ -29,6 +29,7 @@ from polarisopt.metrics.moment_set import MomentSetMetric
 from polarisopt.parameters import ParameterSpace
 from polarisopt.samples.sample import SampleStatus
 from polarisopt.samples.store import SampleStore
+from polarisopt.utils.degenerate import is_near_constant
 
 DEFAULT_N_SOBOL = 8192
 DEFAULT_IDENTIFICATION_THRESHOLD = 0.05
@@ -122,7 +123,7 @@ def _sobol_per_column(
         y_col = Y[:, j : j + 1]
         # Skip degenerate columns (identical values across samples) — no
         # signal, Sobol undefined; the parameter contributes 0 here.
-        if float(np.ptp(y_col)) == 0.0:
+        if is_near_constant(y_col):
             continue
         gp = GPSurrogate()
         gp.fit(X, y_col)

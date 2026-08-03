@@ -75,7 +75,8 @@ Each family has a base ABC, a `<family>_registry`, and a `make_<family>(spec)` f
 
 Design (static DOE):       lhs, morris, sobol, manual
 Surrogate (BO model):      gp                                  (requires [bo])
-Acquisition:               ei, qei, qehvi                      (requires [bo])
+Acquisition:               ei, qei, qehvi, qlognei             (requires [bo])
+                           tolerance_ball, heaviside           (window search; scipy only)
 Generator (sequential):    random, acquisition
 Stop:                      max_iter, epsilon, plateau, hypervolume, any, all
 Metric:                    identity, link_moe, choice_share

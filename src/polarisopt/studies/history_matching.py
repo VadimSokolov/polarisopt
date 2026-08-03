@@ -29,6 +29,7 @@ from polarisopt.design.base import Design
 from polarisopt.metrics.moment_set import MomentSetMetric, is_md_auto
 from polarisopt.samples.sample import Sample, SampleStatus
 from polarisopt.studies.base import Study, StudyContext
+from polarisopt.utils.degenerate import is_near_constant, near_constant_mask
 from polarisopt.utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -280,7 +281,7 @@ class HistoryMatchingStudy(Study):
         # rules out the entire NROY for a reason unrelated to θ. That is
         # a moment-specification / model-structure problem the user must
         # be told about, not folded into the retained set.
-        dead_mask = np.ptp(Y_active, axis=0) == 0.0
+        dead_mask = near_constant_mask(Y_active)
         if dead_mask.any():
             dead_report = [
                 f"{col_names[k]} (constant residual {float(Y_active[0, k]):+.4g})"
@@ -423,7 +424,7 @@ def _fit_predict_gp_per_moment(
     pred_var = np.zeros((n_pred, m), dtype=float)
     for k in range(m):
         y_col = Y[:, k : k + 1]
-        if float(np.ptp(y_col)) == 0.0:
+        if is_near_constant(y_col):
             pred_mean[:, k] = float(y_col[0, 0])
             pred_var[:, k] = 0.0
             continue
@@ -579,7 +580,7 @@ def _fit_predict_gp_basis_pca(
     W_pred_var = np.zeros((n_pred, k), dtype=float)
     for i in range(k):
         w_col = W[:, i : i + 1]
-        if float(np.ptp(w_col)) == 0.0:
+        if is_near_constant(w_col):
             W_pred_mean[:, i] = float(w_col[0, 0])
             W_pred_var[:, i] = 0.0
             continue

@@ -55,6 +55,13 @@ class AcquisitionGenerator(SampleGenerator):
         surrogate.fit(ctx.X, ctx.Y)
 
         acq = make_acquisition(self.acquisition_spec, surrogate=surrogate, minimize=self.minimize)
+        # v0.37: window-membership acquisitions (tolerance_ball / heaviside)
+        # derive their tolerance scale from the study's moment_set metric.
+        # Duck-typed so no other acquisition is affected and external
+        # plugins can opt in by defining the same hook.
+        bind = getattr(acq, "bind_metric", None)
+        if callable(bind) and ctx.metric is not None:
+            bind(ctx.metric)
         # v0.18: forward observed_X too — noise-aware acquisitions (qlognei)
         # need it as X_baseline. Existing acquisitions (ei, qei, qehvi)
         # accept-and-ignore per the ABC contract.

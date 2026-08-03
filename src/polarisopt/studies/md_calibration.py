@@ -44,6 +44,7 @@ from polarisopt.metrics.moment_set import MomentSetMetric, is_md_auto
 from polarisopt.parameters import ParameterSpace
 from polarisopt.samples.sample import SampleStatus
 from polarisopt.samples.store import SampleStore
+from polarisopt.utils.degenerate import is_near_constant
 from polarisopt.utils.logging import get_logger
 
 log = get_logger(__name__)
@@ -166,7 +167,7 @@ def calibrate_md_from_store(
         # producing exactly the Vernon empty-NROY failure this command
         # exists to prevent.
         col_indices = list(range(sl.start, sl.stop))
-        live_cols = [c for c in col_indices if float(np.ptp(Y[:, c])) > 0.0]
+        live_cols = [c for c in col_indices if not is_near_constant(Y[:, c])]
         n_dead = len(col_indices) - len(live_cols)
         if not live_cols:
             log.warning(

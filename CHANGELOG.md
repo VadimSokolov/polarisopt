@@ -2,6 +2,106 @@
 
 Notable changes per release. Format inspired by [Keep a Changelog](https://keepachangelog.com/).
 
+## 0.37.0 — 2026-08-03
+
+Range-aware search. Adds the `tolerance_ball` and `heaviside`
+acquisitions of Jiang, Wu, Schroeder & Webb (2026), "Range-aware
+Bayesian optimization for discovering diverse designs within target
+property windows", *Digital Discovery*
+([10.1039/d6dd00358c](https://doi.org/10.1039/d6dd00358c); preprint
+arXiv:2606.11574).
+
+POLARIS choice-model calibration is **specification satisfaction**, not
+optimisation: a parameter vector is acceptable when every moment
+residual lands inside its tolerance window, and the rank-deficient
+objective means the deliverable is a *set* of acceptable θ. History
+matching produces that set but searches passively — space-filling
+design, filter afterwards. These acquisitions score candidates by the
+posterior probability of landing **inside** the window, so the search
+targets the acceptable region directly.
+
+### Added
+
+- **`tolerance_ball` acquisition.** Closed-form, sampling-free window
+  membership probability. Consumes a `moment_set` metric with
+  `scalarize: none` — the same input `history_matching` takes — so the
+  two searches are directly comparable on one study.
+
+- **`heaviside` acquisition.** The paper's boundary-sharpened variant,
+  `(1-w)·1 + w·α_TB`. Candidates comfortably inside the window saturate
+  at 1 regardless of variance, so the search stops paying to reduce
+  variance where acceptability is already established and pushes
+  outward to find *more* acceptable designs.
+
+- **Two window geometries**, selected by `norm`:
+    - **`linf`** (default) — `max_j |r_j|/s_j <= cutoff_sigma`, the
+      same L∞ box as history matching's implausibility cutoff. Computed
+      as an exact product of per-moment interval probabilities: no
+      isotropic-variance approximation.
+    - **`l2`** — the reference paper's Euclidean ball via a noncentral
+      chi-square.
+
+  `linf` is the default as a deliberate deviation from the reference:
+  it is the criterion the DFW calibration actually states ("every
+  moment lands inside its tolerance window"), it matches the cutoff
+  already implemented for history matching, and it is exact. Measured
+  against 400k-draw Monte Carlo at K=6, the `l2` isotropic
+  approximation errs by up to **0.19 in probability** when per-moment
+  posterior sds span 20x — plausible for a heterogeneous moment set.
+  The full accuracy table is in the module docstring and is guarded by
+  a test that fails if the approximation ever becomes accurate without
+  the table being updated.
+
+- **Tolerance derived automatically.** The per-moment window scale
+  `sqrt(obs_noise_std² + model_discrepancy_std²)` is read off the
+  study's `moment_set` metric, so YAML need not restate it. A moment
+  still at `model_discrepancy_std: auto` is **rejected** — the window
+  would be undefined, and returning NaN scores would repeat the v0.36
+  class of silent failure. Explicit `tolerance: [...]` overrides.
+  With neither, the acquisition refuses rather than assuming `s=1`.
+
+- **Diversity-aware batches.** `q > 1` selects by greedy maxi-min over
+  the highest-scoring candidates rather than taking the top `q`, which
+  would collapse onto one point. This matters precisely because the
+  objective is degenerate — DFW Phase 6B found a 27-dimensional ridge.
+
+- **`GeneratorContext.metric`** — optional field so a generator can
+  interrogate the study's metric. Defaulted, so existing generators
+  and externally-constructed contexts are unaffected.
+  `AcquisitionGenerator` duck-types a `bind_metric` hook, which
+  external acquisition plugins can also implement.
+
+### Fixed
+
+- **Near-constant columns were detected by exact equality.** Every call
+  site tested `np.ptp(col) == 0.0`, so a column varying only by
+  floating-point round-off — e.g. a share computed from identical
+  integer counts across designs, differing in the last ulp — was
+  treated as live, and a GP was fitted to pure noise. That posterior
+  then entered implausibility, model-discrepancy estimation and Sobol
+  indices. Replaced with a shared scale-relative test
+  (`polarisopt.utils.degenerate`) across all four call sites in
+  `history_matching`, `md_calibration` and `identifiability`.
+
+### Notes
+
+- Requires only scipy, not torch — these acquisitions load
+  independently of the BoTorch-backed ones.
+- `minimize` is accepted for interface conformance but ignored: the
+  score is a probability and is always maximised.
+
+### Tests
+
+- 33 tests, behavioural throughout: closed-form scores validated
+  against 400k-draw Monte Carlo for both norms; `linf` shown exact
+  under a 100x sd spread; the `l2` approximation's documented
+  degradation asserted; monotonicity in distance from target; the
+  search shown to actually *recover a known acceptable window* rather
+  than merely return a correctly-shaped array; batch diversity along a
+  deliberately degenerate direction; heaviside saturation inside and
+  convergence to `tolerance_ball` far outside; every guardrail; and the
+  generator→acquisition metric binding end-to-end.
+
 ## 0.36.0 — 2026-07-30
 
 **Correctness release.** A critical review of the v0.26–v0.35

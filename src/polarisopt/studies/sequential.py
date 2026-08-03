@@ -115,6 +115,7 @@ class SequentialDesignStudy(Study):
                         Y=Y,
                         iteration=iteration,
                         rng=self.ctx.rng,
+                        metric=self.ctx.metric,
                     ),
                     q=self.phase.batch_size,
                 )

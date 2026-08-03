@@ -303,7 +303,7 @@ Manual:
         type: gp
         options: { nu: 2.5 }
       acquisition:
-        type: qei            # ei | qei | qehvi
+        type: qei            # ei | qei | qehvi | qlognei | tolerance_ball | heaviside
         options:
           mc_samples: 256
   batch_size: 4
@@ -330,6 +330,62 @@ Multi-objective with qLogEHVI:
   minimize: true
   stop: { type: max_iter, options: { n: 30 } }
 ```
+
+### Range-aware search (v0.37+)
+
+When the goal is **specification satisfaction** rather than optimisation
+— every moment residual inside its tolerance window — use the
+`tolerance_ball` (or boundary-sharpened `heaviside`) acquisition. It
+scores each candidate by the posterior probability of landing inside the
+window, so the search targets the acceptable region directly instead of
+sampling space-filling and filtering afterwards as `history_matching`
+does. Consumes the same `moment_set` metric with `scalarize: none`, so
+the two are directly comparable on one study.
+
+```yaml
+- name: window-search
+  type: sequential
+  warm_up: { type: lhs, options: { n: 40 } }
+  generator:
+    type: acquisition
+    options:
+      surrogate: { type: gp, options: {} }
+      acquisition:
+        type: tolerance_ball        # or: heaviside
+        options:
+          cutoff_sigma: 3.0         # |r_j| <= 3*sqrt(obs_j^2 + md_j^2)
+          norm: linf                # linf (default, exact) | l2 (paper's ball)
+          # tolerance: [...]        # optional explicit per-moment s_j;
+                                    # otherwise derived from the moment_set
+          n_candidates: 4096
+          # heaviside only:
+          # boundary_softness: 0.25
+  batch_size: 8
+  stop: { type: max_iter, options: { n: 10 } }
+```
+
+`norm` picks the window geometry:
+
+- **`linf`** (default) — `max_j |r_j|/s_j <= cutoff_sigma`, the same
+  L-infinity box as history matching's implausibility cutoff. The
+  probability is an exact product of per-moment interval probabilities,
+  with no isotropic-variance approximation, so it stays correct even
+  when posterior sds differ wildly across moments.
+- **`l2`** — the reference paper's Euclidean ball via a noncentral
+  chi-square. Faithful to Jiang et al. (2026), but its isotropic
+  approximation errs by up to ~0.19 in probability when per-moment
+  posterior sds span 20x. See the module docstring for the measured
+  table.
+
+The tolerance scale is taken from the study's `moment_set`
+(`sqrt(obs_noise_std^2 + model_discrepancy_std^2)`) automatically — no
+need to restate it. A moment still at `model_discrepancy_std: auto` is
+rejected, since the window would be undefined.
+
+Batches are chosen by greedy maxi-min over the highest-scoring
+candidates, so a batch spreads across the acceptable manifold rather
+than collapsing onto one point — which matters when the objective is
+rank-deficient.
 
 ### History matching (v0.31+)
 
